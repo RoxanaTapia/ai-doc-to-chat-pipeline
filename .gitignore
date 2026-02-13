@@ -26,6 +26,7 @@ ENV/
 # =====================================
 .streamlit/secrets.toml
 .streamlit/config.toml  # only if it contains secrets/keys
+# Ignore project-level Streamlit folder (themes, local config).streamlit/             
 
 # =====================================
 # Vector stores & embeddings (critical for RAG)
