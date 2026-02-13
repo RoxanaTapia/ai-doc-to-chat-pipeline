@@ -39,6 +39,15 @@ RAG-based document chatbots and intelligent document processing continue to show
 - **Scalability path** — trivial to switch to Pinecone, Chroma Cloud, Weaviate, Qdrant, etc.
 - **Security & ethics first** — local-first design, never sends your documents to external providers unless you explicitly configure it
 
+### Current Status (February 2026)
+
+- ✅ **Milestone 1** – Working local prototype (UI + upload + echo)
+- ✅ **Milestone 2** – Basic document extraction & text preview (PyMuPDF, spinner, error handling, page preview)
+- 🚧 **Milestone 3** – Chunking + Embeddings + FAISS Indexing (in progress on branch `feat/milestone-3-chunking-embeddings-faiss`)
+- ⏳ Milestones 4–6 – RAG generation, live demo, tagged release
+
+Extraction and basic UI are functional. Semantic search (RAG retrieval) is next.
+
 ### Quick Start (≈ 2–3 minutes)
 
 ```bash
@@ -50,10 +59,14 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 # Install dependencies
+# Recommended (modern hardware — Apple Silicon, recent macOS, Linux, Windows):
 pip install -r requirements.txt
 
-# (Optional but recommended) Provide API keys if using paid LLMs / embeddings
-cp .env.example .env               # then edit .env
+# For older Intel Macs (e.g. Mid-2015 MacBook Pro on Monterey) or install issues:
+# pip install -r requirements-legacy.txt
+
+# (Optional but recommended) Provide API keys if using paid LLMs / embeddings later
+cp .env.example .env               # then edit .env if needed
 
 # Launch the application
 streamlit run src/app.py
@@ -63,9 +76,10 @@ streamlit run src/app.py
 
 #### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
 - Use Python 3.12 (via `brew install python@3.12` or python.org installer).
-- Torch 2.5+ may not install easily — use `torch>=2.2.0,<2.3.0` in requirements.txt for compatibility.
+- If modern dependencies fail to install, use the legacy file:  
+  `pip install -r requirements-legacy.txt` (pins Torch <2.3.0, older LangChain, etc.)
 - Tesseract OCR: `brew install tesseract` (required for scanned PDFs).
-- Performance is good for small/medium documents; for very large PDFs or many queries, consider upgrading macOS or hardware.
+- Performance is good for small/medium documents; for very large PDFs or heavy use, consider upgrading hardware or macOS.
 
 ### Planned Project Structure
 
