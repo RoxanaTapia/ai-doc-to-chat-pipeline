@@ -81,6 +81,20 @@ if uploaded_file is not None:
                 st.text(preview)
 
         st.session_state.chunks = chunks
+                
+        # --- Embeddings + FAISS Indexing (only if not already done) ---
+        if st.session_state.vector_store is None and st.session_state.chunks:
+            with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
+                embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+
+                vector_store = FAISS.from_documents(
+                    documents=st.session_state.chunks,
+                    embedding=embeddings
+                )
+
+                st.session_state.vector_store = vector_store
+
+            st.success(f"FAISS index created with {vector_store.index.ntotal} vectors")
 
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
