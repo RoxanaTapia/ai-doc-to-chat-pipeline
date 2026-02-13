@@ -1,15 +1,10 @@
-# App configuration - tweak without code changes
-# Used in Milestone 3+ for chunking, embeddings, etc.
-
+# configs/config.yaml
 chunking:
-  chunk_size: 1500  # Characters per chunk
-  chunk_overlap: 200  # Overlap for context
+  chunk_size: 1200          # characters per chunk – tune for your documents
+  chunk_overlap: 200        # overlap to preserve context between chunks
 
 embeddings:
-  model_name: "all-MiniLM-L6-v2"  # Default sentence-transformers model
+  model_name: "all-MiniLM-L6-v2"  # fast 384-dim model, excellent for private RAG
 
 rag:
-  top_k: 4  # Number of chunks to retrieve
-  prompt_template: "Answer using only this context: {context}\nQuestion: {question}"
-
-# Add more as needed (e.g., LLM settings)
+  top_k: 4                  # how many chunks to retrieve per query
