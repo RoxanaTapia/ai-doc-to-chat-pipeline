@@ -61,6 +61,26 @@ if uploaded_file is not None:
 
         st.info("Text extracted successfully! Preview below.")
         st.text_area("Extracted Text (first 2000 characters)", extracted_text[:2000], height=300)
+        # --- Chunking (Milestone 3) ---
+        with st.spinner("Splitting text into chunks..."):
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=CHUNK_SIZE,
+                chunk_overlap=CHUNK_OVERLAP,
+                length_function=len,
+                add_start_index=True,  # helpful for later source referencing
+            )
+            chunks = text_splitter.create_documents([extracted_text])
+
+        st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
+
+        # Debug: show first few chunks
+        with st.expander("First 3 chunks (debug view)", expanded=False):
+            for i, chunk in enumerate(chunks[:3], 1):
+                preview = chunk.page_content[:300] + "..." if len(chunk.page_content) > 300 else chunk.page_content
+                st.markdown(f"**Chunk {i}** ({len(chunk.page_content)} chars, start index: {chunk.metadata.get('start_index', 'N/A')})")
+                st.text(preview)
+
+        st.session_state.chunks = chunks
 
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
