@@ -61,6 +61,12 @@ streamlit run src/app.py
 → Open http://localhost:8501 in your browser  
 → Upload one or more documents → start asking questions
 
+#### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
+- Use Python 3.12 (via `brew install python@3.12` or python.org installer).
+- Torch 2.5+ may not install easily — use `torch>=2.2.0,<2.3.0` in requirements.txt for compatibility.
+- Tesseract OCR: `brew install tesseract` (required for scanned PDFs).
+- Performance is good for small/medium documents; for very large PDFs or many queries, consider upgrading macOS or hardware.
+
 ### Planned Project Structure
 
 ```text
