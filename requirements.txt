@@ -1,0 +1,34 @@
+# Core framework & UI
+streamlit>=1.42.0,<1.43.0  # recent file uploader + fragments
+
+# Document processing & OCR
+pymupdf>=1.25.0            # fast PDF text + metadata extraction
+pytesseract>=0.3.13        # Tesseract OCR wrapper
+
+# RAG & LangChain core
+langchain>=0.3.0,<0.4.0
+langchain-community>=0.3.0,<0.4.0
+langchain-text-splitters>=0.3.0,<0.4.0  # chunking utilities
+pydantic>=2.7.4,<3.0.0     # explicit for LangChain 0.3.x runtime compatibility
+
+# Local vector store
+faiss-cpu>=1.8.0,<1.9.0; python_version < "3.13"   # 1.8.x line for Python <=3.12
+faiss-cpu>=1.13.2; python_version >= "3.13"        # modern line with Python 3.13 wheels
+numpy<2.0; python_version < "3.13"                 # needed with faiss-cpu 1.8.x
+numpy>=2.1.0; python_version >= "3.13"             # NumPy 2.x line for Python 3.13+
+
+# Local embeddings (free, private, no API keys needed)
+sentence-transformers>=3.0.0                       # e.g. all-MiniLM-L6-v2 or multi-qa-MiniLM-L6-cos-v1
+
+# Hugging Face models (zero-shot classification, future local LLMs)
+transformers>=4.45.0
+torch>=2.5.0                                       # required by transformers/sentence-transformers; avoids NumPy 2.x issues
+
+# Utilities
+pyyaml>=6.0.2              # for configs/default.yaml
+python-dotenv>=1.0.1       # for .env support
+
+# Future optional LLM providers (uncomment when needed)
+# langchain-openai>=0.3.0
+# langchain-groq>=0.2.0
+# langchain-anthropic>=0.3.0
