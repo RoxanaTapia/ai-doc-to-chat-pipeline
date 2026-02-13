@@ -4,39 +4,40 @@
 # Tested on Python 3.12 (recommended).
 # Works on older Intel Macs (Mid-2015 MacBook Pro, macOS Monterey).
 # For modern Apple Silicon / macOS Ventura+ / Linux / Windows:
-#   - Change torch>=2.10.0 for MPS acceleration or better performance.
+#   - Change torch>=2.5.0 for MPS acceleration or better performance.
 #   - Install Tesseract OCR separately: brew install tesseract (macOS) or apt install tesseract-ocr (Linux)
 
 # Core framework & UI
-streamlit>=1.54.0,<1.55.0                  # Modern file uploader, fragments, stable UI
+streamlit>=1.42.0,<1.43.0                  # Modern file uploader, fragments, stable UI
 
 # Document processing & OCR
-pymupdf>=1.27.1                            # Fast PDF text + metadata extraction
+pymupdf>=1.25.0                            # Fast PDF text + metadata extraction
 pytesseract>=0.3.13                        # Tesseract OCR wrapper (requires Tesseract binary installed)
 
-# RAG & LangChain core (stable 1.2.x series)
-langchain>=1.2.10,<2.0.0
-langchain-community>=0.4.1,<1.0.0
-langchain-text-splitters>=1.1.0,<2.0.0     # Chunking utilities
-pydantic>=2.12.5,<3.0.0                    # LangChain compatibility
+# RAG & LangChain core (stable 0.3.x series)
+langchain>=0.3.0,<0.4.0
+langchain-community>=0.3.0,<0.4.0
+langchain-text-splitters>=0.3.0,<0.4.0     # Chunking utilities
+pydantic>=2.7.4,<3.0.0                     # LangChain 0.3.x compatibility
 
 # Local vector store (CPU-only, safe default)
-faiss-cpu>=1.13.2,<1.14.0
-numpy>=2.4.2,<3.0.0                        # Compatible with faiss-cpu 1.13.x
+faiss-cpu>=1.8.0,<1.9.0
+numpy>=1.26.0,<2.0.0                       # Compatible with faiss-cpu 1.8.x
 
 # Local embeddings (free, offline, no API keys)
-sentence-transformers>=5.2.2               # Default: all-MiniLM-L6-v2 (fast & effective)
+sentence-transformers>=3.0.0               # Default: all-MiniLM-L6-v2 (fast & effective)
 
 # Hugging Face ecosystem
-transformers>=5.1.0
+transformers>=4.45.0
 
 # Torch - pinned for Intel Mac / Monterey compatibility
-torch>=2.10.0                              # Stable wheels; powers embeddings, local inference
-# For older Intel Macs / Monterey: torch>=2.2.0,<2.3.0 (if needed for stability)
+torch>=2.2.0,<2.3.0                        # Stable wheels for older Intel Macs
+# For newer Macs (Apple Silicon / Ventura+), Linux, or Windows:
+# torch>=2.5.0                             # Use MPS acceleration on M-series or GPU on others
 
 # Utilities
-pyyaml>=6.0.3                              # YAML config loading
-python-dotenv>=1.2.1                       # .env support for API keys
+pyyaml>=6.0.2                              # YAML config loading
+python-dotenv>=1.0.1                       # .env support for API keys
 
 # Optional LLM providers (uncomment when needed for faster inference)
 # langchain-openai>=0.3.0                  # OpenAI GPT
