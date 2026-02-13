@@ -63,34 +63,37 @@ streamlit run src/app.py
 
 ### Planned Project Structure
 
+```text
 ai-doc-to-chat-pipeline/
-├── src/                        # Código principal de la aplicación
-│   ├── __init__.py             # (opcional, pero útil si algún día lo haces paquete)
-│   ├── app.py                  # Entry point + UI Streamlit
-│   ├── extraction.py           # o ocr_extractor.py (tu nombre es más explícito → prefiero)
-│   ├── classification.py       # o classifier.py
-│   ├── rag.py                  # o rag_core.py (tu nombre es más claro)
-│   └── utils/                  # logging, config loader, helpers, prompts, etc.
-│       ├── __init__.py
-│       ├── config.py
-│       └── logging.py
-├── configs/                    # o config/ — prefiero plural
-│   ├── default.yaml
-│   └── local.yaml              # (opcional para overrides locales)
-├── data/                       # gitignored — PDFs de prueba, invoices de muestra, etc.
-├── tests/
+├── src/                        # Core application code (modular & testable)
+│   ├── init.py             # Makes src a package (optional but useful)
+│   ├── app.py                  # Streamlit entry point & UI logic
+│   ├── extraction.py           # PDF/text extraction (PyMuPDF + Tesseract OCR)
+│   ├── classification.py       # Document/section type classification (Hugging Face)
+│   ├── rag.py                  # RAG pipeline: embedding, retrieval, generation (LangChain + FAISS)
+│   └── utils/                  # Shared helpers
+│       ├── init.py
+│       ├── config.py           # YAML config loading & validation
+│       ├── logging.py          # Structured logging setup
+│       └── prompts.py          # Prompt templates (easy to version & override)
+├── configs/                    # Configuration files
+│   ├── default.yaml            # Default settings (chunk_size, models, etc.)
+│   └── local.yaml              # Local overrides (gitignored if sensitive)
+├── data/                       # Sample documents for testing & demos (gitignored)
+├── tests/                      # Unit & integration tests
 │   ├── test_extraction.py
 │   ├── test_classification.py
 │   └── test_rag.py
-├── docs/                       # (opcional pero recomendado para proyectos serios)
-│   └── architecture.md         # o usage.md, decisions.md, etc.
-├── .github/
+├── docs/                       # Additional documentation (optional but recommended)
+│   └── architecture.md         # High-level design, decisions, future ideas
+├── .github/                    # CI/CD automation
 │   └── workflows/
-│       └── ci.yml              # tests + lint en cada push/PR
-├── .env.example
-├── requirements.txt
+│       └── ci.yml              # GitHub Actions: lint, test, etc.
+├── .env.example                # Template for API keys & env vars
+├── requirements.txt            # Python dependencies
 ├── README.md
 └── LICENSE
+```
 
 ### Contributing & Commercial Use
 
