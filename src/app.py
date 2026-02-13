@@ -99,12 +99,23 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
 
-# Future chat interface (placeholder)
-query = st.text_input("Ask a question about the document:")
-if query:
-    if extracted_text:
-        st.write("**Simple echo response (RAG coming soon):**")
-        st.write(f"Query: {query}")
-        st.write("Answer would be generated from extracted text...")
-    else:
-        st.warning("Upload and extract a document first!")
+# Query interface – disabled until we have an index
+query = st.text_input("Ask a question about the document:", disabled=st.session_state.vector_store is None)
+
+if query and st.session_state.vector_store:
+    with st.spinner("Searching FAISS index..."):
+        # Retrieve top-k chunks with similarity scores
+        retrieved_docs = st.session_state.vector_store.similarity_search_with_score(query, k=TOP_K)
+
+    st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
+
+    for rank, (doc, score) in enumerate(retrieved_docs, 1):
+        preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
+        st.markdown(f"**Rank {rank}** – Similarity: {score:.4f}")
+        st.caption(f"Source starts at character {doc.metadata.get('start_index', 'N/A')}")
+        st.text_area(f"Chunk content", preview, height=110, key=f"retrieved_{rank}")
+
+    st.info("Milestone 3 complete: semantic search works. Next → Milestone 4 (prompt + LLM generation using these chunks)")
+
+elif query:
+    st.warning("Upload & process a document first to enable search.")
