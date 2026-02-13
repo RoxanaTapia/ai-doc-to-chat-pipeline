@@ -2,11 +2,17 @@
 
 **Upload documents → Extract & Classify → Ask anything via intelligent RAG Chatbot**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3+-orange)](https://python.langchain.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-green)](https://streamlit.io/)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-green)](https://streamlit.io/)
+[![LangChain](https://img.shields.io/badge/LangChain-1.2+-orange)](https://python.langchain.com/)
 [![FAISS](https://img.shields.io/badge/FAISS-Local%20Vector%20DB-9cf)](https://github.com/facebookresearch/faiss)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/RoxanaTapia/ai-doc-to-chat-pipeline?style=social)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/RoxanaTapia/ai-doc-to-chat-pipeline)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/commits/main)
+
+[![Milestone 1](https://img.shields.io/badge/Milestone%201-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
+[![Milestone 2](https://img.shields.io/badge/Milestone%202-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
+[![Milestone 3](https://img.shields.io/badge/Milestone%203-In%20Progress-orange)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
 
 **Transform your PDFs, scans, contracts, invoices or reports into a reliable, hallucination-free assistant that answers precise questions — everything grounded in your actual documents.**
 
