@@ -54,6 +54,33 @@ RAG-based document chatbots and intelligent document processing continue to show
 
 Extraction and basic UI are functional. Semantic search (RAG retrieval) is next.
 
+### Why Choose This Over Public Tools? (ChatGPT, Grok, Claude, Gemini, etc.)
+
+In 2026, many excellent cloud-based AI assistants already let you upload PDFs and ask questions. So why build (or use) a fully local RAG pipeline like this one?
+
+The answer lies in **privacy**, **control**, **cost**, and **compliance** — requirements that matter most to professionals handling sensitive or regulated documents.
+
+| Requirement                              | Public Cloud Tools (ChatGPT / Grok / Claude / ...) | This Local RAG Pipeline                              | Typical Winner for Enterprise / Professional Use |
+|------------------------------------------|-----------------------------------------------------|-------------------------------------------------------|--------------------------------------------------|
+| **Data never leaves your machine**       | Data uploaded to 3rd-party servers (even with "zero-retention" plans) | 100% offline & local after model download             | This project                                   |
+| **Regulated / privileged data** (legal, finance, healthcare, M&A, government) | Often prohibited or requires complex enterprise agreements | No external exposure — air-gappable if needed         | This project                                   |
+| **Full auditability & traceability**     | Limited visibility into retrieved chunks & scoring  | Shows exact retrieved chunks + similarity scores      | This project                                   |
+| **Custom retrieval tuning** (chunk size, overlap, embedding model, re-ranking) | Very restricted or impossible                       | Fully configurable via `configs/config.yaml`          | This project                                   |
+| **No recurring per-query / per-token cost** | Usage-based pricing scales quickly with volume     | One-time hardware cost (or existing laptop)           | This project (high-volume users)               |
+| **Offline / no-internet scenarios**      | Requires constant connection                        | Works completely offline (after first model download) | This project                                   |
+| **No file-size / page-count hard limits**| Provider-imposed caps (practical ~50–200 pages)    | Limited only by local hardware                        | This project                                   |
+| **Explainable retrieval** (for lawyers / auditors) | Black-box context window                           | Full control over what context is sent to the model   | This project                                   |
+| **Casual / one-off / non-sensitive use** | Extremely fast to start                             | Requires local setup & install                        | Public tools                                   |
+
+**Bottom line for clients**
+
+- If you're doing casual research, summarizing public reports, or working with non-sensitive internal notes → public tools are faster and simpler to start.
+- If you're dealing with **client contracts**, **privileged communications**, **compliance reviews**, **due diligence**, **IP**, **patient data**, **merger documents**, or **anything regulated** → this local-first pipeline delivers **provable confidentiality**, **predictable cost**, **full customization**, and **audit-ready transparency** that no public cloud service can match without significant legal, contractual, and cost overhead.
+
+This project is built exactly for those higher-stakes professional workflows — the ones where **trust**, **control**, and **zero external exposure** are non-negotiable.
+
+Happy to adapt it further for your exact industry or compliance needs.
+
 ### Quick Start (≈ 2–3 minutes)
 
 ```bash
