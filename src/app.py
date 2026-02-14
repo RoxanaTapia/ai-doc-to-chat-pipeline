@@ -3,6 +3,7 @@ import fitz  # PyMuPDF (pymupdf package)
 import os
 import tempfile
 import yaml
+import time
 from pathlib import Path
 
 # LangChain imports for Milestone 3
@@ -36,6 +37,12 @@ st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
 
 uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"])
+
+if st.button("🗑️ Clear current document", type="primary"):
+    st.session_state.vector_store = None
+    st.session_state.chunks = None
+    st.success("Document cleared!")
+    st.rerun()
 
 extracted_text = ""
 
@@ -85,6 +92,8 @@ if uploaded_file is not None:
         # --- Embeddings + FAISS Indexing (only if not already done) ---
         if st.session_state.vector_store is None and st.session_state.chunks:
             with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
+                start = time.time()
+
                 embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
                 vector_store = FAISS.from_documents(
@@ -94,7 +103,12 @@ if uploaded_file is not None:
 
                 st.session_state.vector_store = vector_store
 
-            st.success(f"FAISS index created with {vector_store.index.ntotal} vectors")
+                took = time.time() - start
+
+            st.success(f"FAISS index created with {vector_store.index.ntotal} vectors • took {took:.1f} seconds")
+           
+            if len(chunks) <= 2:
+                st.warning("Very little text found in document. Search might not work well.")
 
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
@@ -108,6 +122,7 @@ if query and st.session_state.vector_store:
         retrieved_docs = st.session_state.vector_store.similarity_search_with_score(query, k=TOP_K)
 
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
+    st.caption("💡 **Similarity score**: higher value = more similar content. Typical good matches are between 0.3–0.9")
 
     for rank, (doc, score) in enumerate(retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
