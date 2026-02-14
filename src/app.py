@@ -89,8 +89,10 @@ if uploaded_file is not None:
 
         st.session_state.chunks = chunks
                 
-        # --- Embeddings + FAISS Indexing (only if not already done) ---
-        if st.session_state.vector_store is None and st.session_state.chunks:
+        # --- Embeddings + FAISS Indexing ---
+        # Always re-index when new chunks are available (new upload happened)
+        if st.session_state.chunks:  # we have fresh chunks → (re)build index
+            had_existing_index = st.session_state.vector_store is not None
             with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
                 start = time.time()
 
@@ -101,12 +103,15 @@ if uploaded_file is not None:
                     embedding=embeddings
                 )
 
+                # Overwrite the old index
                 st.session_state.vector_store = vector_store
 
                 took = time.time() - start
 
-            st.success(f"FAISS index created with {vector_store.index.ntotal} vectors • took {took:.1f} seconds")
-           
+            st.success(
+                f"FAISS index {'re-' if had_existing_index else ''}created "
+                f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
+            )
             if len(chunks) <= 2:
                 st.warning("Very little text found in document. Search might not work well.")
 
