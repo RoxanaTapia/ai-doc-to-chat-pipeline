@@ -28,7 +28,7 @@ numpy>=1.26.0,<2.0.0                       # Compatible with faiss-cpu 1.8.x
 sentence-transformers>=3.0.0               # Default: all-MiniLM-L6-v2 (fast & effective)
 
 # Hugging Face ecosystem
-transformers>=4.45.0
+transformers>=4.45.0,<5.0.0
 
 # Torch - pinned for Intel Mac / Monterey compatibility
 torch>=2.2.0,<2.3.0                        # Stable wheels for older Intel Macs
