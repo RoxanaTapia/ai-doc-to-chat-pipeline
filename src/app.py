@@ -139,54 +139,53 @@ if uploaded_file is not None:
                     "so search indexing was skipped. Try a PDF with selectable text "
                     "or run OCR preprocessing."
                 )
-                st.stop()
+            else:
+                # Debug: show first few chunks
+                with st.expander("First 3 chunks (debug view)", expanded=False):
+                    for i, chunk in enumerate(chunks[:3], 1):
+                        preview = (
+                            chunk.page_content[:300] + "..."
+                            if len(chunk.page_content) > 300
+                            else chunk.page_content
+                        )
+                        st.markdown(
+                            f"**Chunk {i}** ({len(chunk.page_content)} chars, "
+                            f"page ~{chunk.metadata.get('page', 'N/A')}, "
+                            f"start index: {chunk.metadata.get('start_index', 'N/A')})"
+                        )
+                        st.text(preview)
 
-            # Debug: show first few chunks
-            with st.expander("First 3 chunks (debug view)", expanded=False):
-                for i, chunk in enumerate(chunks[:3], 1):
-                    preview = (
-                        chunk.page_content[:300] + "..."
-                        if len(chunk.page_content) > 300
-                        else chunk.page_content
+                st.session_state.chunks = chunks
+
+                # Embed & index
+                had_existing_index = st.session_state.vector_store is not None
+                progress_bar.progress(80, text="Embeddings ready. Building FAISS index...")
+                with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
+                    start = time.time()
+
+                    embeddings = get_embeddings(EMBEDDING_MODEL)
+
+                    vector_store = FAISS.from_documents(
+                        documents=st.session_state.chunks,
+                        embedding=embeddings
                     )
-                    st.markdown(
-                        f"**Chunk {i}** ({len(chunk.page_content)} chars, "
-                        f"page ~{chunk.metadata.get('page', 'N/A')}, "
-                        f"start index: {chunk.metadata.get('start_index', 'N/A')})"
-                    )
-                    st.text(preview)
 
-            st.session_state.chunks = chunks
+                    st.session_state.vector_store = vector_store
+                    took = time.time() - start
+                finalize_progress(progress_bar, "Indexing complete.")
 
-            # Embed & index
-            had_existing_index = st.session_state.vector_store is not None
-            progress_bar.progress(80, text="Embeddings ready. Building FAISS index...")
-            with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
-                start = time.time()
-
-                embeddings = get_embeddings(EMBEDDING_MODEL)
-
-                vector_store = FAISS.from_documents(
-                    documents=st.session_state.chunks,
-                    embedding=embeddings
+                st.success(
+                    f"FAISS index {'re-' if had_existing_index else ''}created "
+                    f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
                 )
 
-                st.session_state.vector_store = vector_store
-                took = time.time() - start
-            finalize_progress(progress_bar, "Indexing complete.")
+                # Remember this file
+                st.session_state.last_processed_name = uploaded_file.name
+                st.session_state.last_processed_hash = uploaded_hash
+                st.session_state.current_file = uploaded_file.name
 
-            st.success(
-                f"FAISS index {'re-' if had_existing_index else ''}created "
-                f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
-            )
-
-            # Remember this file
-            st.session_state.last_processed_name = uploaded_file.name
-            st.session_state.last_processed_hash = uploaded_hash
-            st.session_state.current_file = uploaded_file.name
-
-            if len(chunks) <= 2:
-                st.warning("Very little text found in document. Search might not work well.")
+                if len(chunks) <= 2:
+                    st.warning("Very little text found in document. Search might not work well.")
 
         else:
             finalize_progress(progress_bar, "Same document detected. Reusing existing index.")
