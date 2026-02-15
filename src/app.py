@@ -216,7 +216,10 @@ if query and st.session_state.vector_store:
         retrieved_docs = st.session_state.vector_store.similarity_search_with_score(query, k=TOP_K)
 
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
-    st.caption("💡 **Similarity score**: higher value = more similar content. Typical good matches are between 0.3–0.9")
+    st.caption(
+        "💡 **Similarity score**: lower value = more similar content (distance metric). "
+        "Use ranking order as the primary signal."
+    )
 
     for rank, (doc, score) in enumerate(retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
