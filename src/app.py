@@ -10,6 +10,7 @@ from pathlib import Path
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 
@@ -34,6 +35,21 @@ try:
 except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError) as exc:
     st.error(f"Configuration error in {CONFIG_PATH}: {exc}")
     st.stop()
+
+
+@st.cache_resource(show_spinner=False)
+def get_embeddings(model_name: str) -> HuggingFaceEmbeddings:
+    """Cache embedding model to avoid repeated heavy initialization."""
+    return HuggingFaceEmbeddings(model_name=model_name)
+
+
+def finalize_progress(progress_bar, message: str) -> None:
+    """Set progress to done, pause briefly, then hide the bar."""
+    if progress_bar is not None:
+        progress_bar.progress(100, text=message)
+        time.sleep(0.4)
+        progress_bar.empty()
+
 
 # Session state init
 if "vector_store" not in st.session_state:
@@ -83,9 +99,12 @@ if uploaded_file is not None:
         # Extract text with PyMuPDF
         doc = fitz.open(str(tmp_path))
         extracted_text = ""
+        page_docs = []
         for page_num, page in enumerate(doc, start=1):
+            page_text = page.get_text("text")
             extracted_text += f"\n--- Page {page_num} ---\n"
-            extracted_text += page.get_text("text") + "\n"
+            extracted_text += page_text + "\n"
+            page_docs.append(Document(page_content=page_text, metadata={"page": page_num}))
         doc.close()
         progress_bar.progress(45, text="Text extracted. Preparing chunking...")
 
@@ -104,8 +123,8 @@ if uploaded_file is not None:
                     length_function=len,
                     add_start_index=True,
                 )
-                chunks = text_splitter.create_documents([extracted_text])
-            progress_bar.progress(65, text="Chunks created. Generating embeddings...")
+                chunks = text_splitter.split_documents(page_docs)
+            progress_bar.progress(65, text="Chunks created. Loading embedding model...")
 
             st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
             if not chunks:
@@ -114,7 +133,7 @@ if uploaded_file is not None:
                 st.session_state.last_processed_name = uploaded_file.name
                 st.session_state.last_processed_hash = uploaded_hash
                 st.session_state.current_file = uploaded_file.name
-                progress_bar.progress(100, text="No index created (no extractable text).")
+                finalize_progress(progress_bar, "No index created (no extractable text).")
                 st.warning(
                     "No extractable text chunks were found in this document, "
                     "so search indexing was skipped. Try a PDF with selectable text "
@@ -130,7 +149,11 @@ if uploaded_file is not None:
                         if len(chunk.page_content) > 300
                         else chunk.page_content
                     )
-                    st.markdown(f"**Chunk {i}** ({len(chunk.page_content)} chars, start index: {chunk.metadata.get('start_index', 'N/A')})")
+                    st.markdown(
+                        f"**Chunk {i}** ({len(chunk.page_content)} chars, "
+                        f"page ~{chunk.metadata.get('page', 'N/A')}, "
+                        f"start index: {chunk.metadata.get('start_index', 'N/A')})"
+                    )
                     st.text(preview)
 
             st.session_state.chunks = chunks
@@ -141,7 +164,7 @@ if uploaded_file is not None:
             with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
                 start = time.time()
 
-                embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+                embeddings = get_embeddings(EMBEDDING_MODEL)
 
                 vector_store = FAISS.from_documents(
                     documents=st.session_state.chunks,
@@ -150,7 +173,7 @@ if uploaded_file is not None:
 
                 st.session_state.vector_store = vector_store
                 took = time.time() - start
-            progress_bar.progress(100, text="Indexing complete.")
+            finalize_progress(progress_bar, "Indexing complete.")
 
             st.success(
                 f"FAISS index {'re-' if had_existing_index else ''}created "
@@ -166,13 +189,12 @@ if uploaded_file is not None:
                 st.warning("Very little text found in document. Search might not work well.")
 
         else:
-            progress_bar.progress(100, text="Same document detected. Reusing existing index.")
+            finalize_progress(progress_bar, "Same document detected. Reusing existing index.")
             st.session_state.current_file = uploaded_file.name
             st.info("Same document detected — skipping re-processing.")
 
     except Exception as e:
-        if progress_bar is not None:
-            progress_bar.progress(100, text="Processing failed.")
+        finalize_progress(progress_bar, "Processing failed.")
         st.error(f"Error processing PDF: {str(e)}")
         st.exception(e)
     finally:
@@ -199,8 +221,12 @@ if query and st.session_state.vector_store:
 
     for rank, (doc, score) in enumerate(retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
+        page_label = doc.metadata.get("page", "N/A") if isinstance(doc.metadata.get("page"), int) else "multi"
         st.markdown(f"**Rank {rank}** – Similarity: {score:.4f}")
-        st.caption(f"Source starts at character {doc.metadata.get('start_index', 'N/A')}")
+        st.caption(
+            f"Source page ~{page_label} • "
+            f"starts at character {doc.metadata.get('start_index', 'N/A')}"
+        )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
 
     st.info("Milestone 3 complete: semantic search works. Next → Milestone 4 (prompt + LLM generation using these chunks)")
