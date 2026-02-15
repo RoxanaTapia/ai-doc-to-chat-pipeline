@@ -1,16 +1,15 @@
 import streamlit as st
 import fitz  # PyMuPDF (pymupdf package)
-import os
 import tempfile
 import yaml
 import time
+import hashlib
 from pathlib import Path
 
 # LangChain imports for Milestone 3
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 
@@ -45,6 +44,8 @@ if "current_file" not in st.session_state:
     st.session_state.current_file = None
 if "last_processed_name" not in st.session_state:
     st.session_state.last_processed_name = None
+if "last_processed_hash" not in st.session_state:
+    st.session_state.last_processed_hash = None
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
@@ -56,6 +57,7 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.chunks = None
     st.session_state.current_file = None
     st.session_state.last_processed_name = None
+    st.session_state.last_processed_hash = None
     st.success("Document cleared!")
     st.rerun()
 
@@ -65,28 +67,34 @@ if uploaded_file is not None:
     st.success(f"Received file: {uploaded_file.name}")
 
     tmp_path = None
+    progress_bar = None
     try:
+        progress_bar = st.progress(5, text="Preparing uploaded file...")
+        file_bytes = uploaded_file.getvalue()
+        uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
+
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_path = tmp_file.name
+            tmp_file.write(file_bytes)
+            tmp_path = Path(tmp_file.name)
+
+        progress_bar.progress(25, text="Extracting text from PDF...")
 
         # Extract text with PyMuPDF
-        doc = fitz.open(tmp_path)
+        doc = fitz.open(str(tmp_path))
         extracted_text = ""
         for page_num, page in enumerate(doc, start=1):
             extracted_text += f"\n--- Page {page_num} ---\n"
             extracted_text += page.get_text("text") + "\n"
         doc.close()
+        progress_bar.progress(45, text="Text extracted. Preparing chunking...")
 
         st.info("Text extracted successfully! Preview below.")
         st.text_area("Extracted Text (first 2000 characters)", extracted_text[:2000], height=300)
 
         # --- Chunking & Indexing (only if new file) ---
-        is_new_file = (
-            st.session_state.last_processed_name is None or
-            st.session_state.last_processed_name != uploaded_file.name
-        )
+        # Compare file content hash, not filename, to avoid stale index reuse.
+        is_new_file = st.session_state.last_processed_hash != uploaded_hash
 
         if is_new_file:
             with st.spinner("Splitting text into chunks..."):
@@ -97,13 +105,31 @@ if uploaded_file is not None:
                     add_start_index=True,
                 )
                 chunks = text_splitter.create_documents([extracted_text])
+            progress_bar.progress(65, text="Chunks created. Generating embeddings...")
 
             st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
+            if not chunks:
+                st.session_state.vector_store = None
+                st.session_state.chunks = []
+                st.session_state.last_processed_name = uploaded_file.name
+                st.session_state.last_processed_hash = uploaded_hash
+                st.session_state.current_file = uploaded_file.name
+                progress_bar.progress(100, text="No index created (no extractable text).")
+                st.warning(
+                    "No extractable text chunks were found in this document, "
+                    "so search indexing was skipped. Try a PDF with selectable text "
+                    "or run OCR preprocessing."
+                )
+                st.stop()
 
             # Debug: show first few chunks
             with st.expander("First 3 chunks (debug view)", expanded=False):
                 for i, chunk in enumerate(chunks[:3], 1):
-                    preview = chunk.page_content[:300] + "..." if len(chunk.page_content) > 300 else chunk.page_content
+                    preview = (
+                        chunk.page_content[:300] + "..."
+                        if len(chunk.page_content) > 300
+                        else chunk.page_content
+                    )
                     st.markdown(f"**Chunk {i}** ({len(chunk.page_content)} chars, start index: {chunk.metadata.get('start_index', 'N/A')})")
                     st.text(preview)
 
@@ -111,6 +137,7 @@ if uploaded_file is not None:
 
             # Embed & index
             had_existing_index = st.session_state.vector_store is not None
+            progress_bar.progress(80, text="Embeddings ready. Building FAISS index...")
             with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
                 start = time.time()
 
@@ -123,6 +150,7 @@ if uploaded_file is not None:
 
                 st.session_state.vector_store = vector_store
                 took = time.time() - start
+            progress_bar.progress(100, text="Indexing complete.")
 
             st.success(
                 f"FAISS index {'re-' if had_existing_index else ''}created "
@@ -131,20 +159,26 @@ if uploaded_file is not None:
 
             # Remember this file
             st.session_state.last_processed_name = uploaded_file.name
+            st.session_state.last_processed_hash = uploaded_hash
             st.session_state.current_file = uploaded_file.name
 
             if len(chunks) <= 2:
                 st.warning("Very little text found in document. Search might not work well.")
 
         else:
+            progress_bar.progress(100, text="Same document detected. Reusing existing index.")
+            st.session_state.current_file = uploaded_file.name
             st.info("Same document detected — skipping re-processing.")
 
     except Exception as e:
+        if progress_bar is not None:
+            progress_bar.progress(100, text="Processing failed.")
         st.error(f"Error processing PDF: {str(e)}")
+        st.exception(e)
     finally:
         # Always remove temp file, even if extraction/indexing fails.
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
 
 # Query interface
 query = st.text_input(
