@@ -2,11 +2,17 @@
 
 **Upload documents → Extract & Classify → Ask anything via intelligent RAG Chatbot**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3+-orange)](https://python.langchain.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-green)](https://streamlit.io/)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-green)](https://streamlit.io/)
+[![LangChain](https://img.shields.io/badge/LangChain-1.2+-orange)](https://python.langchain.com/)
 [![FAISS](https://img.shields.io/badge/FAISS-Local%20Vector%20DB-9cf)](https://github.com/facebookresearch/faiss)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/RoxanaTapia/ai-doc-to-chat-pipeline?style=social)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/RoxanaTapia/ai-doc-to-chat-pipeline)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/commits/main)
+
+[![Milestone 1](https://img.shields.io/badge/Milestone%201-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
+[![Milestone 2](https://img.shields.io/badge/Milestone%202-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
+[![Milestone 3](https://img.shields.io/badge/Milestone%203-In%20Progress-orange)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
 
 **Transform your PDFs, scans, contracts, invoices or reports into a reliable, hallucination-free assistant that answers precise questions — everything grounded in your actual documents.**
 
@@ -39,6 +45,42 @@ RAG-based document chatbots and intelligent document processing continue to show
 - **Scalability path** — trivial to switch to Pinecone, Chroma Cloud, Weaviate, Qdrant, etc.
 - **Security & ethics first** — local-first design, never sends your documents to external providers unless you explicitly configure it
 
+### Current Status (February 2026)
+
+- ✅ **Milestone 1** – Working local prototype (UI + upload + echo)
+- ✅ **Milestone 2** – Basic document extraction & text preview (PyMuPDF, spinner, error handling, page preview)
+- 🚧 **Milestone 3** – Chunking + Embeddings + FAISS Indexing (in progress on branch `feat/milestone-3-chunking-embeddings-faiss`)
+- ⏳ Milestones 4–6 – RAG generation, live demo, tagged release
+
+Extraction and basic UI are functional. Semantic search (RAG retrieval) is next.
+
+### Why Choose This Over Public Tools? (ChatGPT, Grok, Claude, Gemini, etc.)
+
+In 2026, many excellent cloud-based AI assistants already let you upload PDFs and ask questions. So why build (or use) a fully local RAG pipeline like this one?
+
+The answer lies in **privacy**, **control**, **cost**, and **compliance** — requirements that matter most to professionals handling sensitive or regulated documents.
+
+| Requirement                              | Public Cloud Tools (ChatGPT / Grok / Claude / ...) | This Local RAG Pipeline                              | Typical Winner for Enterprise / Professional Use |
+|------------------------------------------|-----------------------------------------------------|-------------------------------------------------------|--------------------------------------------------|
+| **Data never leaves your machine**       | Data uploaded to 3rd-party servers (even with "zero-retention" plans) | 100% offline & local after model download             | This project                                   |
+| **Regulated / privileged data** (legal, finance, healthcare, M&A, government) | Often prohibited or requires complex enterprise agreements | No external exposure — air-gappable if needed         | This project                                   |
+| **Full auditability & traceability**     | Limited visibility into retrieved chunks & scoring  | Shows exact retrieved chunks + similarity scores      | This project                                   |
+| **Custom retrieval tuning** (chunk size, overlap, embedding model, re-ranking) | Very restricted or impossible                       | Fully configurable via `configs/config.yaml`          | This project                                   |
+| **No recurring per-query / per-token cost** | Usage-based pricing scales quickly with volume     | One-time hardware cost (or existing laptop)           | This project (high-volume users)               |
+| **Offline / no-internet scenarios**      | Requires constant connection                        | Works completely offline (after first model download) | This project                                   |
+| **No file-size / page-count hard limits**| Provider-imposed caps (practical ~50–200 pages)    | Limited only by local hardware                        | This project                                   |
+| **Explainable retrieval** (for lawyers / auditors) | Black-box context window                           | Full control over what context is sent to the model   | This project                                   |
+| **Casual / one-off / non-sensitive use** | Extremely fast to start                             | Requires local setup & install                        | Public tools                                   |
+
+**Bottom line for clients**
+
+- If you're doing casual research, summarizing public reports, or working with non-sensitive internal notes → public tools are faster and simpler to start.
+- If you're dealing with **client contracts**, **privileged communications**, **compliance reviews**, **due diligence**, **IP**, **patient data**, **merger documents**, or **anything regulated** → this local-first pipeline delivers **provable confidentiality**, **predictable cost**, **full customization**, and **audit-ready transparency** that no public cloud service can match without significant legal, contractual, and cost overhead.
+
+This project is built exactly for those higher-stakes professional workflows — the ones where **trust**, **control**, and **zero external exposure** are non-negotiable.
+
+Happy to adapt it further for your exact industry or compliance needs.
+
 ### Quick Start (≈ 2–3 minutes)
 
 ```bash
@@ -50,10 +92,14 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 # Install dependencies
+# Recommended (modern hardware — Apple Silicon, recent macOS, Linux, Windows):
 pip install -r requirements.txt
 
-# (Optional but recommended) Provide API keys if using paid LLMs / embeddings
-cp .env.example .env               # then edit .env
+# For older Intel Macs (e.g. Mid-2015 MacBook Pro on Monterey) or install issues:
+# pip install -r requirements-legacy.txt
+
+# (Optional but recommended) Provide API keys if using paid LLMs / embeddings later
+cp .env.example .env               # then edit .env if needed
 
 # Launch the application
 streamlit run src/app.py
@@ -63,9 +109,10 @@ streamlit run src/app.py
 
 #### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
 - Use Python 3.12 (via `brew install python@3.12` or python.org installer).
-- Torch 2.5+ may not install easily — use `torch>=2.2.0,<2.3.0` in requirements.txt for compatibility.
+- If modern dependencies fail to install, use the legacy file:  
+  `pip install -r requirements-legacy.txt` (pins Torch <2.3.0, older LangChain, etc.)
 - Tesseract OCR: `brew install tesseract` (required for scanned PDFs).
-- Performance is good for small/medium documents; for very large PDFs or many queries, consider upgrading macOS or hardware.
+- Performance is good for small/medium documents; for very large PDFs or heavy use, consider upgrading hardware or macOS.
 
 ### Planned Project Structure
 

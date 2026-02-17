@@ -1,0 +1,12 @@
+# configs/config.yaml
+chunking:
+  chunk_size: 1000          # characters per chunk – tune for your documents
+  chunk_overlap: 400        # overlap to preserve context between chunks
+
+embeddings:
+  model_name: "all-MiniLM-L6-v2"  # fast 384-dim model, excellent for private RAG
+
+rag:
+  top_k: 10                  # how many chunks to retrieve per query
+  fetch_k: 75                # candidate pool size before MMR reranking
+  early_page_max: 20         # prefer chunks from pages <= this value
