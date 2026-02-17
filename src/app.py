@@ -112,7 +112,6 @@ if uploaded_file is not None:
         st.text_area("Extracted Text (first 2000 characters)", extracted_text[:2000], height=300)
 
         # --- Chunking & Indexing (only if new file) ---
-        # Compare file content hash, not filename, to avoid stale index reuse.
         is_new_file = st.session_state.last_processed_hash != uploaded_hash
 
         if is_new_file:
@@ -140,7 +139,6 @@ if uploaded_file is not None:
                     "or run OCR preprocessing."
                 )
             else:
-                # Debug: show first few chunks
                 with st.expander("First 3 chunks (debug view)", expanded=False):
                     for i, chunk in enumerate(chunks[:3], 1):
                         preview = (
@@ -157,7 +155,6 @@ if uploaded_file is not None:
 
                 st.session_state.chunks = chunks
 
-                # Embed & index
                 had_existing_index = st.session_state.vector_store is not None
                 progress_bar.progress(80, text="Embeddings ready. Building FAISS index...")
                 with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
@@ -179,7 +176,6 @@ if uploaded_file is not None:
                     f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
                 )
 
-                # Remember this file
                 st.session_state.last_processed_name = uploaded_file.name
                 st.session_state.last_processed_hash = uploaded_hash
                 st.session_state.current_file = uploaded_file.name
@@ -197,7 +193,6 @@ if uploaded_file is not None:
         st.error(f"Error processing PDF: {str(e)}")
         st.exception(e)
     finally:
-        # Always remove temp file, even if extraction/indexing fails.
         if tmp_path and tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
 
@@ -207,31 +202,37 @@ query = st.text_input(
     disabled=st.session_state.vector_store is None
 )
 
-# Show current document
 if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
 if query and st.session_state.vector_store:
-    with st.spinner("Searching FAISS index..."):
-        retrieved_docs = st.session_state.vector_store.similarity_search_with_score(query, k=TOP_K)
+    with st.spinner("Searching FAISS index with MMR reranking..."):
+        # === MINIMAL MMR CHANGE START ===
+        retrieved_docs = st.session_state.vector_store.similarity_search(
+            query,
+            k=TOP_K,
+            search_type="mmr",
+            search_kwargs={"fetch_k": 30, "lambda_mult": 0.5}
+        )
+        # === MINIMAL MMR CHANGE END ===
 
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
     st.caption(
-        "💡 **Similarity score**: lower value = more similar content (distance metric). "
+        "💡 **MMR reranking active** (diversity + relevance). "
         "Use ranking order as the primary signal."
     )
 
-    for rank, (doc, score) in enumerate(retrieved_docs, 1):
+    for rank, doc in enumerate(retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
         page_label = doc.metadata.get("page", "N/A") if isinstance(doc.metadata.get("page"), int) else "multi"
-        st.markdown(f"**Rank {rank}** – Similarity: {score:.4f}")
+        st.markdown(f"**Rank {rank}**")
         st.caption(
             f"Source page ~{page_label} • "
             f"starts at character {doc.metadata.get('start_index', 'N/A')}"
         )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
 
-    st.info("Milestone 3 complete: semantic search works. Next → Milestone 4 (prompt + LLM generation using these chunks)")
+    st.info("Milestone 3 complete: semantic search works with MMR. Next → Milestone 4")
 
 elif query:
     st.warning("Upload & process a document first to enable search.")
