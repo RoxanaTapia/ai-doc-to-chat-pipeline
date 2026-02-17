@@ -62,11 +62,18 @@ if "last_processed_name" not in st.session_state:
     st.session_state.last_processed_name = None
 if "last_processed_hash" not in st.session_state:
     st.session_state.last_processed_hash = None
+if "uploader_key_version" not in st.session_state:
+    st.session_state.uploader_key_version = 0
+if "last_query" not in st.session_state:
+    st.session_state.last_query = None
+if "last_retrieved_docs" not in st.session_state:
+    st.session_state.last_retrieved_docs = []
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
 
-uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"])
+uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
+uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"], key=uploader_key)
 
 if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.vector_store = None
@@ -74,6 +81,9 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.current_file = None
     st.session_state.last_processed_name = None
     st.session_state.last_processed_hash = None
+    st.session_state.last_query = None
+    st.session_state.last_retrieved_docs = []
+    st.session_state.uploader_key_version += 1
     st.success("Document cleared!")
     st.rerun()
 
@@ -179,6 +189,8 @@ if uploaded_file is not None:
                 st.session_state.last_processed_name = uploaded_file.name
                 st.session_state.last_processed_hash = uploaded_hash
                 st.session_state.current_file = uploaded_file.name
+                st.session_state.last_query = None
+                st.session_state.last_retrieved_docs = []
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
@@ -197,15 +209,17 @@ if uploaded_file is not None:
             tmp_path.unlink(missing_ok=True)
 
 # Query interface
-query = st.text_input(
-    "Ask a question about the document:",
-    disabled=st.session_state.vector_store is None
-)
+query = ""
+submitted = False
+if st.session_state.vector_store is not None:
+    with st.form("query_form", clear_on_submit=True):
+        query = st.text_input("Ask a question about the document:")
+        submitted = st.form_submit_button("Search")
 
 if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
-if query and st.session_state.vector_store:
+if submitted and query and st.session_state.vector_store:
     with st.spinner("Searching FAISS index with MMR reranking + page bias..."):
         # === MMR + PAGE BIAS FILTER (minimal change) ===
         retriever = st.session_state.vector_store.as_retriever(
@@ -222,13 +236,20 @@ if query and st.session_state.vector_store:
         )
         # === END OF CHANGE ===
 
+    st.session_state.last_query = query
+    st.session_state.last_retrieved_docs = retrieved_docs
+
+if st.session_state.last_query:
+    st.markdown(f"**Last question asked:** {st.session_state.last_query}")
+
+if st.session_state.last_retrieved_docs:
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
     st.caption(
         "💡 **MMR reranking active** (diversity + relevance) + early page bias. "
         "Use ranking order as the primary signal."
     )
 
-    for rank, doc in enumerate(retrieved_docs, 1):
+    for rank, doc in enumerate(st.session_state.last_retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
         page_label = doc.metadata.get("page", "N/A") if isinstance(doc.metadata.get("page"), int) else "multi"
         st.markdown(f"**Rank {rank}**")
@@ -240,5 +261,7 @@ if query and st.session_state.vector_store:
 
     st.info("Milestone 3 complete: semantic search works with MMR + page bias.")
 
-elif query:
+elif submitted and not query:
+    st.warning("Type a question and press Enter (or Search).")
+elif submitted and not st.session_state.vector_store:
     st.warning("Upload & process a document first to enable search.")
