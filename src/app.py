@@ -218,7 +218,7 @@ if query and st.session_state.vector_store:
         )
         retrieved_docs = retriever.invoke(
             query,
-            filter={"page": {"$lte": 20}}   # ← new: bias toward early pages
+            filter={"page": {"$lte": 15}}   # ← new: bias toward early pages
         )
         # === END OF CHANGE ===
 
