@@ -8,3 +8,4 @@ embeddings:
 
 rag:
   top_k: 10                  # how many chunks to retrieve per query
+  fetch_k: 75                # candidate pool size before MMR reranking

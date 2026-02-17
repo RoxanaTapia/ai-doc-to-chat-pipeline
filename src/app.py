@@ -32,6 +32,7 @@ try:
     CHUNK_OVERLAP = config["chunking"]["chunk_overlap"]
     EMBEDDING_MODEL = config["embeddings"]["model_name"]
     TOP_K = config.get("rag", {}).get("top_k", 4)
+    FETCH_K = config.get("rag", {}).get("fetch_k", 50)
 except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError) as exc:
     st.error(f"Configuration error in {CONFIG_PATH}: {exc}")
     st.stop()
@@ -221,27 +222,25 @@ if st.session_state.current_file:
 
 if submitted and query and st.session_state.vector_store:
     with st.spinner("Searching FAISS index with MMR + early-page filter..."):
-        def early_page_filter(metadata: dict) -> bool:
-            page = metadata.get("page")
-            return isinstance(page, int) and page <= 20
-
-        # Use FAISS search API directly so metadata filter is actually applied.
-        retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
+        # FAISS MMR search does not support metadata filter kwargs directly.
+        # Retrieve first, then apply page filtering in Python.
+        raw_docs = st.session_state.vector_store.max_marginal_relevance_search(
             query,
             k=TOP_K,
-            fetch_k=50,
+            fetch_k=FETCH_K,
             lambda_mult=0.5,
-            filter=early_page_filter,
         )
 
-        # Fallback to full-document search when early-page filter yields no results.
-        if not retrieved_docs:
-            retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
-                query,
-                k=TOP_K,
-                fetch_k=50,
-                lambda_mult=0.5,
-            )
+        early_page_docs = []
+        for doc in raw_docs:
+            page = doc.metadata.get("page")
+            if isinstance(page, int) and page <= 20:
+                early_page_docs.append(doc)
+
+        if early_page_docs:
+            retrieved_docs = early_page_docs[:TOP_K]
+        else:
+            retrieved_docs = raw_docs[:TOP_K]
             st.info("No early-page matches found. Showing best matches from all pages.")
 
     st.session_state.last_query = query
