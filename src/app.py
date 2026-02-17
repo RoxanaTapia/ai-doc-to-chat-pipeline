@@ -206,19 +206,25 @@ if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
 if query and st.session_state.vector_store:
-    with st.spinner("Searching FAISS index with MMR reranking..."):
-        # === MINIMAL MMR CHANGE START ===
-        retrieved_docs = st.session_state.vector_store.similarity_search(
-            query,
-            k=TOP_K,
+    with st.spinner("Searching FAISS index with MMR reranking + page bias..."):
+        # === MMR + PAGE BIAS FILTER (minimal change) ===
+        retriever = st.session_state.vector_store.as_retriever(
             search_type="mmr",
-            search_kwargs={"fetch_k": 30, "lambda_mult": 0.5}
+            search_kwargs={
+                "k": TOP_K,
+                "fetch_k": 50,
+                "lambda_mult": 0.5
+            }
         )
-        # === MINIMAL MMR CHANGE END ===
+        retrieved_docs = retriever.invoke(
+            query,
+            filter={"page": {"$lte": 20}}   # ← new: bias toward early pages
+        )
+        # === END OF CHANGE ===
 
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
     st.caption(
-        "💡 **MMR reranking active** (diversity + relevance). "
+        "💡 **MMR reranking active** (diversity + relevance) + early page bias. "
         "Use ranking order as the primary signal."
     )
 
@@ -232,7 +238,7 @@ if query and st.session_state.vector_store:
         )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
 
-    st.info("Milestone 3 complete: semantic search works with MMR. Next → Milestone 4")
+    st.info("Milestone 3 complete: semantic search works with MMR + page bias.")
 
 elif query:
     st.warning("Upload & process a document first to enable search.")
