@@ -7,4 +7,4 @@ embeddings:
   model_name: "all-MiniLM-L6-v2"  # fast 384-dim model, excellent for private RAG
 
 rag:
-  top_k: 5                  # how many chunks to retrieve per query
+  top_k: 10                  # how many chunks to retrieve per query
