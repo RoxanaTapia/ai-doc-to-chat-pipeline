@@ -220,21 +220,29 @@ if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
 if submitted and query and st.session_state.vector_store:
-    with st.spinner("Searching FAISS index with MMR reranking + page bias..."):
-        # === MMR + PAGE BIAS FILTER (minimal change) ===
-        retriever = st.session_state.vector_store.as_retriever(
-            search_type="mmr",
-            search_kwargs={
-                "k": TOP_K,
-                "fetch_k": 50,
-                "lambda_mult": 0.5
-            }
-        )
-        retrieved_docs = retriever.invoke(
+    with st.spinner("Searching FAISS index with MMR + early-page filter..."):
+        def early_page_filter(metadata: dict) -> bool:
+            page = metadata.get("page")
+            return isinstance(page, int) and page <= 20
+
+        # Use FAISS search API directly so metadata filter is actually applied.
+        retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
             query,
-            filter={"page": {"$lte": 20}}   # ← new: bias toward early pages
+            k=TOP_K,
+            fetch_k=50,
+            lambda_mult=0.5,
+            filter=early_page_filter,
         )
-        # === END OF CHANGE ===
+
+        # Fallback to full-document search when early-page filter yields no results.
+        if not retrieved_docs:
+            retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
+                query,
+                k=TOP_K,
+                fetch_k=50,
+                lambda_mult=0.5,
+            )
+            st.info("No early-page matches found. Showing best matches from all pages.")
 
     st.session_state.last_query = query
     st.session_state.last_retrieved_docs = retrieved_docs
@@ -245,7 +253,7 @@ if st.session_state.last_query:
 if st.session_state.last_retrieved_docs:
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
     st.caption(
-        "💡 **MMR reranking active** (diversity + relevance) + early page bias. "
+        "💡 **MMR reranking active** (diversity + relevance) + early-page filter. "
         "Use ranking order as the primary signal."
     )
 
@@ -259,7 +267,7 @@ if st.session_state.last_retrieved_docs:
         )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
 
-    st.info("Milestone 3 complete: semantic search works with MMR + page bias.")
+    st.info("Milestone 3 complete: semantic search works with MMR + metadata filtering.")
 
 elif submitted and not query:
     st.warning("Type a question and press Enter (or Search).")
