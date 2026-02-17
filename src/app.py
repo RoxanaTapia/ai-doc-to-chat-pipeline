@@ -33,6 +33,7 @@ try:
     EMBEDDING_MODEL = config["embeddings"]["model_name"]
     TOP_K = config.get("rag", {}).get("top_k", 4)
     FETCH_K = config.get("rag", {}).get("fetch_k", 50)
+    EARLY_PAGE_MAX = config.get("rag", {}).get("early_page_max", 20)
 except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError) as exc:
     st.error(f"Configuration error in {CONFIG_PATH}: {exc}")
     st.stop()
@@ -69,6 +70,8 @@ if "last_query" not in st.session_state:
     st.session_state.last_query = None
 if "last_retrieved_docs" not in st.session_state:
     st.session_state.last_retrieved_docs = []
+if "last_retrieval_mode" not in st.session_state:
+    st.session_state.last_retrieval_mode = None
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
@@ -84,6 +87,7 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.last_processed_hash = None
     st.session_state.last_query = None
     st.session_state.last_retrieved_docs = []
+    st.session_state.last_retrieval_mode = None
     st.session_state.uploader_key_version += 1
     st.success("Document cleared!")
     st.rerun()
@@ -192,6 +196,7 @@ if uploaded_file is not None:
                 st.session_state.current_file = uploaded_file.name
                 st.session_state.last_query = None
                 st.session_state.last_retrieved_docs = []
+                st.session_state.last_retrieval_mode = None
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
@@ -221,27 +226,34 @@ if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
 if submitted and query and st.session_state.vector_store:
-    with st.spinner("Searching FAISS index with MMR + early-page filter..."):
-        # FAISS MMR search does not support metadata filter kwargs directly.
-        # Retrieve first, then apply page filtering in Python.
-        raw_docs = st.session_state.vector_store.max_marginal_relevance_search(
+    with st.spinner("Searching FAISS index with early-page preference..."):
+        # Retrieve candidates, then apply page filter in Python for compatibility.
+        candidate_docs = st.session_state.vector_store.similarity_search(
             query,
-            k=TOP_K,
-            fetch_k=FETCH_K,
-            lambda_mult=0.5,
+            k=FETCH_K,
         )
-
         early_page_docs = []
-        for doc in raw_docs:
+        for doc in candidate_docs:
             page = doc.metadata.get("page")
-            if isinstance(page, int) and page <= 20:
+            if isinstance(page, int) and page <= EARLY_PAGE_MAX:
                 early_page_docs.append(doc)
 
         if early_page_docs:
             retrieved_docs = early_page_docs[:TOP_K]
+            st.session_state.last_retrieval_mode = "early_page_filtered"
         else:
-            retrieved_docs = raw_docs[:TOP_K]
-            st.info("No early-page matches found. Showing best matches from all pages.")
+            # Fallback to global MMR when no early-page candidates are available.
+            retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
+                query,
+                k=TOP_K,
+                fetch_k=FETCH_K,
+                lambda_mult=0.5,
+            )
+            st.session_state.last_retrieval_mode = "global_mmr_fallback"
+            st.info(
+                f"No matches found in pages <= {EARLY_PAGE_MAX}. "
+                "Showing best matches from all pages."
+            )
 
     st.session_state.last_query = query
     st.session_state.last_retrieved_docs = retrieved_docs
@@ -251,10 +263,16 @@ if st.session_state.last_query:
 
 if st.session_state.last_retrieved_docs:
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
-    st.caption(
-        "💡 **MMR reranking active** (diversity + relevance) + early-page filter. "
-        "Use ranking order as the primary signal."
-    )
+    if st.session_state.last_retrieval_mode == "early_page_filtered":
+        st.caption(
+            f"💡 **Early-page filtered retrieval active** (pages <= {EARLY_PAGE_MAX}). "
+            "Use ranking order as the primary signal."
+        )
+    else:
+        st.caption(
+            "💡 **MMR reranking active** (diversity + relevance) on all pages. "
+            "Use ranking order as the primary signal."
+        )
 
     for rank, doc in enumerate(st.session_state.last_retrieved_docs, 1):
         preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
