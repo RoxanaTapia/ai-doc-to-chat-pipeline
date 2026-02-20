@@ -15,6 +15,11 @@ Upload documents → Extract & Classify → Ask anything via intelligent RAG Cha
 
 Turn PDFs, scans, contracts, invoices or reports into a reliable, hallucination-free assistant — answers grounded in your actual documents.
 
+### Live Demo
+Try it here: https://ai-doc-to-chat.streamlit.app/
+
+Upload a PDF, ask questions — answers are grounded in the document via local RAG.
+
 Why this project?
 
 Built with enterprise-grade principles (inspired by optimizations that cut document review time by 40%+ in production), this pipeline is:
