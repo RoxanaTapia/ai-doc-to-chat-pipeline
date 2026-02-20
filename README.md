@@ -1,89 +1,58 @@
 # AI Doc-to-Chat Pipeline
 
-**Upload documents → Extract & Classify → Ask anything via intelligent RAG Chatbot**
+Upload documents → Extract & Classify → Ask anything via intelligent RAG Chatbot
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.54+-green)](https://streamlit.io/)
-[![LangChain](https://img.shields.io/badge/LangChain-1.2+-orange)](https://python.langchain.com/)
-[![FAISS](https://img.shields.io/badge/FAISS-Local%20Vector%20DB-9cf)](https://github.com/facebookresearch/faiss)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/RoxanaTapia/ai-doc-to-chat-pipeline?style=social)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/stargazers)
-[![Last commit](https://img.shields.io/github/last-commit/RoxanaTapia/ai-doc-to-chat-pipeline)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/commits/main)
+[Python](https://img.shields.io/badge/Python-3.12+-blue.svg) https://www.python.org/
+[Streamlit](https://img.shields.io/badge/Streamlit-1.54+-green) https://streamlit.io/
+[LangChain](https://img.shields.io/badge/LangChain-1.2+-orange) https://python.langchain.com/
+[FAISS](https://img.shields.io/badge/FAISS-Local%20Vector%20DB-9cf) https://github.com/facebookresearch/faiss
+[License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg) https://opensource.org/licenses/MIT
+[GitHub stars](https://img.shields.io/github/stars/RoxanaTapia/ai-doc-to-chat-pipeline?style=social) https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/stargazers
 
-[![Milestone 1](https://img.shields.io/badge/Milestone%201-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
-[![Milestone 2](https://img.shields.io/badge/Milestone%202-Complete-brightgreen)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
-[![Milestone 3](https://img.shields.io/badge/Milestone%203-In%20Progress-orange)](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)
+[Milestone 1](https://img.shields.io/badge/Milestone%201-Complete-brightgreen) https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline
+[Milestone 2](https://img.shields.io/badge/Milestone%202-Complete-brightgreen) https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline
+[Milestone 3](https://img.shields.io/badge/Milestone%203-In%20Progress-orange) https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline
 
-**Transform your PDFs, scans, contracts, invoices or reports into a reliable, hallucination-free assistant that answers precise questions — everything grounded in your actual documents.**
+Turn PDFs, scans, contracts, invoices or reports into a reliable, hallucination-free assistant — answers grounded in your actual documents.
 
-### Why this project?
+Why this project?
 
-Designed with enterprise-grade principles (inspired by real-world optimizations that reduced document processing & review time by 40%+ in production environments), this pipeline is:
+Built with enterprise-grade principles (inspired by optimizations that cut document review time by 40%+ in production), this pipeline is:
 
-- ethical (no training on client data)
-- modular and fully configurable
-- production-ready foundations (logging, error handling, graceful degradation)
-- easy to extend or hand over to customers
+- Ethical & private — no training on client data, local-first design
+- Modular & configurable — YAML-driven, easy to extend
+- Production-minded — logging, validation, graceful error handling
+- Ideal for legal review, compliance, internal knowledge bases, invoice querying
 
-**Ideal use cases:**
-- Automating customer support with internal policies & FAQs
-- Accelerating legal / compliance document review
-- Building fast internal knowledge bases
-- Natural-language querying of invoices, contracts, financial reports, technical manuals
+In 2026, demand for private, controllable RAG document assistants remains high — especially on platforms like Upwork for sensitive/professional workflows.
 
-**Market reality (early 2026):**  
-RAG-based document chatbots and intelligent document processing continue to show strong demand on Upwork and similar platforms — frequently among the higher-paying AI automation categories.
+Key Features
 
-### Key Features
+- Robust extraction: PyMuPDF + Tesseract OCR (digital + scanned PDFs)
+- Document classification: Hugging Face zero-shot models
+- Accurate RAG: LangChain + local FAISS vector store
+- Clean UI: Streamlit — drag & drop + natural-language chat
+- Fully configurable: chunk size, embeddings, prompts, LLM choice
+- Security first: no data leaves your machine unless you choose otherwise
+- Scalable: easy path to Pinecone, Chroma, Weaviate, etc.
 
-- **Robust document extraction** — PyMuPDF + Tesseract OCR (handles both native digital PDFs and scanned documents)
-- **Intelligent classification** — Hugging Face zero-shot / lightweight fine-tuned models to detect document type & key sections
-- **Accurate Retrieval-Augmented Generation (RAG)** — LangChain + local FAISS vector store (fast, private, zero cloud cost at start)
-- **Clean interactive UI** — Streamlit app: drag & drop documents → ask natural-language questions
-- **100% configurable** — YAML files control chunking strategy, embedding model, LLM choice, prompt templates, etc.
-- **Production-minded** — structured logging, input validation, graceful fallbacks, no hard crashes on malformed files
-- **Scalability path** — trivial to switch to Pinecone, Chroma Cloud, Weaviate, Qdrant, etc.
-- **Security & ethics first** — local-first design, never sends your documents to external providers unless you explicitly configure it
+Why This Over Public Tools (ChatGPT, Grok, Claude, Gemini)?
 
-### Current Status (February 2026)
+Public assistants are great for casual use — but professionals handling regulated/sensitive data need more.
 
-- ✅ **Milestone 1** – Working local prototype (UI + upload + echo)
-- ✅ **Milestone 2** – Basic document extraction & text preview (PyMuPDF, spinner, error handling, page preview)
-- 🚧 **Milestone 3** – Chunking + Embeddings + FAISS Indexing (in progress on branch `feat/milestone-3-chunking-embeddings-faiss`)
-- ⏳ Milestones 4–6 – RAG generation, live demo, tagged release
+Requirement                          | Public Cloud Tools                  | This Local RAG Pipeline                     | Winner for Pros
+--------------------------------------|-------------------------------------|---------------------------------------------|-----------------
+Data never leaves your machine       | Uploaded to 3rd-party servers       | 100% local after model download             | This project
+Regulated / privileged data          | Often restricted or complex         | No external exposure — air-gappable         | This project
+Full auditability                    | Limited visibility                  | Shows chunks + similarity scores            | This project
+Custom retrieval tuning              | Very restricted                     | Fully configurable via YAML                 | This project
+No per-query cost                    | Usage-based pricing                 | One-time hardware cost                      | This project
+Offline capability                   | Requires internet                   | Works fully offline                         | This project
 
-Extraction and basic UI are functional. Semantic search (RAG retrieval) is next.
+Bottom line: Use public tools for quick/public tasks. Use this for client contracts, compliance, due diligence, IP, healthcare — where trust, control, and zero exposure matter most.
 
-### Why Choose This Over Public Tools? (ChatGPT, Grok, Claude, Gemini, etc.)
+Quick Start (≈ 2–3 minutes)
 
-In 2026, many excellent cloud-based AI assistants already let you upload PDFs and ask questions. So why build (or use) a fully local RAG pipeline like this one?
-
-The answer lies in **privacy**, **control**, **cost**, and **compliance** — requirements that matter most to professionals handling sensitive or regulated documents.
-
-| Requirement                              | Public Cloud Tools (ChatGPT / Grok / Claude / ...) | This Local RAG Pipeline                              | Typical Winner for Enterprise / Professional Use |
-|------------------------------------------|-----------------------------------------------------|-------------------------------------------------------|--------------------------------------------------|
-| **Data never leaves your machine**       | Data uploaded to 3rd-party servers (even with "zero-retention" plans) | 100% offline & local after model download             | This project                                   |
-| **Regulated / privileged data** (legal, finance, healthcare, M&A, government) | Often prohibited or requires complex enterprise agreements | No external exposure — air-gappable if needed         | This project                                   |
-| **Full auditability & traceability**     | Limited visibility into retrieved chunks & scoring  | Shows exact retrieved chunks + similarity scores      | This project                                   |
-| **Custom retrieval tuning** (chunk size, overlap, embedding model, re-ranking) | Very restricted or impossible                       | Fully configurable via `configs/config.yaml`          | This project                                   |
-| **No recurring per-query / per-token cost** | Usage-based pricing scales quickly with volume     | One-time hardware cost (or existing laptop)           | This project (high-volume users)               |
-| **Offline / no-internet scenarios**      | Requires constant connection                        | Works completely offline (after first model download) | This project                                   |
-| **No file-size / page-count hard limits**| Provider-imposed caps (practical ~50–200 pages)    | Limited only by local hardware                        | This project                                   |
-| **Explainable retrieval** (for lawyers / auditors) | Black-box context window                           | Full control over what context is sent to the model   | This project                                   |
-| **Casual / one-off / non-sensitive use** | Extremely fast to start                             | Requires local setup & install                        | Public tools                                   |
-
-**Bottom line for clients**
-
-- If you're doing casual research, summarizing public reports, or working with non-sensitive internal notes → public tools are faster and simpler to start.
-- If you're dealing with **client contracts**, **privileged communications**, **compliance reviews**, **due diligence**, **IP**, **patient data**, **merger documents**, or **anything regulated** → this local-first pipeline delivers **provable confidentiality**, **predictable cost**, **full customization**, and **audit-ready transparency** that no public cloud service can match without significant legal, contractual, and cost overhead.
-
-This project is built exactly for those higher-stakes professional workflows — the ones where **trust**, **control**, and **zero external exposure** are non-negotiable.
-
-Happy to adapt it further for your exact industry or compliance needs.
-
-### Quick Start (≈ 2–3 minutes)
-
-```bash
 git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
 cd ai-doc-to-chat-pipeline
 
@@ -91,78 +60,56 @@ cd ai-doc-to-chat-pipeline
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Install dependencies
-# Recommended (modern hardware — Apple Silicon, recent macOS, Linux, Windows):
+# Install dependencies (modern hardware recommended)
 pip install -r requirements.txt
 
-# For older Intel Macs (e.g. Mid-2015 MacBook Pro on Monterey) or install issues:
-# pip install -r requirements-legacy.txt
+# Optional: copy env template
+cp .env.example .env               # edit if using external LLMs later
 
-# (Optional but recommended) Provide API keys if using paid LLMs / embeddings later
-cp .env.example .env               # then edit .env if needed
-
-# Launch the application
+# Launch
 streamlit run src/app.py
-```
-→ Open http://localhost:8501 in your browser  
-→ Upload one or more documents → start asking questions
 
-#### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
-- Use Python 3.12 (via `brew install python@3.12` or python.org installer).
-- If modern dependencies fail to install, use the legacy file:  
-  `pip install -r requirements-legacy.txt` (pins Torch <2.3.0, older LangChain, etc.)
-- Tesseract OCR: `brew install tesseract` (required for scanned PDFs).
-- Performance is good for small/medium documents; for very large PDFs or heavy use, consider upgrading hardware or macOS.
+→ Open http://localhost:8501
+→ Upload documents → start asking questions
 
-### Planned Project Structure
+Current Status (February 2026)
 
-```text
+- Milestone 1 – Working local prototype (UI + upload + echo) → Complete
+- Milestone 2 – Document extraction & text preview → Complete
+- Milestone 3 – Chunking + Embeddings + FAISS Indexing (in progress)
+- Milestones 4–6 – RAG generation, live demo, tagged release (v0.1.0) → Pending
+
+Planned Project Structure
+
 ai-doc-to-chat-pipeline/
-├── src/                        # Core application code (modular & testable)
-│   ├── init.py             # Makes src a package (optional but useful)
-│   ├── app.py                  # Streamlit entry point & UI logic
-│   ├── extraction.py           # PDF/text extraction (PyMuPDF + Tesseract OCR)
-│   ├── classification.py       # Document/section type classification (Hugging Face)
-│   ├── rag.py                  # RAG pipeline: embedding, retrieval, generation (LangChain + FAISS)
-│   └── utils/                  # Shared helpers
-│       ├── init.py
-│       ├── config.py           # YAML config loading & validation
-│       ├── logging.py          # Structured logging setup
-│       └── prompts.py          # Prompt templates (easy to version & override)
-├── configs/                    # Configuration files
-│   ├── default.yaml            # Default settings (chunk_size, models, etc.)
-│   └── local.yaml              # Local overrides (gitignored if sensitive)
-├── data/                       # Sample documents for testing & demos (gitignored)
-├── tests/                      # Unit & integration tests
-│   ├── test_extraction.py
-│   ├── test_classification.py
-│   └── test_rag.py
-├── docs/                       # Additional documentation (optional but recommended)
-│   └── architecture.md         # High-level design, decisions, future ideas
-├── .github/                    # CI/CD automation
-│   └── workflows/
-│       └── ci.yml              # GitHub Actions: lint, test, etc.
-├── .env.example                # Template for API keys & env vars
-├── requirements.txt            # Python dependencies
-├── README.md
-└── LICENSE
-```
+├── src/                  # Core code
+│   ├── app.py            # Streamlit UI
+│   ├── extraction.py
+│   ├── classification.py
+│   ├── rag.py
+│   └── utils/            # config, logging, prompts
+├── configs/              # YAML settings
+├── data/                 # Sample docs (gitignored)
+├── tests/
+├── docs/
+├── .env.example
+├── requirements.txt
+└── README.md
 
-### Contributing & Commercial Use
+Contributing & Commercial Use
 
-MIT licensed — feel free to fork, modify, and use this project in any personal or commercial context.
+MIT licensed — fork, modify, use commercially.
 
-**Looking for a production-grade or customized version?**  
-I regularly help clients adapt this kind of solution to their exact needs, including:
+Need a customized version?
+I help clients add:
 
-- Multi-user authentication & role-based access
-- Integration with enterprise vector databases
-- Fine-tuned classification or domain-specific prompts
-- Persistent chat history & audit logging
-- SSO / internal auth integration
-- Kubernetes / cloud-native deployment patterns
+- Multi-user auth & RBAC
+- Enterprise vector DB integration
+- Domain-specific prompts & classification
+- Persistent history & audit trails
+- Cloud-native / Kubernetes deployment
 
-Happy to discuss your requirements — let's build exactly what your organization needs.
+Happy to discuss your needs — let's build exactly what you require.
 
-Made with ❤️ for accurate, grounded, and trustworthy document AI automation.  
+Made with ❤️ for trustworthy document AI.
 Roxana Tapia · February 2026
