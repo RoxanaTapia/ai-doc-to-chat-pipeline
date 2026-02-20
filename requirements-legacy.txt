@@ -3,9 +3,8 @@
 # =============================================
 # Tested on Python 3.12 (recommended).
 # Works on older Intel Macs (Mid-2015 MacBook Pro, macOS Monterey).
-# For modern Apple Silicon / macOS Ventura+ / Linux / Windows:
-#   - Change torch>=2.5.0 for MPS acceleration or better performance.
-#   - Install Tesseract OCR separately: brew install tesseract (macOS) or apt install tesseract-ocr (Linux)
+# For modern Apple Silicon / macOS Ventura+ / Linux / Windows / Streamlit Cloud:
+#   - Use requirements.txt instead (newer packages + better performance).
 
 # Core framework & UI
 streamlit>=1.42.0,<1.43.0                  # Modern file uploader, fragments, stable UI
@@ -32,8 +31,6 @@ transformers>=4.45.0,<5.0.0
 
 # Torch - pinned for Intel Mac / Monterey compatibility
 torch>=2.2.0,<2.3.0                        # Stable wheels for older Intel Macs
-# For newer Macs (Apple Silicon / Ventura+), Linux, or Windows:
-# torch>=2.5.0                             # Use MPS acceleration on M-series or GPU on others
 
 # Utilities
 pyyaml>=6.0.2                              # YAML config loading
