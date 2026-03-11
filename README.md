@@ -98,8 +98,9 @@ pip install -r requirements.txt
 # For older Intel Macs (e.g. Mid-2015 MacBook Pro on Monterey) or install issues:
 # pip install -r requirements-legacy.txt
 
-# (Optional but recommended) Provide API keys if using paid LLMs / embeddings later
-cp .env.example .env               # then edit .env if needed
+# (Optional) Configure cloud providers with a safe template (empty values by default)
+cp .env.example .env
+# then edit `.env` only on your machine
 
 # Launch the application
 streamlit run src/app.py
@@ -142,7 +143,7 @@ ai-doc-to-chat-pipeline/
 ├── .github/                    # CI/CD automation
 │   └── workflows/
 │       └── ci.yml              # GitHub Actions: lint, test, etc.
-├── .env.example                # Template for API keys & env vars
+├── .env.example                # Safe template (keys intentionally empty)
 ├── requirements.txt            # Python dependencies
 ├── README.md
 └── LICENSE
