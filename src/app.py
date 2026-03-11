@@ -11,6 +11,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from rag import generate_answer
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 
@@ -77,6 +78,8 @@ if "last_retrieved_docs" not in st.session_state:
     st.session_state.last_retrieved_docs = []
 if "last_retrieval_mode" not in st.session_state:
     st.session_state.last_retrieval_mode = None
+if "last_answer" not in st.session_state:
+    st.session_state.last_answer = None
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
@@ -93,6 +96,7 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.last_query = None
     st.session_state.last_retrieved_docs = []
     st.session_state.last_retrieval_mode = None
+    st.session_state.last_answer = None
     st.session_state.uploader_key_version += 1
     st.success("Document cleared!")
     st.rerun()
@@ -202,6 +206,7 @@ if uploaded_file is not None:
                 st.session_state.last_query = None
                 st.session_state.last_retrieved_docs = []
                 st.session_state.last_retrieval_mode = None
+                st.session_state.last_answer = None
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
@@ -262,9 +267,24 @@ if submitted and query and st.session_state.vector_store:
 
     st.session_state.last_query = query
     st.session_state.last_retrieved_docs = retrieved_docs
+    context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+    try:
+        with st.spinner("Generating answer with local Ollama model..."):
+            st.session_state.last_answer = generate_answer(query=query, context=context)
+    except Exception as e:
+        st.session_state.last_answer = None
+        st.warning(
+            "Could not generate an Ollama answer yet. "
+            "Make sure Ollama is running and model `llama3.1:8b` is available."
+        )
+        st.caption(f"Generator error: {e}")
 
 if st.session_state.last_query:
     st.markdown(f"**Last question asked:** {st.session_state.last_query}")
+
+if st.session_state.last_answer:
+    st.subheader("Generated Answer (Milestone 4 skeleton)")
+    st.write(st.session_state.last_answer)
 
 if st.session_state.last_retrieved_docs:
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
