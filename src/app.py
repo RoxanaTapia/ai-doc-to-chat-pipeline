@@ -14,6 +14,11 @@ from langchain_core.documents import Document
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 
+st.sidebar.info(
+    "This is a **public demo** hosted on Streamlit Cloud — documents are temporarily uploaded here. "
+    "For sensitive files, run the app **locally** (clone the repo & streamlit run src/app.py)."
+)
+
 # Load configuration
 APP_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = APP_ROOT / "configs" / "config.yaml"
