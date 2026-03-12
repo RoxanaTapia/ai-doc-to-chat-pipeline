@@ -83,6 +83,14 @@ Happy to adapt it further for your exact industry or compliance needs.
 
 ### Quick Start (≈ 2–3 minutes)
 
+First-run checklist:
+
+- [ ] Create and activate virtual environment (`python -m venv .venv` + `source .venv/bin/activate`)
+- [ ] Install dependencies (`pip install -r requirements.txt`)
+- [ ] Start Ollama (`ollama serve`)
+- [ ] Pull local model (`ollama pull phi3:mini`)
+- [ ] Run app (`streamlit run src/app.py`)
+
 ```bash
 git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
 cd ai-doc-to-chat-pipeline
@@ -102,11 +110,39 @@ pip install -r requirements.txt
 cp .env.example .env
 # then edit `.env` only on your machine
 
+# Required for local answer generation (Milestone 4 skeleton):
+# 1) Install Ollama: https://ollama.com/download
+# 2) Start Ollama server (keep this terminal running):
+ollama serve
+# 3) Download the model used by this app:
+ollama pull phi3:mini
+# 4) (Optional) Quick model check in terminal:
+ollama run phi3:mini
+
 # Launch the application
 streamlit run src/app.py
 ```
 → Open http://localhost:8501 in your browser  
 → Upload one or more documents → start asking questions
+
+#### Local LLM setup (Ollama) — required to see generated answers
+
+This app currently calls a local Ollama model in `src/rag.py`:
+
+- Expected model: `phi3:mini`
+- If Ollama is not running (or the model is missing), retrieval still works but answer generation will fail.
+- In that case, the UI shows: "Could not generate an Ollama answer yet..."
+- Keep `ollama serve` running while using Streamlit.
+- `ollama run phi3:mini` is optional and only for manual terminal testing.
+
+Quick verification commands:
+
+```bash
+ollama list               # confirms phi3:mini is downloaded
+ollama run phi3:mini      # optional interactive check
+```
+
+If you want to use a different model, update `ChatOllama(model="...")` in `src/rag.py`.
 
 #### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
 - Use Python 3.12 (via `brew install python@3.12` or python.org installer).

@@ -275,7 +275,7 @@ if submitted and query and st.session_state.vector_store:
         st.session_state.last_answer = None
         st.warning(
             "Could not generate an Ollama answer yet. "
-            "Make sure Ollama is running and model `llama3.1:8b` is available."
+            "Make sure Ollama is running and model `phi3:mini` is available."
         )
         st.caption(f"Generator error: {e}")
 
