@@ -125,6 +125,33 @@ streamlit run src/app.py
 → Open http://localhost:8501 in your browser  
 → Upload one or more documents → start asking questions
 
+#### Presentation modes (client vs developer)
+
+The app supports two UI modes:
+
+- **Client mode** (clean demo): shows generated answer + source citations only.
+- **Developer mode** (local QA): also shows retrieval debug panels with ranked chunks.
+
+Default behavior:
+
+- **Local run**: starts in **Developer mode**.
+- **Streamlit Cloud** (when detected): starts in **Client mode**.
+
+Optional explicit override:
+
+```bash
+# Force client presentation (recommended for live demos)
+APP_PRESENTATION_MODE=client streamlit run src/app.py
+
+# Force developer presentation (retrieval debug visible)
+APP_PRESENTATION_MODE=developer streamlit run src/app.py
+```
+
+Deploy recommendation:
+
+- In your deployed environment, set `APP_PRESENTATION_MODE=client` to guarantee the clean client-facing UI.
+- Keep local development in `developer` mode when tuning retrieval quality.
+
 #### Local LLM setup (Ollama) — required to see generated answers
 
 This app currently calls a local Ollama model in `src/rag.py`:

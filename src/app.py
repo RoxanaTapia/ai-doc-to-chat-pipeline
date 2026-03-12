@@ -4,6 +4,7 @@ import tempfile
 import yaml
 import time
 import hashlib
+import os
 from pathlib import Path
 
 # LangChain imports for Milestone 3
@@ -14,6 +15,26 @@ from langchain_core.documents import Document
 from rag import generate_answer
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
+
+
+def _is_probably_streamlit_cloud() -> bool:
+    """Best-effort detection for hosted Streamlit runtimes."""
+    return any(
+        os.getenv(marker)
+        for marker in ("STREAMLIT_SHARING_MODE", "STREAMLIT_RUNTIME", "STREAMLIT_CLOUD")
+    )
+
+
+def _presentation_mode() -> str:
+    """
+    Return 'client' or 'developer'.
+    Override with APP_PRESENTATION_MODE=client|developer.
+    """
+    override = (os.getenv("APP_PRESENTATION_MODE") or "").strip().lower()
+    if override in {"client", "developer"}:
+        return override
+    return "client" if _is_probably_streamlit_cloud() else "developer"
+
 
 st.sidebar.info(
     "This is a **public demo** hosted on Streamlit Cloud — documents are temporarily uploaded here. "
@@ -80,6 +101,22 @@ if "last_retrieval_mode" not in st.session_state:
     st.session_state.last_retrieval_mode = None
 if "last_answer" not in st.session_state:
     st.session_state.last_answer = None
+if "developer_mode" not in st.session_state:
+    st.session_state.developer_mode = _presentation_mode() == "developer"
+
+allow_mode_toggle = (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
+if allow_mode_toggle:
+    st.session_state.developer_mode = st.sidebar.toggle(
+        "Developer mode (show retrieval debug)",
+        value=st.session_state.developer_mode,
+        help=(
+            "ON: show retrieval ranking and chunk diagnostics. "
+            "OFF: cleaner client-facing presentation."
+        ),
+    )
+st.sidebar.caption(
+    f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
+)
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
@@ -303,8 +340,8 @@ if st.session_state.last_answer:
                 st.code(preview, language="text")
                 st.markdown("---")
 
-if st.session_state.last_retrieved_docs:
-    st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
+if st.session_state.last_retrieved_docs and st.session_state.developer_mode:
+    st.subheader("Top Relevant Chunks (Developer debug view)")
     if st.session_state.last_retrieval_mode == "early_page_filtered":
         st.caption(
             f"💡 **Early-page filtered retrieval active** (pages <= {EARLY_PAGE_MAX}). "
