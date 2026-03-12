@@ -237,13 +237,14 @@ if st.session_state.current_file:
 
 if submitted and query and st.session_state.vector_store:
     with st.spinner("Searching FAISS index with early-page preference..."):
-        # Retrieve candidates, then apply page filter in Python for compatibility.
-        candidate_docs = st.session_state.vector_store.similarity_search(
+        # Retrieve candidates with scores, then apply page filter in Python for compatibility.
+        candidate_results = st.session_state.vector_store.similarity_search_with_score(
             query,
             k=FETCH_K,
         )
         early_page_docs = []
-        for doc in candidate_docs:
+        for doc, score in candidate_results:
+            doc.metadata["score"] = float(score)
             page = doc.metadata.get("page")
             if isinstance(page, int) and page <= EARLY_PAGE_MAX:
                 early_page_docs.append(doc)
@@ -285,6 +286,22 @@ if st.session_state.last_query:
 if st.session_state.last_answer:
     st.subheader("Generated Answer (Milestone 4 skeleton)")
     st.write(st.session_state.last_answer)
+    retrieved_chunks = st.session_state.last_retrieved_docs
+    if retrieved_chunks:
+        with st.expander("📚 Sources used (click to view)", expanded=False):
+            for i, chunk in enumerate(retrieved_chunks, 1):
+                preview = (
+                    chunk.page_content[:120] + "..."
+                    if len(chunk.page_content) > 120
+                    else chunk.page_content
+                )
+                score = chunk.metadata.get("score")
+                score_label = round(score, 3) if isinstance(score, (float, int)) else "N/A"
+                page = chunk.metadata.get("page", "N/A")
+
+                st.markdown(f"**Source {i}** (score: {score_label}) - page {page}")
+                st.code(preview, language="text")
+                st.markdown("---")
 
 if st.session_state.last_retrieved_docs:
     st.subheader("Top Relevant Chunks (Milestone 3 debug – semantic retrieval)")
@@ -308,8 +325,6 @@ if st.session_state.last_retrieved_docs:
             f"starts at character {doc.metadata.get('start_index', 'N/A')}"
         )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
-
-    st.info("Milestone 3 complete: semantic search works with MMR + metadata filtering.")
 
 elif submitted and not query:
     st.warning("Type a question and press Enter (or Search).")
