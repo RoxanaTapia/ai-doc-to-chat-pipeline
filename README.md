@@ -130,7 +130,7 @@ streamlit run src/app.py
 The app supports two UI modes:
 
 - **Client mode** (clean demo): shows generated answer + source citations only.
-- **Developer mode** (local QA): also shows retrieval debug panels with ranked chunks.
+- **Developer mode** (local QA): also shows retrieval debug panels (raw extraction preview + ranked chunks).
 
 Default behavior:
 

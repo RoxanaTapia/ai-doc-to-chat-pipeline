@@ -169,8 +169,18 @@ if uploaded_file is not None:
         doc.close()
         progress_bar.progress(45, text="Text extracted. Preparing chunking...")
 
-        st.info("Text extracted successfully! Preview below.")
-        st.text_area("Extracted Text (first 2000 characters)", extracted_text[:2000], height=300)
+        extracted_char_count = len(extracted_text.strip())
+        st.success("Extraction complete.")
+        st.caption(
+            f"Pages detected: {len(page_docs)} | Characters extracted: {extracted_char_count:,}"
+        )
+        if st.session_state.developer_mode and extracted_char_count > 0:
+            with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
+                st.text_area(
+                    "Extracted text sample",
+                    extracted_text[:2000],
+                    height=260,
+                )
 
         # --- Chunking & Indexing (only if new file) ---
         is_new_file = st.session_state.last_processed_hash != uploaded_hash
@@ -200,19 +210,20 @@ if uploaded_file is not None:
                     "or run OCR preprocessing."
                 )
             else:
-                with st.expander("First 3 chunks (debug view)", expanded=False):
-                    for i, chunk in enumerate(chunks[:3], 1):
-                        preview = (
-                            chunk.page_content[:300] + "..."
-                            if len(chunk.page_content) > 300
-                            else chunk.page_content
-                        )
-                        st.markdown(
-                            f"**Chunk {i}** ({len(chunk.page_content)} chars, "
-                            f"page ~{chunk.metadata.get('page', 'N/A')}, "
-                            f"start index: {chunk.metadata.get('start_index', 'N/A')})"
-                        )
-                        st.text(preview)
+                if st.session_state.developer_mode:
+                    with st.expander("First 3 chunks (debug view)", expanded=False):
+                        for i, chunk in enumerate(chunks[:3], 1):
+                            preview = (
+                                chunk.page_content[:300] + "..."
+                                if len(chunk.page_content) > 300
+                                else chunk.page_content
+                            )
+                            st.markdown(
+                                f"**Chunk {i}** ({len(chunk.page_content)} chars, "
+                                f"page ~{chunk.metadata.get('page', 'N/A')}, "
+                                f"start index: {chunk.metadata.get('start_index', 'N/A')})"
+                            )
+                            st.text(preview)
 
                 st.session_state.chunks = chunks
 
