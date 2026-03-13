@@ -15,6 +15,7 @@ from langchain_core.documents import Document
 from rag import generate_answer
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
+MAX_CHAT_MESSAGES = 40
 
 
 def _is_probably_streamlit_cloud() -> bool:
@@ -81,6 +82,32 @@ def finalize_progress(progress_bar, message: str) -> None:
         progress_bar.empty()
 
 
+def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
+    """Create a compact serializable source payload per assistant answer."""
+    payload = []
+    for chunk in retrieved_docs:
+        preview = chunk.page_content[:220] + "..." if len(chunk.page_content) > 220 else chunk.page_content
+        score = chunk.metadata.get("score")
+        payload.append(
+            {
+                "page": chunk.metadata.get("page", "N/A"),
+                "score": round(score, 3) if isinstance(score, (float, int)) else "N/A",
+                "preview": preview,
+            }
+        )
+    return payload
+
+
+def _append_chat_message(role: str, content: str, sources: list[dict] | None = None) -> None:
+    """Append a chat message and prune old history."""
+    message = {"role": role, "content": content}
+    if sources:
+        message["sources"] = sources
+    st.session_state.messages.append(message)
+    if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
+        st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
+
+
 # Session state init
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -106,9 +133,13 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "developer_mode" not in st.session_state:
     st.session_state.developer_mode = _presentation_mode() == "developer"
+if "allow_mode_toggle" not in st.session_state:
+    # Keep toggle visibility stable during a session to avoid disappearing controls.
+    st.session_state.allow_mode_toggle = (
+        (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
+    )
 
-allow_mode_toggle = (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
-if allow_mode_toggle:
+if st.session_state.allow_mode_toggle:
     st.session_state.developer_mode = st.sidebar.toggle(
         "Developer mode (show retrieval debug)",
         value=st.session_state.developer_mode,
@@ -127,7 +158,8 @@ st.markdown("RAG-powered Document AI chatbot – coming soon!")
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"], key=uploader_key)
 
-if st.button("🗑️ Clear current document", type="primary"):
+controls_col1, controls_col2 = st.columns(2)
+if controls_col1.button("🗑️ Clear current document", type="primary"):
     st.session_state.vector_store = None
     st.session_state.chunks = None
     st.session_state.current_file = None
@@ -140,6 +172,14 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.messages = []
     st.session_state.uploader_key_version += 1
     st.success("Document cleared!")
+    st.rerun()
+if controls_col2.button("💬 Clear chat only"):
+    st.session_state.last_query = None
+    st.session_state.last_retrieved_docs = []
+    st.session_state.last_retrieval_mode = None
+    st.session_state.last_answer = None
+    st.session_state.messages = []
+    st.success("Chat cleared. Indexed document remains available.")
     st.rerun()
 
 extracted_text = ""
@@ -283,12 +323,22 @@ if uploaded_file is not None:
             tmp_path.unlink(missing_ok=True)
 
 # Chat history UI (persists across reruns)
-for message in st.session_state.messages:
+for idx, message in enumerate(st.session_state.messages, start=1):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if message["role"] == "assistant" and message.get("sources"):
+            with st.expander(f"Sources used (turn {idx})", expanded=False):
+                for source_idx, source in enumerate(message["sources"], start=1):
+                    st.markdown(
+                        f"**Source {source_idx}** (score: {source['score']}) - page {source['page']}"
+                    )
+                    st.code(source["preview"], language="text")
+                    st.markdown("---")
 
 if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
+elif st.session_state.vector_store is None:
+    st.caption("Upload and process a document to enable chat.")
 
 query = st.chat_input(
     "Ask a question about the document...",
@@ -298,7 +348,7 @@ query = st.chat_input(
 if query and st.session_state.vector_store:
     with st.chat_message("user"):
         st.markdown(query)
-    st.session_state.messages.append({"role": "user", "content": query})
+    _append_chat_message("user", query)
 
     with st.spinner("Searching FAISS index with early-page preference..."):
         # Retrieve candidates with scores, then apply page filter in Python for compatibility.
@@ -348,29 +398,18 @@ if query and st.session_state.vector_store:
         st.session_state.last_answer
         or "I could not generate an answer at this time. Please try again."
     )
+    source_payload = _build_sources_payload(retrieved_docs)
     with st.chat_message("assistant"):
         st.markdown(assistant_message)
-    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
-
-if st.session_state.last_answer:
-    st.subheader("Generated Answer (Milestone 4 skeleton)")
-    st.write(st.session_state.last_answer)
-    retrieved_chunks = st.session_state.last_retrieved_docs
-    if retrieved_chunks:
-        with st.expander("📚 Sources used (click to view)", expanded=False):
-            for i, chunk in enumerate(retrieved_chunks, 1):
-                preview = (
-                    chunk.page_content[:120] + "..."
-                    if len(chunk.page_content) > 120
-                    else chunk.page_content
-                )
-                score = chunk.metadata.get("score")
-                score_label = round(score, 3) if isinstance(score, (float, int)) else "N/A"
-                page = chunk.metadata.get("page", "N/A")
-
-                st.markdown(f"**Source {i}** (score: {score_label}) - page {page}")
-                st.code(preview, language="text")
-                st.markdown("---")
+        if source_payload:
+            with st.expander("Sources used", expanded=False):
+                for source_idx, source in enumerate(source_payload, start=1):
+                    st.markdown(
+                        f"**Source {source_idx}** (score: {source['score']}) - page {source['page']}"
+                    )
+                    st.code(source["preview"], language="text")
+                    st.markdown("---")
+    _append_chat_message("assistant", assistant_message, sources=source_payload)
 
 if st.session_state.last_retrieved_docs and st.session_state.developer_mode:
     st.subheader("Top Relevant Chunks (Developer debug view)")
