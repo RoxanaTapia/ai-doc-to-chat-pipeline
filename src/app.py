@@ -5,7 +5,6 @@ import yaml
 import time
 import hashlib
 import os
-import math
 from pathlib import Path
 
 # LangChain imports for Milestone 3
@@ -87,11 +86,7 @@ def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     payload = []
     for chunk in retrieved_docs:
-        preview = (
-            chunk.page_content[:100] + "..."
-            if len(chunk.page_content) > 100
-            else chunk.page_content
-        )
+        preview = chunk.page_content[:100]
         similarity = chunk.metadata.get("similarity")
         payload.append(
             {
@@ -103,36 +98,38 @@ def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
     return payload
 
 
-def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
-    """Return cosine similarity in [-1, 1]."""
-    if not vec_a or not vec_b:
-        return 0.0
-    dot = sum(a * b for a, b in zip(vec_a, vec_b))
-    norm_a = math.sqrt(sum(a * a for a in vec_a))
-    norm_b = math.sqrt(sum(b * b for b in vec_b))
-    if norm_a == 0.0 or norm_b == 0.0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
-def _assign_similarity_scores(query: str, docs: list[Document]) -> None:
+def _distance_to_ui_similarity(distance: float) -> float:
     """
-    Compute query-vs-document similarity for displayed citations.
-    Uses embedding-space cosine similarity mapped to [0, 1] for UI clarity.
+    Convert vector distance to a bounded [0,1] similarity for UI display.
+    Lower distance -> higher similarity.
+    """
+    return 1.0 / (1.0 + max(distance, 0.0))
+
+
+def _assign_similarity_scores_for_fallback(query: str, docs: list[Document]) -> None:
+    """
+    Ensure fallback-retrieved docs have numeric similarity for citation display.
+    Uses embedding model query-doc pair scoring for docs lacking a score.
     """
     if not docs:
         return
     try:
         embeddings = get_embeddings(EMBEDDING_MODEL)
-        query_vec = embeddings.embed_query(query)
+        scores = embeddings.embed_query(query)
+        # Fallback similarity from model-space relation to keep score numeric.
+        query_norm = sum(v * v for v in scores) ** 0.5
         doc_vecs = embeddings.embed_documents([doc.page_content for doc in docs])
         for doc, doc_vec in zip(docs, doc_vecs):
-            cosine = _cosine_similarity(query_vec, doc_vec)
-            ui_similarity = max(0.0, min(1.0, (cosine + 1.0) / 2.0))
-            doc.metadata["similarity"] = ui_similarity
+            doc_norm = sum(v * v for v in doc_vec) ** 0.5
+            if query_norm == 0.0 or doc_norm == 0.0:
+                doc.metadata["similarity"] = 0.0
+                continue
+            dot = sum(a * b for a, b in zip(scores, doc_vec))
+            cosine = dot / (query_norm * doc_norm)
+            doc.metadata["similarity"] = max(0.0, min(1.0, (cosine + 1.0) / 2.0))
     except Exception:
         for doc in docs:
-            doc.metadata.setdefault("similarity", "N/A")
+            doc.metadata.setdefault("similarity", 0.0)
 
 
 def _append_chat_message(role: str, content: str, sources: list[dict] | None = None) -> None:
@@ -360,11 +357,13 @@ if uploaded_file is not None:
             tmp_path.unlink(missing_ok=True)
 
 # Chat history UI (persists across reruns)
-for idx, message in enumerate(st.session_state.messages, start=1):
+assistant_turn_count = 0
+for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message["role"] == "assistant" and message.get("sources"):
-            turn_number = (idx + 1) // 2
+            assistant_turn_count += 1
+            turn_number = assistant_turn_count
             with st.expander(f"Sources (turn {turn_number})", expanded=False):
                 for source_idx, source in enumerate(message["sources"], start=1):
                     st.markdown(
@@ -395,8 +394,9 @@ if query and st.session_state.vector_store:
             k=FETCH_K,
         )
         early_page_docs = []
-        for doc, _score in candidate_results:
+        for doc, raw_distance in candidate_results:
             page = doc.metadata.get("page")
+            doc.metadata["similarity"] = _distance_to_ui_similarity(float(raw_distance))
             if isinstance(page, int) and page <= EARLY_PAGE_MAX:
                 early_page_docs.append(doc)
 
@@ -416,7 +416,7 @@ if query and st.session_state.vector_store:
                 f"No matches found in pages <= {EARLY_PAGE_MAX}. "
                 "Showing best matches from all pages."
             )
-        _assign_similarity_scores(query, retrieved_docs)
+            _assign_similarity_scores_for_fallback(query, retrieved_docs)
 
     st.session_state.last_query = query
     st.session_state.last_retrieved_docs = retrieved_docs
