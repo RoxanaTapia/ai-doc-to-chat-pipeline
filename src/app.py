@@ -5,6 +5,7 @@ import yaml
 import time
 import hashlib
 import os
+import math
 from pathlib import Path
 
 # LangChain imports for Milestone 3
@@ -86,16 +87,52 @@ def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     payload = []
     for chunk in retrieved_docs:
-        preview = chunk.page_content[:220] + "..." if len(chunk.page_content) > 220 else chunk.page_content
-        score = chunk.metadata.get("score")
+        preview = (
+            chunk.page_content[:100] + "..."
+            if len(chunk.page_content) > 100
+            else chunk.page_content
+        )
+        similarity = chunk.metadata.get("similarity")
         payload.append(
             {
                 "page": chunk.metadata.get("page", "N/A"),
-                "score": round(score, 3) if isinstance(score, (float, int)) else "N/A",
+                "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
                 "preview": preview,
             }
         )
     return payload
+
+
+def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
+    """Return cosine similarity in [-1, 1]."""
+    if not vec_a or not vec_b:
+        return 0.0
+    dot = sum(a * b for a, b in zip(vec_a, vec_b))
+    norm_a = math.sqrt(sum(a * a for a in vec_a))
+    norm_b = math.sqrt(sum(b * b for b in vec_b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _assign_similarity_scores(query: str, docs: list[Document]) -> None:
+    """
+    Compute query-vs-document similarity for displayed citations.
+    Uses embedding-space cosine similarity mapped to [0, 1] for UI clarity.
+    """
+    if not docs:
+        return
+    try:
+        embeddings = get_embeddings(EMBEDDING_MODEL)
+        query_vec = embeddings.embed_query(query)
+        doc_vecs = embeddings.embed_documents([doc.page_content for doc in docs])
+        for doc, doc_vec in zip(docs, doc_vecs):
+            cosine = _cosine_similarity(query_vec, doc_vec)
+            ui_similarity = max(0.0, min(1.0, (cosine + 1.0) / 2.0))
+            doc.metadata["similarity"] = ui_similarity
+    except Exception:
+        for doc in docs:
+            doc.metadata.setdefault("similarity", "N/A")
 
 
 def _append_chat_message(role: str, content: str, sources: list[dict] | None = None) -> None:
@@ -327,10 +364,11 @@ for idx, message in enumerate(st.session_state.messages, start=1):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message["role"] == "assistant" and message.get("sources"):
-            with st.expander(f"Sources used (turn {idx})", expanded=False):
+            turn_number = (idx + 1) // 2
+            with st.expander(f"Sources (turn {turn_number})", expanded=False):
                 for source_idx, source in enumerate(message["sources"], start=1):
                     st.markdown(
-                        f"**Source {source_idx}** (score: {source['score']}) - page {source['page']}"
+                        f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
                     )
                     st.code(source["preview"], language="text")
                     st.markdown("---")
@@ -357,8 +395,7 @@ if query and st.session_state.vector_store:
             k=FETCH_K,
         )
         early_page_docs = []
-        for doc, score in candidate_results:
-            doc.metadata["score"] = float(score)
+        for doc, _score in candidate_results:
             page = doc.metadata.get("page")
             if isinstance(page, int) and page <= EARLY_PAGE_MAX:
                 early_page_docs.append(doc)
@@ -379,6 +416,7 @@ if query and st.session_state.vector_store:
                 f"No matches found in pages <= {EARLY_PAGE_MAX}. "
                 "Showing best matches from all pages."
             )
+        _assign_similarity_scores(query, retrieved_docs)
 
     st.session_state.last_query = query
     st.session_state.last_retrieved_docs = retrieved_docs
@@ -402,10 +440,10 @@ if query and st.session_state.vector_store:
     with st.chat_message("assistant"):
         st.markdown(assistant_message)
         if source_payload:
-            with st.expander("Sources used", expanded=False):
+            with st.expander("Sources", expanded=False):
                 for source_idx, source in enumerate(source_payload, start=1):
                     st.markdown(
-                        f"**Source {source_idx}** (score: {source['score']}) - page {source['page']}"
+                        f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
                     )
                     st.code(source["preview"], language="text")
                     st.markdown("---")
