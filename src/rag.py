@@ -45,14 +45,14 @@ def generate_answer(query: str, context: str) -> str:
         "(This is only a placeholder; real generation will be enabled soon.)"
     )
 
-    # Treat both inputs as untrusted data (prompt-injection can come from either).
-    safe_query = _normalize_untrusted_text(query, max_chars=2000)
-    safe_context = _normalize_untrusted_text(context, max_chars=12000)
-    template = load_rag_prompt()
-    prompt = PromptTemplate(template=template, input_variables=["context", "question"])
-    formatted_prompt = prompt.format(context=safe_context, question=safe_query)
-
     try:
+        # Treat both inputs as untrusted data (prompt-injection can come from either).
+        safe_query = _normalize_untrusted_text(query, max_chars=2000)
+        safe_context = _normalize_untrusted_text(context, max_chars=12000)
+        template = load_rag_prompt()
+        prompt = PromptTemplate(template=template, input_variables=["context", "question"])
+        formatted_prompt = prompt.format(context=safe_context, question=safe_query)
+
         # phi3:mini is a practical default for older Intel Macs.
         llm = ChatOllama(
             model="phi3:mini",
@@ -64,5 +64,5 @@ def generate_answer(query: str, context: str) -> str:
         return response.content.strip() if hasattr(response, "content") else str(response).strip()
     except Exception as exc:
         # Debug log in terminal while keeping UI response stable.
-        print(f"Ollama temporary error: {exc}")
+        print(f"RAG generation temporary error: {exc}")
         return default_answer

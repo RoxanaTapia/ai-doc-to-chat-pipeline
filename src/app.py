@@ -36,10 +36,11 @@ def _presentation_mode() -> str:
     return "client" if _is_probably_streamlit_cloud() else "developer"
 
 
-st.sidebar.info(
-    "This is a **public demo** hosted on Streamlit Cloud — documents are temporarily uploaded here. "
-    "For sensitive files, run the app **locally** (clone the repo & streamlit run src/app.py)."
-)
+if _is_probably_streamlit_cloud():
+    st.sidebar.info(
+        "This is a **public demo** hosted on Streamlit Cloud — documents are temporarily uploaded here. "
+        "For sensitive files, run the app **locally** (clone the repo & streamlit run src/app.py)."
+    )
 
 # Load configuration
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -101,6 +102,8 @@ if "last_retrieval_mode" not in st.session_state:
     st.session_state.last_retrieval_mode = None
 if "last_answer" not in st.session_state:
     st.session_state.last_answer = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 if "developer_mode" not in st.session_state:
     st.session_state.developer_mode = _presentation_mode() == "developer"
 
@@ -134,6 +137,7 @@ if st.button("🗑️ Clear current document", type="primary"):
     st.session_state.last_retrieved_docs = []
     st.session_state.last_retrieval_mode = None
     st.session_state.last_answer = None
+    st.session_state.messages = []
     st.session_state.uploader_key_version += 1
     st.success("Document cleared!")
     st.rerun()
@@ -203,6 +207,11 @@ if uploaded_file is not None:
                 st.session_state.last_processed_name = uploaded_file.name
                 st.session_state.last_processed_hash = uploaded_hash
                 st.session_state.current_file = uploaded_file.name
+                st.session_state.last_query = None
+                st.session_state.last_retrieved_docs = []
+                st.session_state.last_retrieval_mode = None
+                st.session_state.last_answer = None
+                st.session_state.messages = []
                 finalize_progress(progress_bar, "No index created (no extractable text).")
                 st.warning(
                     "No extractable text chunks were found in this document, "
@@ -255,6 +264,7 @@ if uploaded_file is not None:
                 st.session_state.last_retrieved_docs = []
                 st.session_state.last_retrieval_mode = None
                 st.session_state.last_answer = None
+                st.session_state.messages = []
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
@@ -272,18 +282,24 @@ if uploaded_file is not None:
         if tmp_path and tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
 
-# Query interface
-query = ""
-submitted = False
-if st.session_state.vector_store is not None:
-    with st.form("query_form", clear_on_submit=True):
-        query = st.text_input("Ask a question about the document:")
-        submitted = st.form_submit_button("Search")
+# Chat history UI (persists across reruns)
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 if st.session_state.current_file:
     st.caption(f"Currently indexed: **{st.session_state.current_file}**")
 
-if submitted and query and st.session_state.vector_store:
+query = st.chat_input(
+    "Ask a question about the document...",
+    disabled=st.session_state.vector_store is None,
+)
+
+if query and st.session_state.vector_store:
+    with st.chat_message("user"):
+        st.markdown(query)
+    st.session_state.messages.append({"role": "user", "content": query})
+
     with st.spinner("Searching FAISS index with early-page preference..."):
         # Retrieve candidates with scores, then apply page filter in Python for compatibility.
         candidate_results = st.session_state.vector_store.similarity_search_with_score(
@@ -328,8 +344,13 @@ if submitted and query and st.session_state.vector_store:
         )
         st.caption(f"Generator error: {e}")
 
-if st.session_state.last_query:
-    st.markdown(f"**Last question asked:** {st.session_state.last_query}")
+    assistant_message = (
+        st.session_state.last_answer
+        or "I could not generate an answer at this time. Please try again."
+    )
+    with st.chat_message("assistant"):
+        st.markdown(assistant_message)
+    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
 
 if st.session_state.last_answer:
     st.subheader("Generated Answer (Milestone 4 skeleton)")
@@ -373,8 +394,3 @@ if st.session_state.last_retrieved_docs and st.session_state.developer_mode:
             f"starts at character {doc.metadata.get('start_index', 'N/A')}"
         )
         st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
-
-elif submitted and not query:
-    st.warning("Type a question and press Enter (or Search).")
-elif submitted and not st.session_state.vector_store:
-    st.warning("Upload & process a document first to enable search.")
