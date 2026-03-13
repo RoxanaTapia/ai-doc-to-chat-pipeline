@@ -5,6 +5,7 @@ import yaml
 import time
 import hashlib
 import os
+import io
 from pathlib import Path
 
 # LangChain imports for Milestone 3
@@ -169,6 +170,33 @@ def _stream_text_chunks(text: str, chunk_size: int = 40):
         yield safe_text[i:i + chunk_size]
 
 
+def _is_likely_scanned_page(text: str) -> bool:
+    """Heuristic: very short extracted text suggests an image-only page."""
+    return len((text or "").strip()) < 50
+
+
+def _ocr_page_text(page) -> tuple[str, str | None]:
+    """
+    Try OCR on a page image.
+    Returns (ocr_text, error_message). Error message is None on success.
+    """
+    try:
+        import pytesseract
+        from PIL import Image
+    except Exception:
+        return "", "OCR dependencies not installed (requires pytesseract + pillow + system tesseract)."
+
+    try:
+        pix = page.get_pixmap(dpi=300)
+        image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+        # Minimal preprocessing: simple thresholding helps many scanned contracts.
+        image = image.point(lambda x: 0 if x < 180 else 255, mode="1")
+        ocr_text = pytesseract.image_to_string(image, lang="eng", config="--psm 6").strip()
+        return ocr_text, None
+    except Exception as exc:
+        return "", f"OCR failed on page: {exc}"
+
+
 # Session state init
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -212,6 +240,14 @@ if st.session_state.allow_mode_toggle:
 st.sidebar.caption(
     f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
 )
+if "enable_ocr" not in st.session_state:
+    st.session_state.enable_ocr = True
+
+st.session_state.enable_ocr = st.sidebar.toggle(
+    "Enable OCR for scanned pages",
+    value=st.session_state.enable_ocr,
+    help="Attempts OCR only on pages with little/no extractable text.",
+)
 
 st.title("Upload → Extract → Chat! 🚀")
 st.markdown("RAG-powered Document AI chatbot – coming soon!")
@@ -254,6 +290,9 @@ if uploaded_file is not None:
         progress_bar = st.progress(5, text="Preparing uploaded file...")
         file_bytes = uploaded_file.getvalue()
         uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
+        ocr_pages_used = 0
+        scanned_pages_detected = 0
+        ocr_warning: str | None = None
 
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
@@ -267,10 +306,19 @@ if uploaded_file is not None:
         extracted_text = ""
         page_docs = []
         for page_num, page in enumerate(doc, start=1):
-            page_text = page.get_text("text")
+            page_text = page.get_text("text") or ""
+            final_page_text = page_text
+            if st.session_state.enable_ocr and _is_likely_scanned_page(page_text):
+                scanned_pages_detected += 1
+                ocr_text, ocr_error = _ocr_page_text(page)
+                if ocr_error and ocr_warning is None:
+                    ocr_warning = ocr_error
+                if ocr_text:
+                    final_page_text = ocr_text
+                    ocr_pages_used += 1
             extracted_text += f"\n--- Page {page_num} ---\n"
-            extracted_text += page_text + "\n"
-            page_docs.append(Document(page_content=page_text, metadata={"page": page_num}))
+            extracted_text += final_page_text + "\n"
+            page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
         doc.close()
         progress_bar.progress(45, text="Text extracted. Preparing chunking...")
 
@@ -279,6 +327,12 @@ if uploaded_file is not None:
         st.caption(
             f"Pages detected: {len(page_docs)} | Characters extracted: {extracted_char_count:,}"
         )
+        if st.session_state.enable_ocr and ocr_pages_used > 0:
+            st.warning(
+                f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
+            )
+        elif st.session_state.enable_ocr and scanned_pages_detected > 0 and ocr_warning:
+            st.warning(ocr_warning)
         if st.session_state.developer_mode and extracted_char_count > 0:
             with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
                 st.text_area(
