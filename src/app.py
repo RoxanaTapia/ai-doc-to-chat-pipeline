@@ -162,6 +162,13 @@ def _render_ollama_recovery_help(reason: str) -> None:
         st.caption("If `phi3:mini` appears in `ollama list`, ask again in chat.")
 
 
+def _stream_text_chunks(text: str, chunk_size: int = 40):
+    """Yield text in small chunks for progressive chat rendering."""
+    safe_text = text or ""
+    for i in range(0, len(safe_text), chunk_size):
+        yield safe_text[i:i + chunk_size]
+
+
 # Session state init
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -469,7 +476,7 @@ if query and st.session_state.vector_store:
     )
     source_payload = _build_sources_payload(retrieved_docs)
     with st.chat_message("assistant"):
-        st.markdown(assistant_message)
+        rendered_answer = st.write_stream(_stream_text_chunks(assistant_message))
         if source_payload:
             with st.expander("Sources", expanded=False):
                 for source_idx, source in enumerate(source_payload, start=1):
@@ -478,7 +485,10 @@ if query and st.session_state.vector_store:
                     )
                     st.code(source["preview"], language="text")
                     st.markdown("---")
-    _append_chat_message("assistant", assistant_message, sources=source_payload)
+    final_assistant_text = (
+        rendered_answer if isinstance(rendered_answer, str) else assistant_message
+    )
+    _append_chat_message("assistant", final_assistant_text, sources=source_payload)
 
 if st.session_state.last_retrieved_docs and st.session_state.developer_mode:
     st.subheader("Top Relevant Chunks (Developer debug view)")
