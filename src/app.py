@@ -197,6 +197,41 @@ def _ocr_page_text(page) -> tuple[str, str | None]:
         return "", f"OCR failed on page: {exc}"
 
 
+def _render_ocr_status(
+    *,
+    enable_ocr: bool,
+    scanned_pages_detected: int,
+    ocr_pages_attempted: int,
+    ocr_pages_used: int,
+    ocr_warning: str | None,
+    developer_mode: bool,
+) -> None:
+    """Render OCR diagnostics and user-facing warnings after extraction."""
+    if not enable_ocr:
+        return
+
+    if scanned_pages_detected > 0 and developer_mode:
+        ocr_missed_pages = max(0, ocr_pages_attempted - ocr_pages_used)
+        st.caption(
+            "OCR diagnostics: "
+            f"scanned pages detected={scanned_pages_detected}, "
+            f"OCR applied={ocr_pages_used}, "
+            f"OCR unresolved={ocr_missed_pages}"
+        )
+
+    if ocr_pages_used > 0:
+        st.warning(
+            f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
+        )
+    elif scanned_pages_detected > 0 and ocr_warning:
+        st.warning(ocr_warning)
+        if developer_mode:
+            st.caption(
+                "Install OCR runtime first (`brew install tesseract`) and ensure "
+                "`pytesseract` + `pillow` are available in the active environment."
+            )
+
+
 # Session state init
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -329,25 +364,14 @@ if uploaded_file is not None:
         st.caption(
             f"Pages detected: {len(page_docs)} | Characters extracted: {extracted_char_count:,}"
         )
-        if st.session_state.enable_ocr and scanned_pages_detected > 0:
-            ocr_missed_pages = max(0, ocr_pages_attempted - ocr_pages_used)
-            st.caption(
-                "OCR diagnostics: "
-                f"scanned pages detected={scanned_pages_detected}, "
-                f"OCR applied={ocr_pages_used}, "
-                f"OCR unresolved={ocr_missed_pages}"
-            )
-        if st.session_state.enable_ocr and ocr_pages_used > 0:
-            st.warning(
-                f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
-            )
-        elif st.session_state.enable_ocr and scanned_pages_detected > 0 and ocr_warning:
-            st.warning(ocr_warning)
-            if st.session_state.developer_mode:
-                st.caption(
-                    "Install OCR runtime first (`brew install tesseract`) and ensure "
-                    "`pytesseract` + `pillow` are available in the active environment."
-                )
+        _render_ocr_status(
+            enable_ocr=st.session_state.enable_ocr,
+            scanned_pages_detected=scanned_pages_detected,
+            ocr_pages_attempted=ocr_pages_attempted,
+            ocr_pages_used=ocr_pages_used,
+            ocr_warning=ocr_warning,
+            developer_mode=st.session_state.developer_mode,
+        )
         if st.session_state.developer_mode and extracted_char_count > 0:
             with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
                 st.text_area(
