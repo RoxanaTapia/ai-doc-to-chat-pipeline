@@ -142,6 +142,26 @@ def _append_chat_message(role: str, content: str, sources: list[dict] | None = N
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
 
 
+def _looks_like_temp_generator_fallback(answer: str) -> bool:
+    """Detect the temporary placeholder returned by generate_answer fallback."""
+    marker = "Temporary answer (Ollama still loading or running slowly)"
+    return marker in (answer or "")
+
+
+def _render_ollama_recovery_help(reason: str) -> None:
+    """Show concise, actionable local recovery steps for generator issues."""
+    st.warning(reason)
+    with st.expander("How to fix local generation", expanded=False):
+        st.markdown("Run these commands in a terminal:")
+        st.code(
+            "ollama serve\n"
+            "ollama pull phi3:mini\n"
+            "ollama list",
+            language="bash",
+        )
+        st.caption("If `phi3:mini` appears in `ollama list`, ask again in chat.")
+
+
 # Session state init
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
@@ -424,13 +444,24 @@ if query and st.session_state.vector_store:
     try:
         with st.spinner("Generating answer with local Ollama model..."):
             st.session_state.last_answer = generate_answer(query=query, context=context)
+            if _looks_like_temp_generator_fallback(st.session_state.last_answer):
+                _render_ollama_recovery_help(
+                    "Using temporary fallback answer because local Ollama generation is not ready yet."
+                )
     except Exception as e:
         st.session_state.last_answer = None
-        st.warning(
-            "Could not generate an Ollama answer yet. "
-            "Make sure Ollama is running and model `phi3:mini` is available."
-        )
-        st.caption(f"Generator error: {e}")
+        error_text = str(e).lower()
+        if "connection" in error_text or "refused" in error_text:
+            reason = "Could not connect to Ollama. Start the Ollama server first."
+        elif "not found" in error_text or "model" in error_text:
+            reason = "The model `phi3:mini` is unavailable locally. Pull it, then retry."
+        elif "timeout" in error_text or "timed out" in error_text:
+            reason = "Local model timed out. Retry with a shorter question or smaller context."
+        else:
+            reason = "Could not generate an Ollama answer right now."
+        _render_ollama_recovery_help(reason)
+        if st.session_state.developer_mode:
+            st.caption(f"Generator error details: {e}")
 
     assistant_message = (
         st.session_state.last_answer
