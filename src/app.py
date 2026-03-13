@@ -292,6 +292,7 @@ if uploaded_file is not None:
         uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
         ocr_pages_used = 0
         scanned_pages_detected = 0
+        ocr_pages_attempted = 0
         ocr_warning: str | None = None
 
         # Save uploaded file to temporary location
@@ -310,6 +311,7 @@ if uploaded_file is not None:
             final_page_text = page_text
             if st.session_state.enable_ocr and _is_likely_scanned_page(page_text):
                 scanned_pages_detected += 1
+                ocr_pages_attempted += 1
                 ocr_text, ocr_error = _ocr_page_text(page)
                 if ocr_error and ocr_warning is None:
                     ocr_warning = ocr_error
@@ -327,12 +329,25 @@ if uploaded_file is not None:
         st.caption(
             f"Pages detected: {len(page_docs)} | Characters extracted: {extracted_char_count:,}"
         )
+        if st.session_state.enable_ocr and scanned_pages_detected > 0:
+            ocr_missed_pages = max(0, ocr_pages_attempted - ocr_pages_used)
+            st.caption(
+                "OCR diagnostics: "
+                f"scanned pages detected={scanned_pages_detected}, "
+                f"OCR applied={ocr_pages_used}, "
+                f"OCR unresolved={ocr_missed_pages}"
+            )
         if st.session_state.enable_ocr and ocr_pages_used > 0:
             st.warning(
                 f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
             )
         elif st.session_state.enable_ocr and scanned_pages_detected > 0 and ocr_warning:
             st.warning(ocr_warning)
+            if st.session_state.developer_mode:
+                st.caption(
+                    "Install OCR runtime first (`brew install tesseract`) and ensure "
+                    "`pytesseract` + `pillow` are available in the active environment."
+                )
         if st.session_state.developer_mode and extracted_char_count > 0:
             with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
                 st.text_area(

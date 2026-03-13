@@ -171,6 +171,32 @@ ollama run phi3:mini      # optional interactive check
 
 If you want to use a different model, update `ChatOllama(model="...")` in `src/rag.py`.
 
+#### OCR fallback for scanned PDFs
+
+The app can automatically attempt OCR on pages with little/no native text:
+
+- Sidebar toggle: **Enable OCR for scanned pages** (ON by default).
+- OCR runs only on likely scanned pages (conditional fallback, not all pages).
+- After extraction, the UI shows OCR diagnostics:
+  - scanned pages detected
+  - OCR applied
+  - OCR unresolved
+
+If OCR does not run locally, verify:
+
+```bash
+# macOS
+brew install tesseract
+
+# Python deps in your active venv
+pip install -r requirements.txt
+```
+
+Notes:
+
+- `pytesseract` is a Python wrapper; it still needs the system `tesseract` binary.
+- OCR quality depends on scan quality; low-resolution pages may remain partially unresolved.
+
 #### macOS Monterey / Intel Mac notes (Mid-2015 MacBook Pro or similar)
 - Use Python 3.12 (via `brew install python@3.12` or python.org installer).
 - If modern dependencies fail to install, use the legacy file:  
