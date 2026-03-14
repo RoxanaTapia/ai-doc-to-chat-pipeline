@@ -13,7 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from rag import generate_answer
+from rag import generate_answer, load_generation_config
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 MAX_CHAT_MESSAGES = 40
@@ -128,24 +128,38 @@ def _append_chat_message(role: str, content: str, sources: list[dict] | None = N
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
 
 
-def _looks_like_temp_generator_fallback(answer: str) -> bool:
-    """Detect fallback text returned when Ollama is unavailable."""
-    marker = "Ollama not ready yet."
-    return marker in (answer or "")
-
-
 def _render_ollama_recovery_help(reason: str) -> None:
     """Show concise, actionable local recovery steps for generator issues."""
+    model_name = load_generation_config().get("model", "phi3:mini")
+    preferred_models = [model_name, "phi3.5:mini", "phi3:mini"]
+    # Keep order stable while removing duplicates.
+    recommended_models = list(dict.fromkeys(preferred_models))
+    pull_commands = "\n".join(f"ollama pull {name}" for name in recommended_models)
+
     st.warning(reason)
     with st.expander("How to fix local generation", expanded=False):
         st.markdown("Run these commands in a terminal:")
         st.code(
             "ollama serve\n"
-            "ollama pull phi3:mini\n"
+            f"{pull_commands}\n"
             "ollama list",
             language="bash",
         )
-        st.caption("If `phi3:mini` appears in `ollama list`, ask again in chat.")
+        st.caption(
+            "Preferred order for CPU smoke tests: "
+            f"`{recommended_models[0]}` -> `phi3.5:mini` -> `phi3:mini`."
+        )
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable with a fallback default."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized == "":
+        return default
+    return normalized in {"1", "true", "yes", "on"}
 
 
 def _stream_text_chunks(text: str, chunk_size: int = 40):
@@ -269,7 +283,7 @@ if "enable_ocr" not in st.session_state:
 if "use_page_separators" not in st.session_state:
     st.session_state.use_page_separators = False
 if "dummy_generator_only" not in st.session_state:
-    st.session_state.dummy_generator_only = True
+    st.session_state.dummy_generator_only = _env_bool("USE_DUMMY_GENERATOR", True)
 
 st.session_state.enable_ocr = st.sidebar.toggle(
     "Enable OCR for scanned pages",
@@ -519,14 +533,33 @@ if query and st.session_state.vector_store:
     _append_chat_message("user", query)
 
     with st.spinner("Searching FAISS index..."):
-        raw_results = st.session_state.vector_store.similarity_search_with_score(
+        candidate_k = max(TOP_K, FETCH_K)
+        candidate_results = st.session_state.vector_store.similarity_search_with_score(
             query,
-            k=TOP_K,
+            k=candidate_k,
         )
+
+        # Prefer chunks from early pages when available.
+        early_page_results = []
+        for doc, score in candidate_results:
+            page = doc.metadata.get("page")
+            if isinstance(page, int) and page <= EARLY_PAGE_MAX:
+                early_page_results.append((doc, score))
+
+        if early_page_results:
+            raw_results = early_page_results[:TOP_K]
+            st.session_state.last_retrieval_mode = "early_page_filtered"
+        else:
+            raw_results = candidate_results[:TOP_K]
+            st.session_state.last_retrieval_mode = "global_similarity_fallback"
+            st.info(
+                f"No matches found in pages <= {EARLY_PAGE_MAX}. "
+                "Showing best matches from all pages."
+            )
+
         for doc, raw_distance in raw_results:
             doc.metadata["similarity"] = _distance_to_ui_similarity(float(raw_distance))
         retrieved_docs = [doc for doc, _score in raw_results]
-        st.session_state.last_retrieval_mode = "top_k_with_scores"
 
     st.session_state.last_query = query
     st.session_state.last_raw_results = raw_results
@@ -540,9 +573,10 @@ if query and st.session_state.vector_store:
         st.code(context, language="text")
         st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
     with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
-        for i, (doc, score) in enumerate(raw_results, start=1):
+        for i, (doc, _raw_distance) in enumerate(raw_results, start=1):
+            similarity = doc.metadata.get("similarity")
             st.markdown(
-                f"**Chunk {i}** (score: {float(score):.3f})  \n"
+                f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
                 f"Page: {doc.metadata.get('page', '?')}"
             )
             st.code(doc.page_content, language="text")
@@ -554,20 +588,17 @@ if query and st.session_state.vector_store:
                 query=query,
                 dummy_mode=st.session_state.dummy_generator_only,
             )
-            if (
-                not st.session_state.dummy_generator_only
-                and _looks_like_temp_generator_fallback(st.session_state.last_answer)
-            ):
-                _render_ollama_recovery_help(
-                    "Using temporary fallback answer because local Ollama generation is not ready yet."
-                )
     except Exception as e:
         st.session_state.last_answer = None
+        try:
+            model_name = load_generation_config().get("model", "phi3:mini")
+        except Exception:
+            model_name = "phi3:mini"
         error_text = str(e).lower()
         if "connection" in error_text or "refused" in error_text:
             reason = "Could not connect to Ollama. Start the Ollama server first."
         elif "not found" in error_text or "model" in error_text:
-            reason = "The model `phi3:mini` is unavailable locally. Pull it, then retry."
+            reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
         elif "timeout" in error_text or "timed out" in error_text:
             reason = "Local model timed out. Retry with a shorter question or smaller context."
         else:
@@ -575,23 +606,23 @@ if query and st.session_state.vector_store:
         _render_ollama_recovery_help(reason)
         if st.session_state.developer_mode:
             st.caption(f"Generator error details: {e}")
-
-    assistant_message = (
-        st.session_state.last_answer
-        or "I could not generate an answer at this time. Please try again."
-    )
-    source_payload = _build_sources_payload(retrieved_docs)
-    with st.chat_message("assistant"):
-        rendered_answer = st.write_stream(_stream_text_chunks(assistant_message))
-        if source_payload:
-            with st.expander("Sources", expanded=False):
-                for source_idx, source in enumerate(source_payload, start=1):
-                    st.markdown(
-                        f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
-                    )
-                    st.code(source["preview"], language="text")
-                    st.markdown("---")
-    final_assistant_text = (
-        rendered_answer if isinstance(rendered_answer, str) else assistant_message
-    )
-    _append_chat_message("assistant", final_assistant_text, sources=source_payload)
+    else:
+        assistant_message = (
+            st.session_state.last_answer
+            or "I could not generate an answer at this time. Please try again."
+        )
+        source_payload = _build_sources_payload(retrieved_docs)
+        with st.chat_message("assistant"):
+            rendered_answer = st.write_stream(_stream_text_chunks(assistant_message))
+            if source_payload:
+                with st.expander("Sources", expanded=False):
+                    for source_idx, source in enumerate(source_payload, start=1):
+                        st.markdown(
+                            f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
+                        )
+                        st.code(source["preview"], language="text")
+                        st.markdown("---")
+        final_assistant_text = (
+            rendered_answer if isinstance(rendered_answer, str) else assistant_message
+        )
+        _append_chat_message("assistant", final_assistant_text, sources=source_payload)

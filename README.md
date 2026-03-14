@@ -157,8 +157,7 @@ Deploy recommendation:
 This app currently calls a local Ollama model in `src/rag.py`:
 
 - Expected model: `phi3:mini`
-- If Ollama is not running (or the model is missing), retrieval still works but answer generation will fail.
-- In that case, the UI shows: "Could not generate an Ollama answer yet..."
+- If Ollama is not running (or the model is missing), retrieval still works but generation shows a recovery warning with commands to fix local setup.
 - Keep `ollama serve` running while using Streamlit.
 - `ollama run phi3:mini` is optional and only for manual terminal testing.
 
@@ -169,7 +168,54 @@ ollama list               # confirms phi3:mini is downloaded
 ollama run phi3:mini      # optional interactive check
 ```
 
-If you want to use a different model, update `ChatOllama(model="...")` in `src/rag.py`.
+If you want to use a different model, set `rag.generation.model` in `configs/config.yaml`
+or export `OLLAMA_MODEL` in your environment.
+
+Generation defaults are now configurable in `configs/config.yaml` under:
+
+- `rag.generation.model`
+- `rag.generation.max_new_tokens`
+- `rag.generation.temperature`
+- `rag.generation.top_p`
+- `rag.generation.do_sample`
+- `rag.generation.fallback_to_dummy_on_error`
+- `rag.generation.num_ctx`
+- `rag.generation.timeout_seconds`
+
+Optional environment overrides (local `.env`) are supported:
+
+- `USE_DUMMY_GENERATOR=true|false` (UI default for dummy mode checkbox)
+- `OLLAMA_MODEL`
+- `OLLAMA_MAX_NEW_TOKENS`
+- `OLLAMA_TEMPERATURE`
+- `OLLAMA_TOP_P`
+- `OLLAMA_DO_SAMPLE`
+- `OLLAMA_FALLBACK_TO_DUMMY`
+- `OLLAMA_NUM_CTX`
+- `OLLAMA_TIMEOUT_SECONDS`
+
+#### Next-week Ollama smoke-test plan (hardware arrival)
+
+Recommended first model:
+
+- Start with `phi3.5:mini` if available on your machine (`ollama pull phi3.5:mini`).
+- Keep `phi3:mini` as the fallback baseline if you want conservative compatibility.
+- Alternative for slightly stronger quality (heavier): `llama3.1:8b` in quantized variants.
+
+Suggested execution steps:
+
+1. Keep `USE_DUMMY_GENERATOR=true` until runtime is ready.
+2. Start Ollama and pull the chosen model.
+3. Switch to real generation (`USE_DUMMY_GENERATOR=false` or uncheck the sidebar toggle).
+4. Run 3-5 realistic questions on 1-2 contract PDFs.
+5. Record latency, memory pressure, and grounding quality.
+
+Suggested acceptance targets:
+
+- Context budget: 12k-16k characters for retrieval context.
+- Latency target: under ~8-12 seconds per answer on average CPU laptop.
+- Stability target: no OOM on a 50-page contract with top-k retrieval.
+- Quality target: grounded answers with correct page/chunk citations for at least 3 smoke questions.
 
 #### OCR fallback for scanned PDFs
 

@@ -1,4 +1,8 @@
 rag_prompt:
+  # Optional split templates for future A/B tests.
+  # If both are set and `template` is removed, runtime combines system_template + user_template.
+  system_template: ""
+  user_template: ""
   template: |
     You are a precise and concise legal assistant.
     Answer ONLY using information from the provided context.
