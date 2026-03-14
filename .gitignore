@@ -57,7 +57,9 @@ uploaded/
 # =====================================
 .vscode/
 .idea/
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/*.mdc
 
 # =====================================
 # Testing & linting caches (add later when you write tests)

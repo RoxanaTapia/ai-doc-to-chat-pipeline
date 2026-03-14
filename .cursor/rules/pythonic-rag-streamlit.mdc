@@ -1,0 +1,33 @@
+---
+description: Pythonic conventions for this Streamlit RAG project
+alwaysApply: true
+---
+
+# Pythonic RAG + Streamlit Rule
+
+Prefer simple, testable Python for `src/app.py` and `src/rag.py`.
+
+- Keep functions small and single-purpose; extract helpers instead of long inline blocks.
+- Add type hints to new/edited functions and return values when practical.
+- Handle failures gracefully: show actionable `st.warning`/`st.error` messages, avoid silent `except`.
+- Preserve local-first behavior (no mandatory cloud keys) and keep secrets out of git.
+- Keep retrieval/generation settings configurable in `configs/config.yaml` or env vars.
+- For UI changes, keep client mode clean and put debug controls behind developer toggles.
+- Avoid repeated heavy initialization; use Streamlit caching for models/resources when needed.
+
+## Examples
+
+```python
+# ❌ Avoid broad silent failures
+try:
+    result = run_generation(prompt)
+except Exception:
+    result = "Error"
+
+# ✅ Return useful fallback + reason
+try:
+    result = run_generation(prompt)
+except Exception as exc:
+    st.warning(f"Generation unavailable: {exc}")
+    result = fallback_answer(prompt)
+```
