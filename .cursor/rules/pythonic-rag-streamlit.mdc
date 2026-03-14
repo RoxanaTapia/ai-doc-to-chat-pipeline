@@ -1,33 +1,63 @@
 ---
-description: Pythonic conventions for this Streamlit RAG project
+description: Enforce clean, idiomatic Python + LangChain LCEL + Streamlit best practices for this RAG PDF chat app
 alwaysApply: true
+globs: 
+  - src/**/*.py
+  - app.py
 ---
 
-# Pythonic RAG + Streamlit Rule
+# Pythonic & Production-Ready Style – Always Apply
 
-Prefer simple, testable Python for `src/app.py` and `src/rag.py`.
+You are an expert Python developer building a private, local RAG app for PDF chatting (Streamlit + LangChain + sentence-transformers + FAISS).
 
-- Keep functions small and single-purpose; extract helpers instead of long inline blocks.
-- Add type hints to new/edited functions and return values when practical.
-- Handle failures gracefully: show actionable `st.warning`/`st.error` messages, avoid silent `except`.
-- Preserve local-first behavior (no mandatory cloud keys) and keep secrets out of git.
-- Keep retrieval/generation settings configurable in `configs/config.yaml` or env vars.
-- For UI changes, keep client mode clean and put debug controls behind developer toggles.
-- Avoid repeated heavy initialization; use Streamlit caching for models/resources when needed.
+## Core Philosophy
+- Follow the Zen of Python strictly (import this): Beautiful > ugly, Simple > complex, Readability counts.
+- Write code that feels natural in Python — never Java/C#-style verbosity.
+- Prefer duck typing, idiomatic structures, and built-ins over custom classes unless truly needed.
 
-## Examples
+## Python Idioms – Mandatory
+- Iterate directly: `for chunk in chunks:` NOT `for i in range(len(chunks))`
+- Truthy checks: `if text:` NOT `if len(text) > 0`
+- Dict access: `value = d.get(key, default)` NOT try/except KeyError
+- String building: `''.join(gen)` + generator NOT `s += ...` in loops
+- List/dict comprehensions when clear & readable: `[f(x) for x in xs if cond(x)]`
+- Use `pathlib.Path` over `os.path` for paths
+- Prefer f-strings over .format() or %
+- Add type hints (Python 3.10+) for function signatures when it improves clarity (especially LangChain chains)
+- Keep functions short (< 50 lines ideal); extract helpers early
+- Use context managers: `with tempfile.NamedTemporaryFile(...) as tmp:`
+- Snake_case for variables/functions, PascalCase only for classes
 
-```python
-# ❌ Avoid broad silent failures
-try:
-    result = run_generation(prompt)
-except Exception:
-    result = "Error"
+## LangChain & RAG Specific
+- Prefer **LCEL** (LangChain Expression Language) syntax: `prompt | model | parser`
+- Use composable chains: `chain = retrieval | prompt | llm | output_parser`
+- When possible, use async chains (`async def`, `Runnable`) for future-proofing
+- Embeddings: always use `HuggingFaceEmbeddings` with local models (e.g. "all-MiniLM-L6-v2")
+- Vector store: `FAISS.from_documents(docs, embedding)` or `FAISS.load_local(...)`
+- Retrieval: use `as_retriever(search_kwargs={"k": 6})` or MMR when appropriate
+- Prompt engineering: clear instructions, "Answer using only the following context", no hallucinations allowed
+- Handle large docs gracefully: chunking with overlap, RecursiveCharacterTextSplitter
 
-# ✅ Return useful fallback + reason
-try:
-    result = run_generation(prompt)
-except Exception as exc:
-    st.warning(f"Generation unavailable: {exc}")
-    result = fallback_answer(prompt)
-```
+## Streamlit Best Practices
+- Use `st.session_state` for chat history, config, index persistence
+- Show spinners: `with st.spinner("Processing PDF..."):` 
+- Fragments for partial updates (Streamlit ≥1.42): `@st.fragment` for fast chat feel
+- File handling: `st.file_uploader(accept_multiple_files=False, type=["pdf"])`
+- Error handling: `st.error(...)`, graceful fallbacks, no crashes on bad PDFs
+- Layout: sidebar for config (chunk_size, model, etc.), main area for chat
+- Preview extracted text in `st.expander` or scrollable `st.text_area`
+
+## Production & Security
+- Never hardcode secrets — use `.env` + `python-dotenv` or `st.secrets`
+- Config in YAML: load with `pyyaml` for easy tweaking (chunk_size, overlap, etc.)
+- Temp files: always cleanup with context managers
+- Logging: use `logging` module instead of print() for debug/info
+- Defensive code: check if index exists before query, handle empty docs
+
+When generating or editing code:
+- ALWAYS apply these rules without being reminded.
+- If multiple valid options, choose the most pythonic/simple/readable one.
+- Add brief inline comments ONLY when non-obvious (trust readability).
+- Explain big decisions briefly if asked.
+
+Write elegant, maintainable, production-grade Python — every time.
