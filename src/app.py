@@ -642,7 +642,12 @@ if controls_col1.button("🗑️ Clear current document", type="primary"):
     _reset_document_state(bump_uploader_key=True)
     st.success("Document cleared!")
     st.rerun()
-if controls_col2.button("💬 Clear chat only"):
+has_chat_history = bool(st.session_state.messages)
+if controls_col2.button(
+    "💬 Clear chat only",
+    disabled=not has_chat_history,
+    help="No chat history yet." if not has_chat_history else None,
+):
     _reset_chat_state()
     st.success("Chat cleared. Indexed document remains available.")
     st.rerun()
@@ -727,7 +732,8 @@ if uploaded_file is not None:
                 chunks = text_splitter.split_documents(page_docs)
             progress_bar.progress(65, text="Chunks created. Loading embedding model...")
 
-            st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
+            if st.session_state.developer_mode:
+                st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
             if not chunks:
                 _reset_document_state()
                 st.session_state.chunks = []
@@ -773,10 +779,13 @@ if uploaded_file is not None:
                     took = time.time() - start
                 finalize_progress(progress_bar, "Indexing complete.")
 
-                st.success(
-                    f"FAISS index {'re-' if had_existing_index else ''}created "
-                    f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
-                )
+                if st.session_state.developer_mode:
+                    st.success(
+                        f"FAISS index {'re-' if had_existing_index else ''}created "
+                        f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
+                    )
+                else:
+                    st.success("Document processed. You can now ask questions.")
 
                 _set_processed_document(uploaded_file.name, uploaded_hash)
 
