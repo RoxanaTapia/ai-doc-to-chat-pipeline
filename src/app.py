@@ -99,38 +99,23 @@ def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
     return payload
 
 
+def _assemble_context(raw_results: list[tuple[Document, float]], use_page_separators: bool) -> str:
+    """Build the exact context string that is fed to the generator."""
+    if use_page_separators:
+        chunks_with_pages = []
+        for doc, _score in raw_results:
+            page = doc.metadata.get("page", "?")
+            chunks_with_pages.append(f"─── Page {page} ───\nPage {page}: {doc.page_content}")
+        return "\n".join(chunks_with_pages)
+    return "\n\n".join(doc.page_content for doc, _score in raw_results)
+
+
 def _distance_to_ui_similarity(distance: float) -> float:
     """
     Convert vector distance to a bounded [0,1] similarity for UI display.
     Lower distance -> higher similarity.
     """
     return 1.0 / (1.0 + max(distance, 0.0))
-
-
-def _assign_similarity_scores_for_fallback(query: str, docs: list[Document]) -> None:
-    """
-    Ensure fallback-retrieved docs have numeric similarity for citation display.
-    Uses embedding model query-doc pair scoring for docs lacking a score.
-    """
-    if not docs:
-        return
-    try:
-        embeddings = get_embeddings(EMBEDDING_MODEL)
-        scores = embeddings.embed_query(query)
-        # Fallback similarity from model-space relation to keep score numeric.
-        query_norm = sum(v * v for v in scores) ** 0.5
-        doc_vecs = embeddings.embed_documents([doc.page_content for doc in docs])
-        for doc, doc_vec in zip(docs, doc_vecs):
-            doc_norm = sum(v * v for v in doc_vec) ** 0.5
-            if query_norm == 0.0 or doc_norm == 0.0:
-                doc.metadata["similarity"] = 0.0
-                continue
-            dot = sum(a * b for a, b in zip(scores, doc_vec))
-            cosine = dot / (query_norm * doc_norm)
-            doc.metadata["similarity"] = max(0.0, min(1.0, (cosine + 1.0) / 2.0))
-    except Exception:
-        for doc in docs:
-            doc.metadata.setdefault("similarity", 0.0)
 
 
 def _append_chat_message(role: str, content: str, sources: list[dict] | None = None) -> None:
@@ -144,8 +129,8 @@ def _append_chat_message(role: str, content: str, sources: list[dict] | None = N
 
 
 def _looks_like_temp_generator_fallback(answer: str) -> bool:
-    """Detect the temporary placeholder returned by generate_answer fallback."""
-    marker = "Temporary answer (Ollama still loading or running slowly)"
+    """Detect fallback text returned when Ollama is unavailable."""
+    marker = "Ollama not ready yet."
     return marker in (answer or "")
 
 
@@ -251,6 +236,10 @@ if "last_retrieved_docs" not in st.session_state:
     st.session_state.last_retrieved_docs = []
 if "last_retrieval_mode" not in st.session_state:
     st.session_state.last_retrieval_mode = None
+if "last_raw_results" not in st.session_state:
+    st.session_state.last_raw_results = []
+if "last_context" not in st.session_state:
+    st.session_state.last_context = ""
 if "last_answer" not in st.session_state:
     st.session_state.last_answer = None
 if "messages" not in st.session_state:
@@ -277,11 +266,25 @@ st.sidebar.caption(
 )
 if "enable_ocr" not in st.session_state:
     st.session_state.enable_ocr = True
+if "use_page_separators" not in st.session_state:
+    st.session_state.use_page_separators = False
+if "dummy_generator_only" not in st.session_state:
+    st.session_state.dummy_generator_only = True
 
 st.session_state.enable_ocr = st.sidebar.toggle(
     "Enable OCR for scanned pages",
     value=st.session_state.enable_ocr,
     help="Attempts OCR only on pages with little/no extractable text.",
+)
+st.session_state.use_page_separators = st.sidebar.checkbox(
+    "Use page separators in context",
+    value=st.session_state.use_page_separators,
+    help="Adds page labels between chunks when assembling context for generation.",
+)
+st.session_state.dummy_generator_only = st.sidebar.checkbox(
+    "Use dummy generator only (for testing)",
+    value=st.session_state.dummy_generator_only,
+    help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
 )
 
 st.title("Upload → Extract → Chat! 🚀")
@@ -300,6 +303,8 @@ if controls_col1.button("🗑️ Clear current document", type="primary"):
     st.session_state.last_query = None
     st.session_state.last_retrieved_docs = []
     st.session_state.last_retrieval_mode = None
+    st.session_state.last_raw_results = []
+    st.session_state.last_context = ""
     st.session_state.last_answer = None
     st.session_state.messages = []
     st.session_state.uploader_key_version += 1
@@ -309,6 +314,8 @@ if controls_col2.button("💬 Clear chat only"):
     st.session_state.last_query = None
     st.session_state.last_retrieved_docs = []
     st.session_state.last_retrieval_mode = None
+    st.session_state.last_raw_results = []
+    st.session_state.last_context = ""
     st.session_state.last_answer = None
     st.session_state.messages = []
     st.success("Chat cleared. Indexed document remains available.")
@@ -404,6 +411,8 @@ if uploaded_file is not None:
                 st.session_state.last_query = None
                 st.session_state.last_retrieved_docs = []
                 st.session_state.last_retrieval_mode = None
+                st.session_state.last_raw_results = []
+                st.session_state.last_context = ""
                 st.session_state.last_answer = None
                 st.session_state.messages = []
                 finalize_progress(progress_bar, "No index created (no extractable text).")
@@ -457,6 +466,8 @@ if uploaded_file is not None:
                 st.session_state.last_query = None
                 st.session_state.last_retrieved_docs = []
                 st.session_state.last_retrieval_mode = None
+                st.session_state.last_raw_results = []
+                st.session_state.last_context = ""
                 st.session_state.last_answer = None
                 st.session_state.messages = []
 
@@ -507,44 +518,46 @@ if query and st.session_state.vector_store:
         st.markdown(query)
     _append_chat_message("user", query)
 
-    with st.spinner("Searching FAISS index with early-page preference..."):
-        # Retrieve candidates with scores, then apply page filter in Python for compatibility.
-        candidate_results = st.session_state.vector_store.similarity_search_with_score(
+    with st.spinner("Searching FAISS index..."):
+        raw_results = st.session_state.vector_store.similarity_search_with_score(
             query,
-            k=FETCH_K,
+            k=TOP_K,
         )
-        early_page_docs = []
-        for doc, raw_distance in candidate_results:
-            page = doc.metadata.get("page")
+        for doc, raw_distance in raw_results:
             doc.metadata["similarity"] = _distance_to_ui_similarity(float(raw_distance))
-            if isinstance(page, int) and page <= EARLY_PAGE_MAX:
-                early_page_docs.append(doc)
-
-        if early_page_docs:
-            retrieved_docs = early_page_docs[:TOP_K]
-            st.session_state.last_retrieval_mode = "early_page_filtered"
-        else:
-            # Fallback to global MMR when no early-page candidates are available.
-            retrieved_docs = st.session_state.vector_store.max_marginal_relevance_search(
-                query,
-                k=TOP_K,
-                fetch_k=FETCH_K,
-                lambda_mult=0.5,
-            )
-            st.session_state.last_retrieval_mode = "global_mmr_fallback"
-            st.info(
-                f"No matches found in pages <= {EARLY_PAGE_MAX}. "
-                "Showing best matches from all pages."
-            )
-            _assign_similarity_scores_for_fallback(query, retrieved_docs)
+        retrieved_docs = [doc for doc, _score in raw_results]
+        st.session_state.last_retrieval_mode = "top_k_with_scores"
 
     st.session_state.last_query = query
+    st.session_state.last_raw_results = raw_results
     st.session_state.last_retrieved_docs = retrieved_docs
-    context = "\n\n".join(doc.page_content for doc in retrieved_docs)
+    context = _assemble_context(
+        raw_results,
+        use_page_separators=st.session_state.use_page_separators,
+    )
+    st.session_state.last_context = context
+    with st.expander("📄 Exact Context fed to LLM", expanded=False):
+        st.code(context, language="text")
+        st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
+    with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
+        for i, (doc, score) in enumerate(raw_results, start=1):
+            st.markdown(
+                f"**Chunk {i}** (score: {float(score):.3f})  \n"
+                f"Page: {doc.metadata.get('page', '?')}"
+            )
+            st.code(doc.page_content, language="text")
+
     try:
-        with st.spinner("Generating answer with local Ollama model..."):
-            st.session_state.last_answer = generate_answer(query=query, context=context)
-            if _looks_like_temp_generator_fallback(st.session_state.last_answer):
+        with st.spinner("Generating answer..."):
+            st.session_state.last_answer = generate_answer(
+                context=context,
+                query=query,
+                dummy_mode=st.session_state.dummy_generator_only,
+            )
+            if (
+                not st.session_state.dummy_generator_only
+                and _looks_like_temp_generator_fallback(st.session_state.last_answer)
+            ):
                 _render_ollama_recovery_help(
                     "Using temporary fallback answer because local Ollama generation is not ready yet."
                 )
@@ -582,26 +595,3 @@ if query and st.session_state.vector_store:
         rendered_answer if isinstance(rendered_answer, str) else assistant_message
     )
     _append_chat_message("assistant", final_assistant_text, sources=source_payload)
-
-if st.session_state.last_retrieved_docs and st.session_state.developer_mode:
-    st.subheader("Top Relevant Chunks (Developer debug view)")
-    if st.session_state.last_retrieval_mode == "early_page_filtered":
-        st.caption(
-            f"💡 **Early-page filtered retrieval active** (pages <= {EARLY_PAGE_MAX}). "
-            "Use ranking order as the primary signal."
-        )
-    else:
-        st.caption(
-            "💡 **MMR reranking active** (diversity + relevance) on all pages. "
-            "Use ranking order as the primary signal."
-        )
-
-    for rank, doc in enumerate(st.session_state.last_retrieved_docs, 1):
-        preview = doc.page_content[:450] + "..." if len(doc.page_content) > 450 else doc.page_content
-        page_label = doc.metadata.get("page", "N/A") if isinstance(doc.metadata.get("page"), int) else "multi"
-        st.markdown(f"**Rank {rank}**")
-        st.caption(
-            f"Source page ~{page_label} • "
-            f"starts at character {doc.metadata.get('start_index', 'N/A')}"
-        )
-        st.text_area("Chunk content", preview, height=160, key=f"retrieved_{rank}")
