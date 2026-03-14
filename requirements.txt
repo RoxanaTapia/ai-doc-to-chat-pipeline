@@ -1,11 +1,9 @@
 # =============================================
 # AI Doc-to-Chat Pipeline - Production Dependencies
 # =============================================
-# Tested on Python 3.12 (recommended).
-# Works on older Intel Macs (Mid-2015 MacBook Pro, macOS Monterey).
-# For modern Apple Silicon / macOS Ventura+ / Linux / Windows:
-#   - Change torch>=2.10.0 for MPS acceleration or better performance.
-#   - Install Tesseract OCR separately: brew install tesseract (macOS) or apt install tesseract-ocr (Linux)
+# Tested on Python 3.12+ (recommended for Streamlit Cloud).
+# Perfect for modern hardware: Apple Silicon (M-series), Linux, Windows, and Streamlit Community Cloud.
+# Uses latest stable packages as of February 2026.
 
 # Core framework & UI
 streamlit>=1.54.0,<1.55.0                  # Modern file uploader, fragments, stable UI
@@ -14,10 +12,10 @@ streamlit>=1.54.0,<1.55.0                  # Modern file uploader, fragments, st
 pymupdf>=1.27.1                            # Fast PDF text + metadata extraction
 pytesseract>=0.3.13                        # Tesseract OCR wrapper (requires Tesseract binary installed)
 
-# RAG & LangChain core (stable 1.2.x series)
+# RAG & LangChain core (stable 1.x series)
 langchain>=1.2.10,<2.0.0
 langchain-community>=0.4.1,<1.0.0
-langchain-text-splitters>=1.1.0,<2.0.0     # Chunking utilities
+langchain-text-splitters>=1.1.1,<2.0.0     # Chunking utilities
 pydantic>=2.12.5,<3.0.0                    # LangChain compatibility
 
 # Local vector store (CPU-only, safe default)
@@ -25,15 +23,14 @@ faiss-cpu>=1.13.2,<1.14.0
 numpy>=2.4.2,<3.0.0                        # Compatible with faiss-cpu 1.13.x
 
 # Local embeddings (free, offline, no API keys)
-sentence-transformers>=5.2.2               # Default: all-MiniLM-L6-v2 (fast & effective)
+sentence-transformers>=5.2.3               # Default: all-MiniLM-L6-v2 (fast & effective)
 rank-bm25>=0.2.2                           # Sparse keyword ranking for hybrid retrieval
 
 # Hugging Face ecosystem
-transformers>=4.45.0,<5.0.0
+transformers>=5.2.0,<6.0.0
 
-# Torch - pinned for Intel Mac / Monterey compatibility
-torch>=2.10.0                              # Stable wheels; powers embeddings, local inference
-# For older Intel Macs / Monterey: torch>=2.2.0,<2.3.0 (if needed for stability)
+# Torch - powers embeddings + future local LLMs
+torch>=2.10.0                              # Stable wheels; excellent performance on modern hardware
 
 # Utilities
 pyyaml>=6.0.3                              # YAML config loading
