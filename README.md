@@ -194,6 +194,24 @@ Optional environment overrides (local `.env`) are supported:
 - `OLLAMA_NUM_CTX`
 - `OLLAMA_TIMEOUT_SECONDS`
 
+#### Retrieval hardening (4.7): hybrid search + optional reranker
+
+The app now supports configurable retrieval strategies for long-document precision:
+
+- `semantic`: dense FAISS retrieval with early-page preference (baseline).
+- `hybrid`: dense + BM25 merged with Reciprocal Rank Fusion (RRF).
+- Optional second-stage reranker (cross-encoder) on top candidates.
+
+Configure in `configs/config.yaml` under `rag.retrieval`:
+
+- `strategy` (`semantic` or `hybrid`)
+- `bm25_fetch_k`, `rrf_k`, `dense_weight`, `bm25_weight`
+- `reranker.enabled`, `reranker.model_name`, `reranker.top_n`
+
+Developer mode includes sidebar controls to switch strategy and toggle reranking at runtime.
+It also includes a **Retrieval metrics (last run)** panel with candidate counts and
+timings (retrieval / rerank / generation / total) for smoke-test evidence.
+
 #### Next-week Ollama smoke-test plan (hardware arrival)
 
 Recommended first model:

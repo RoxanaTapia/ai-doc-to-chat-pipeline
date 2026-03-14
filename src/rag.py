@@ -151,13 +151,12 @@ def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | N
 
 def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
     """Generate a response from retrieved context and user question."""
-    if not (context or "").strip():
-        return "I could not find relevant information in the document to answer this question."
-
     safe_query = _normalize_untrusted_text(query, max_chars=2000)
     if not safe_query:
         return "Please enter a non-empty question."
     safe_context = _normalize_untrusted_text(context, max_chars=12000)
+    if not safe_context:
+        return "I could not find relevant information in the document to answer this question."
 
     def _dummy_response() -> str:
         context_preview = safe_context[:400]

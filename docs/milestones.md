@@ -63,6 +63,16 @@ Goal: Private, local RAG chatbot for legal documents (e.g., 50-page contracts �
 - Sidebar toggle to enable/disable OCR fallback at runtime
 - Graceful handling when OCR dependencies/runtime are missing
 
+## Milestone 4.7 – Production retrieval hardening (reranker / hybrid)
+**Status:** 🚧 Implemented, pending hardware validation  
+**Goal:** Improve long-document precision before generation.  
+**Key achievements:**
+- Added configurable retrieval strategy (`semantic` or `hybrid`) in `configs/config.yaml`
+- Implemented hybrid retrieval (dense FAISS + BM25) with Reciprocal Rank Fusion (RRF)
+- Added optional cross-encoder reranker stage for top candidates
+- Added runtime developer controls for strategy switching and reranker toggling
+- Added graceful fallback when BM25 or reranker dependencies are unavailable
+
 ## Upcoming Milestones (planned)
 - Milestone 7 – Deployment (Docker / Streamlit Community Cloud)
 
