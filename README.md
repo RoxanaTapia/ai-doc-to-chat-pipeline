@@ -125,6 +125,29 @@ streamlit run src/app.py
 → Open http://localhost:8501 in your browser  
 → Upload one or more documents → start asking questions
 
+#### Quality checks (ruff + mypy)
+
+Run local quality checks before pushing:
+
+```bash
+# Install dev tooling once
+pip install pre-commit ruff mypy
+
+# Run fast lint/format checks
+ruff check .
+ruff format --check .
+
+# Static typing (gradual mode)
+mypy src tests
+```
+
+Optional: enable automated checks on each commit:
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
 #### Presentation modes (client vs developer)
 
 The app supports two UI modes:

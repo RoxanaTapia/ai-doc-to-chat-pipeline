@@ -157,10 +157,14 @@ def _tokenize_for_bm25(text: str) -> list[str]:
 
 def _doc_key(doc: Document) -> tuple:
     """Stable key for merging dense and sparse retrieval results."""
+    stable_fingerprint = hashlib.blake2b(
+        doc.page_content[:300].encode("utf-8", errors="ignore"),
+        digest_size=12,
+    ).hexdigest()
     return (
         doc.metadata.get("page", "N/A"),
         doc.metadata.get("start_index", "N/A"),
-        hash(doc.page_content[:300]),
+        stable_fingerprint,
     )
 
 
@@ -177,7 +181,7 @@ def _ensure_bm25_index() -> tuple[object | None, str | None]:
 
     try:
         from rank_bm25 import BM25Okapi
-    except Exception:
+    except ImportError:
         return None, (
             "Hybrid retrieval requires `rank-bm25`. "
             "Install it with `pip install -r requirements.txt`."
@@ -222,8 +226,8 @@ def _apply_reranker(
             score_values = [float(score) for score in raw_scores]
         normalized = _normalize_scores(score_values)
         reranked = [
-            (limited_candidates[idx][0], normalized[idx])
-            for idx in range(len(limited_candidates))
+            (doc, normalized_score)
+            for (doc, _original_score), normalized_score in zip(limited_candidates, normalized)
         ]
         reranked.sort(key=lambda item: item[1], reverse=True)
 
@@ -239,7 +243,7 @@ def _apply_reranker(
                 if len(final_results) >= TOP_K:
                     break
         return final_results, None
-    except Exception as exc:
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
         return candidates[:TOP_K], (
             f"Reranker unavailable ({exc}). Falling back to first-stage ranking."
         )
@@ -315,11 +319,14 @@ def _hybrid_rrf_retrieval(
         return semantic_results, f"{semantic_mode}_empty_query_tokens", None, hybrid_diag
 
     bm25_scores = bm25_index.get_scores(query_tokens)
-    top_sparse_indices = sorted(
-        range(len(bm25_scores)),
-        key=lambda idx: bm25_scores[idx],
-        reverse=True,
-    )[:BM25_FETCH_K]
+    top_sparse_indices = [
+        idx
+        for idx, _score in sorted(
+            enumerate(bm25_scores),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:BM25_FETCH_K]
+    ]
 
     fused_scores: dict[tuple, float] = defaultdict(float)
     doc_map: dict[tuple, Document] = {}
@@ -339,8 +346,8 @@ def _hybrid_rrf_retrieval(
     top_candidates = [(doc_map[key], fused_scores[key]) for key in ranked_keys[:effective_limit]]
     normalized_scores = _normalize_scores([score for _doc, score in top_candidates])
     normalized_candidates = [
-        (top_candidates[idx][0], normalized_scores[idx])
-        for idx in range(len(top_candidates))
+        (doc, normalized_score)
+        for (doc, _original_score), normalized_score in zip(top_candidates, normalized_scores)
     ]
     return normalized_candidates[:effective_limit], "hybrid_rrf", bm25_warning, {
         "dense_candidates": len(dense_results),
@@ -360,11 +367,46 @@ def _append_chat_message(role: str, content: str, sources: list[dict] | None = N
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
 
 
+def _run_first_stage_retrieval(
+    query: str,
+    *,
+    candidate_limit: int,
+) -> tuple[list[tuple[Document, float]], str, str | None, dict[str, int]]:
+    """Run the configured first-stage retrieval and return normalized candidates."""
+    if st.session_state.retrieval_strategy == "hybrid":
+        return _hybrid_rrf_retrieval(query, limit=candidate_limit)
+
+    semantic_results, mode, semantic_diag = _semantic_retrieval(query, limit=candidate_limit)
+    return semantic_results, mode, None, semantic_diag
+
+
+def _finalize_retrieval_candidates(
+    query: str,
+    *,
+    candidate_pool: list[tuple[Document, float]],
+    mode: str,
+) -> tuple[list[tuple[Document, float]], str, str | None, float]:
+    """Apply optional reranker and return final top-k retrieval results."""
+    if not st.session_state.enable_reranker:
+        return candidate_pool[:TOP_K], mode, None, 0.0
+
+    rerank_start = time.perf_counter()
+    raw_results, reranker_warning = _apply_reranker(
+        query,
+        candidate_pool,
+        top_n=RERANKER_TOP_N,
+        model_name=RERANKER_MODEL_NAME,
+    )
+    rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
+    final_mode = f"{mode}_reranked"
+    return raw_results, final_mode, reranker_warning, rerank_elapsed_ms
+
+
 def _render_ollama_recovery_help(reason: str) -> None:
     """Show concise, actionable local recovery steps for generator issues."""
     try:
         model_name = load_generation_config().get("model", "phi3:mini")
-    except Exception:
+    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
         model_name = "phi3:mini"
     preferred_models = [model_name, "phi3.5:mini", "phi3:mini"]
     # Keep order stable while removing duplicates.
@@ -418,7 +460,7 @@ def _ocr_page_text(page) -> tuple[str, str | None]:
     try:
         import pytesseract
         from PIL import Image
-    except Exception:
+    except ImportError:
         return "", "OCR dependencies not installed (requires pytesseract + pillow + system tesseract)."
 
     try:
@@ -428,7 +470,7 @@ def _ocr_page_text(page) -> tuple[str, str | None]:
         image = image.point(lambda x: 0 if x < 180 else 255, mode="1")
         ocr_text = pytesseract.image_to_string(image, lang="eng", config="--psm 6").strip()
         return ocr_text, None
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         return "", f"OCR failed on page: {exc}"
 
 
@@ -467,42 +509,80 @@ def _render_ocr_status(
             )
 
 
-# Session state init
-if "vector_store" not in st.session_state:
-    st.session_state.vector_store = None
-if "chunks" not in st.session_state:
-    st.session_state.chunks = None
-if "current_file" not in st.session_state:
-    st.session_state.current_file = None
-if "last_processed_name" not in st.session_state:
-    st.session_state.last_processed_name = None
-if "last_processed_hash" not in st.session_state:
-    st.session_state.last_processed_hash = None
-if "uploader_key_version" not in st.session_state:
-    st.session_state.uploader_key_version = 0
-if "last_query" not in st.session_state:
+def _reset_chat_state() -> None:
+    """Reset query/answer history while keeping indexed document."""
     st.session_state.last_query = None
-if "last_retrieved_docs" not in st.session_state:
     st.session_state.last_retrieved_docs = []
-if "last_retrieval_mode" not in st.session_state:
     st.session_state.last_retrieval_mode = None
-if "last_raw_results" not in st.session_state:
     st.session_state.last_raw_results = []
-if "last_context" not in st.session_state:
     st.session_state.last_context = ""
-if "last_answer" not in st.session_state:
     st.session_state.last_answer = None
-if "last_retrieval_metrics" not in st.session_state:
     st.session_state.last_retrieval_metrics = None
-if "messages" not in st.session_state:
     st.session_state.messages = []
-if "developer_mode" not in st.session_state:
-    st.session_state.developer_mode = _presentation_mode() == "developer"
-if "allow_mode_toggle" not in st.session_state:
-    # Keep toggle visibility stable during a session to avoid disappearing controls.
-    st.session_state.allow_mode_toggle = (
-        (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
-    )
+
+
+def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
+    """Reset the indexed document and all retrieval/generation state."""
+    st.session_state.vector_store = None
+    st.session_state.chunks = None
+    st.session_state.current_file = None
+    st.session_state.last_processed_name = None
+    st.session_state.last_processed_hash = None
+    st.session_state.bm25_state = None
+    _reset_chat_state()
+    if bump_uploader_key:
+        st.session_state.uploader_key_version += 1
+
+
+def _set_processed_document(file_name: str, file_hash: str) -> None:
+    """Persist document identity and reset chat history for a fresh index."""
+    st.session_state.last_processed_name = file_name
+    st.session_state.last_processed_hash = file_hash
+    st.session_state.current_file = file_name
+    _reset_chat_state()
+
+
+def _init_session_state() -> None:
+    """Initialize all required Streamlit session keys once."""
+    defaults = {
+        "vector_store": None,
+        "chunks": None,
+        "current_file": None,
+        "last_processed_name": None,
+        "last_processed_hash": None,
+        "uploader_key_version": 0,
+        "last_query": None,
+        "last_retrieved_docs": [],
+        "last_retrieval_mode": None,
+        "last_raw_results": [],
+        "last_context": "",
+        "last_answer": None,
+        "last_retrieval_metrics": None,
+        "messages": [],
+        "developer_mode": _presentation_mode() == "developer",
+        "enable_ocr": True,
+        "use_page_separators": False,
+        "dummy_generator_only": _env_bool("USE_DUMMY_GENERATOR", True),
+        "bm25_state": None,
+        "retrieval_strategy": (
+            RETRIEVAL_STRATEGY_DEFAULT
+            if RETRIEVAL_STRATEGY_DEFAULT in {"semantic", "hybrid"}
+            else "semantic"
+        ),
+        "enable_reranker": RERANKER_ENABLED_DEFAULT,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+    if "allow_mode_toggle" not in st.session_state:
+        # Keep toggle visibility stable during a session to avoid disappearing controls.
+        st.session_state.allow_mode_toggle = (
+            (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
+        )
+
+
+_init_session_state()
 
 if st.session_state.allow_mode_toggle:
     st.session_state.developer_mode = st.sidebar.toggle(
@@ -516,21 +596,6 @@ if st.session_state.allow_mode_toggle:
 st.sidebar.caption(
     f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
 )
-if "enable_ocr" not in st.session_state:
-    st.session_state.enable_ocr = True
-if "use_page_separators" not in st.session_state:
-    st.session_state.use_page_separators = False
-if "dummy_generator_only" not in st.session_state:
-    st.session_state.dummy_generator_only = _env_bool("USE_DUMMY_GENERATOR", True)
-if "bm25_state" not in st.session_state:
-    st.session_state.bm25_state = None
-if "retrieval_strategy" not in st.session_state:
-    if RETRIEVAL_STRATEGY_DEFAULT in {"semantic", "hybrid"}:
-        st.session_state.retrieval_strategy = RETRIEVAL_STRATEGY_DEFAULT
-    else:
-        st.session_state.retrieval_strategy = "semantic"
-if "enable_reranker" not in st.session_state:
-    st.session_state.enable_reranker = RERANKER_ENABLED_DEFAULT
 
 st.session_state.enable_ocr = st.sidebar.toggle(
     "Enable OCR for scanned pages",
@@ -574,32 +639,11 @@ uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"], key=upl
 
 controls_col1, controls_col2 = st.columns(2)
 if controls_col1.button("🗑️ Clear current document", type="primary"):
-    st.session_state.vector_store = None
-    st.session_state.chunks = None
-    st.session_state.current_file = None
-    st.session_state.last_processed_name = None
-    st.session_state.last_processed_hash = None
-    st.session_state.last_query = None
-    st.session_state.last_retrieved_docs = []
-    st.session_state.last_retrieval_mode = None
-    st.session_state.last_raw_results = []
-    st.session_state.last_context = ""
-    st.session_state.last_answer = None
-    st.session_state.last_retrieval_metrics = None
-    st.session_state.messages = []
-    st.session_state.bm25_state = None
-    st.session_state.uploader_key_version += 1
+    _reset_document_state(bump_uploader_key=True)
     st.success("Document cleared!")
     st.rerun()
 if controls_col2.button("💬 Clear chat only"):
-    st.session_state.last_query = None
-    st.session_state.last_retrieved_docs = []
-    st.session_state.last_retrieval_mode = None
-    st.session_state.last_raw_results = []
-    st.session_state.last_context = ""
-    st.session_state.last_answer = None
-    st.session_state.last_retrieval_metrics = None
-    st.session_state.messages = []
+    _reset_chat_state()
     st.success("Chat cleared. Indexed document remains available.")
     st.rerun()
 
@@ -685,20 +729,9 @@ if uploaded_file is not None:
 
             st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
             if not chunks:
-                st.session_state.vector_store = None
+                _reset_document_state()
                 st.session_state.chunks = []
-                st.session_state.bm25_state = None
-                st.session_state.last_processed_name = uploaded_file.name
-                st.session_state.last_processed_hash = uploaded_hash
-                st.session_state.current_file = uploaded_file.name
-                st.session_state.last_query = None
-                st.session_state.last_retrieved_docs = []
-                st.session_state.last_retrieval_mode = None
-                st.session_state.last_raw_results = []
-                st.session_state.last_context = ""
-                st.session_state.last_answer = None
-                st.session_state.last_retrieval_metrics = None
-                st.session_state.messages = []
+                _set_processed_document(uploaded_file.name, uploaded_hash)
                 finalize_progress(progress_bar, "No index created (no extractable text).")
                 st.warning(
                     "No extractable text chunks were found in this document, "
@@ -745,17 +778,7 @@ if uploaded_file is not None:
                     f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
                 )
 
-                st.session_state.last_processed_name = uploaded_file.name
-                st.session_state.last_processed_hash = uploaded_hash
-                st.session_state.current_file = uploaded_file.name
-                st.session_state.last_query = None
-                st.session_state.last_retrieved_docs = []
-                st.session_state.last_retrieval_mode = None
-                st.session_state.last_raw_results = []
-                st.session_state.last_context = ""
-                st.session_state.last_answer = None
-                st.session_state.last_retrieval_metrics = None
-                st.session_state.messages = []
+                _set_processed_document(uploaded_file.name, uploaded_hash)
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
@@ -765,7 +788,7 @@ if uploaded_file is not None:
             st.session_state.current_file = uploaded_file.name
             st.info("Same document detected — skipping re-processing.")
 
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         finalize_progress(progress_bar, "Processing failed.")
         st.error(f"Error processing PDF: {str(e)}")
         st.exception(e)
@@ -823,52 +846,17 @@ if query and query.strip() and st.session_state.vector_store:
             candidate_limit = (
                 max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
             )
-            if st.session_state.retrieval_strategy == "hybrid":
-                hybrid_results, mode, hybrid_warning, hybrid_diag = _hybrid_rrf_retrieval(
-                    query,
-                    limit=candidate_limit,
-                )
-                retrieval_diag = hybrid_diag
-                candidate_pool = hybrid_results
-                if st.session_state.enable_reranker:
-                    rerank_start = time.perf_counter()
-                    raw_results, reranker_warning = _apply_reranker(
-                        query,
-                        candidate_pool,
-                        top_n=RERANKER_TOP_N,
-                        model_name=RERANKER_MODEL_NAME,
-                    )
-                    rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
-                    if reranker_warning:
-                        retrieval_warning = reranker_warning
-                    st.session_state.last_retrieval_mode = f"{mode}_reranked"
-                else:
-                    raw_results = candidate_pool[:TOP_K]
-                    st.session_state.last_retrieval_mode = mode
-                if hybrid_warning and retrieval_warning is None:
-                    retrieval_warning = hybrid_warning
-            else:
-                semantic_results, mode, semantic_diag = _semantic_retrieval(
-                    query,
-                    limit=candidate_limit,
-                )
-                retrieval_diag = semantic_diag
-                candidate_pool = semantic_results
-                if st.session_state.enable_reranker:
-                    rerank_start = time.perf_counter()
-                    raw_results, reranker_warning = _apply_reranker(
-                        query,
-                        candidate_pool,
-                        top_n=RERANKER_TOP_N,
-                        model_name=RERANKER_MODEL_NAME,
-                    )
-                    rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
-                    if reranker_warning:
-                        retrieval_warning = reranker_warning
-                    st.session_state.last_retrieval_mode = f"{mode}_reranked"
-                else:
-                    raw_results = candidate_pool[:TOP_K]
-                    st.session_state.last_retrieval_mode = mode
+            candidate_pool, mode, first_stage_warning, retrieval_diag = _run_first_stage_retrieval(
+                query,
+                candidate_limit=candidate_limit,
+            )
+            raw_results, final_mode, reranker_warning, rerank_elapsed_ms = _finalize_retrieval_candidates(
+                query,
+                candidate_pool=candidate_pool,
+                mode=mode,
+            )
+            st.session_state.last_retrieval_mode = final_mode
+            retrieval_warning = reranker_warning or first_stage_warning
             retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
 
             for doc, score in raw_results:
@@ -883,7 +871,7 @@ if query and query.strip() and st.session_state.vector_store:
                 use_page_separators=st.session_state.use_page_separators,
             )
             st.session_state.last_context = context
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
             retrieval_error = e
             retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
             st.session_state.last_retrieval_mode = "retrieval_failed"
@@ -905,7 +893,7 @@ if query and query.strip() and st.session_state.vector_store:
                     dummy_mode=st.session_state.dummy_generator_only,
                 )
                 generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
                 generation_error = e
                 generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
                 st.session_state.last_answer = None
@@ -976,7 +964,7 @@ if query and query.strip() and st.session_state.vector_store:
         st.session_state.last_answer = None
         try:
             model_name = load_generation_config().get("model", "phi3:mini")
-        except Exception:
+        except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
             model_name = "phi3:mini"
         error_text = str(e).lower()
         if "connection" in error_text or "refused" in error_text:

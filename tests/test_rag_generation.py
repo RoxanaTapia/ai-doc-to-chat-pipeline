@@ -25,9 +25,10 @@ def test_generate_answer_dummy_mode_returns_echo() -> None:
 def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
     captured = {}
 
-    def _fake_generate(context: str, query: str) -> str:
+    def _fake_generate(context: str, query: str, settings=None) -> str:
         captured["context"] = context
         captured["query"] = query
+        captured["settings"] = settings
         return "final from ollama"
 
     monkeypatch.setattr(rag, "_generate_with_ollama", _fake_generate)
@@ -41,6 +42,41 @@ def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
     assert answer == "final from ollama"
     assert captured["query"] == "Summarize restrictions."
     assert "Clause 5" in captured["context"]
+    assert isinstance(captured["settings"], dict)
+
+
+def test_generate_answer_passes_settings_to_ollama_wrapper(monkeypatch) -> None:
+    captured = {}
+
+    def _fake_generate(context: str, query: str, settings=None) -> str:
+        captured["settings"] = settings
+        return "ok"
+
+    monkeypatch.setattr(rag, "_generate_with_ollama", _fake_generate)
+    monkeypatch.setattr(
+        rag,
+        "load_generation_config",
+        lambda: {
+            "model": "phi3:mini",
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "max_new_tokens": 64,
+            "do_sample": False,
+            "fallback_to_dummy_on_error": False,
+            "num_ctx": 2048,
+            "timeout_seconds": 30,
+        },
+    )
+
+    answer = rag.generate_answer(
+        context="Sample context",
+        query="Sample query",
+        dummy_mode=False,
+    )
+
+    assert answer == "ok"
+    assert captured["settings"]["model"] == "phi3:mini"
+    assert captured["settings"]["max_new_tokens"] == 64
 
 
 def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
@@ -134,4 +170,29 @@ def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypa
         assert "model not found" in str(exc)
     else:
         raise AssertionError("Expected RuntimeError when fallback is disabled.")
+
+
+def test_generate_answer_raises_structured_timeout_when_fallback_disabled(monkeypatch) -> None:
+    monkeypatch.setattr(
+        rag,
+        "_generate_with_ollama",
+        lambda context, query, settings=None: (_ for _ in ()).throw(TimeoutError("timed out")),
+    )
+    monkeypatch.setattr(
+        rag,
+        "load_generation_config",
+        lambda: {"fallback_to_dummy_on_error": False},
+    )
+
+    try:
+        rag.generate_answer(
+            context="Section A says notice period is 30 days.",
+            query="What is the notice period?",
+            dummy_mode=False,
+        )
+    except RuntimeError as exc:
+        assert "Ollama generation unavailable:" in str(exc)
+        assert "timed out" in str(exc)
+    else:
+        raise AssertionError("Expected RuntimeError on timeout when fallback is disabled.")
 

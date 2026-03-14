@@ -174,7 +174,7 @@ def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
     settings = load_generation_config()
     try:
         return _generate_with_ollama(context=safe_context, query=safe_query, settings=settings)
-    except Exception as exc:
+    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
         logger.exception("Ollama generation failed: %s", exc)
         if settings.get("fallback_to_dummy_on_error", False):
             return (
