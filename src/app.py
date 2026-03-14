@@ -130,7 +130,10 @@ def _append_chat_message(role: str, content: str, sources: list[dict] | None = N
 
 def _render_ollama_recovery_help(reason: str) -> None:
     """Show concise, actionable local recovery steps for generator issues."""
-    model_name = load_generation_config().get("model", "phi3:mini")
+    try:
+        model_name = load_generation_config().get("model", "phi3:mini")
+    except Exception:
+        model_name = "phi3:mini"
     preferred_models = [model_name, "phi3.5:mini", "phi3:mini"]
     # Keep order stable while removing duplicates.
     recommended_models = list(dict.fromkeys(preferred_models))
@@ -145,9 +148,10 @@ def _render_ollama_recovery_help(reason: str) -> None:
             "ollama list",
             language="bash",
         )
+        recommended_order_text = " -> ".join(f"`{name}`" for name in recommended_models)
         st.caption(
             "Preferred order for CPU smoke tests: "
-            f"`{recommended_models[0]}` -> `phi3.5:mini` -> `phi3:mini`."
+            f"{recommended_order_text}."
         )
 
 
@@ -527,16 +531,20 @@ query = st.chat_input(
     disabled=st.session_state.vector_store is None,
 )
 
-if query and st.session_state.vector_store:
+if query and query.strip() and st.session_state.vector_store:
+    query = query.strip()
     with st.chat_message("user"):
         st.markdown(query)
     _append_chat_message("user", query)
 
-    with st.spinner("Searching FAISS index..."):
-        candidate_k = max(TOP_K, FETCH_K)
+    generation_error = None
+    raw_results: list[tuple[Document, float]] = []
+    retrieved_docs: list[Document] = []
+    context = ""
+    with st.spinner("Thinking..."):
         candidate_results = st.session_state.vector_store.similarity_search_with_score(
             query,
-            k=candidate_k,
+            k=FETCH_K,
         )
 
         # Prefer chunks from early pages when available.
@@ -558,37 +566,46 @@ if query and st.session_state.vector_store:
             )
 
         for doc, raw_distance in raw_results:
-            doc.metadata["similarity"] = _distance_to_ui_similarity(float(raw_distance))
+            try:
+                doc.metadata["similarity"] = _distance_to_ui_similarity(float(raw_distance))
+            except (TypeError, ValueError):
+                doc.metadata["similarity"] = "N/A"
         retrieved_docs = [doc for doc, _score in raw_results]
 
-    st.session_state.last_query = query
-    st.session_state.last_raw_results = raw_results
-    st.session_state.last_retrieved_docs = retrieved_docs
-    context = _assemble_context(
-        raw_results,
-        use_page_separators=st.session_state.use_page_separators,
-    )
-    st.session_state.last_context = context
-    with st.expander("📄 Exact Context fed to LLM", expanded=False):
-        st.code(context, language="text")
-        st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
-    with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
-        for i, (doc, _raw_distance) in enumerate(raw_results, start=1):
-            similarity = doc.metadata.get("similarity")
-            st.markdown(
-                f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
-                f"Page: {doc.metadata.get('page', '?')}"
-            )
-            st.code(doc.page_content, language="text")
+        st.session_state.last_query = query
+        st.session_state.last_raw_results = raw_results
+        st.session_state.last_retrieved_docs = retrieved_docs
+        context = _assemble_context(
+            raw_results,
+            use_page_separators=st.session_state.use_page_separators,
+        )
+        st.session_state.last_context = context
 
-    try:
-        with st.spinner("Generating answer..."):
+        try:
             st.session_state.last_answer = generate_answer(
                 context=context,
                 query=query,
                 dummy_mode=st.session_state.dummy_generator_only,
             )
-    except Exception as e:
+        except Exception as e:
+            generation_error = e
+            st.session_state.last_answer = None
+
+    if st.session_state.developer_mode:
+        with st.expander("📄 Exact Context fed to LLM", expanded=False):
+            st.code(context, language="text")
+            st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
+        with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
+            for i, (doc, _raw_distance) in enumerate(raw_results, start=1):
+                similarity = doc.metadata.get("similarity")
+                st.markdown(
+                    f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
+                    f"Page: {doc.metadata.get('page', '?')}"
+                )
+                st.code(doc.page_content, language="text")
+
+    if generation_error is not None:
+        e = generation_error
         st.session_state.last_answer = None
         try:
             model_name = load_generation_config().get("model", "phi3:mini")
@@ -606,6 +623,13 @@ if query and st.session_state.vector_store:
         _render_ollama_recovery_help(reason)
         if st.session_state.developer_mode:
             st.caption(f"Generator error details: {e}")
+        assistant_message = (
+            "I couldn't generate an answer right now. "
+            f"{reason}"
+        )
+        with st.chat_message("assistant"):
+            st.markdown(assistant_message)
+        _append_chat_message("assistant", assistant_message)
     else:
         assistant_message = (
             st.session_state.last_answer
@@ -613,7 +637,7 @@ if query and st.session_state.vector_store:
         )
         source_payload = _build_sources_payload(retrieved_docs)
         with st.chat_message("assistant"):
-            rendered_answer = st.write_stream(_stream_text_chunks(assistant_message))
+            st.write_stream(_stream_text_chunks(assistant_message))
             if source_payload:
                 with st.expander("Sources", expanded=False):
                     for source_idx, source in enumerate(source_payload, start=1):
@@ -622,7 +646,6 @@ if query and st.session_state.vector_store:
                         )
                         st.code(source["preview"], language="text")
                         st.markdown("---")
-        final_assistant_text = (
-            rendered_answer if isinstance(rendered_answer, str) else assistant_message
-        )
-        _append_chat_message("assistant", final_assistant_text, sources=source_payload)
+        _append_chat_message("assistant", assistant_message, sources=source_payload)
+elif query is not None and st.session_state.vector_store:
+    st.warning("Please enter a non-empty question.")

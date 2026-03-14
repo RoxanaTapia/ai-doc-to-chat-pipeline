@@ -122,9 +122,11 @@ def load_generation_config() -> dict[str, Any]:
 def _format_prompt(template: str, context: str, query: str) -> str:
     """Render prompt template while supporting `question` and legacy `query` keys."""
     try:
-        return template.format(context=context, question=query)
-    except KeyError:
-        return template.format(context=context, query=query)
+        # Provide both keys so mixed templates using {question} and {query} work.
+        return template.format(context=context, question=query, query=query)
+    except (KeyError, ValueError) as exc:
+        logger.warning("Invalid prompt template; falling back to default template: %s", exc)
+        return DEFAULT_PROMPT_TEMPLATE.format(context=context, question=query, query=query)
 
 
 def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | None = None) -> str:
@@ -153,14 +155,18 @@ def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
         return "I could not find relevant information in the document to answer this question."
 
     safe_query = _normalize_untrusted_text(query, max_chars=2000)
+    if not safe_query:
+        return "Please enter a non-empty question."
     safe_context = _normalize_untrusted_text(context, max_chars=12000)
 
     def _dummy_response() -> str:
+        context_preview = safe_context[:400]
+        truncation_suffix = "..." if len(safe_context) > 400 else ""
         return (
             "Dummy answer:\n"
             f"{safe_query}\n\n"
             "Based on the document:\n"
-            f"{safe_context[:400]}..."
+            f"{context_preview}{truncation_suffix}"
         )
 
     if dummy_mode:
