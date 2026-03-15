@@ -1,67 +1,59 @@
-# Next-Week Ollama Smoke Checklist
+# Next-Week Ollama Smoke Test Checklist
 
-Use this as an operator runbook when the hardware arrives.
+Operator runbook for validating full local generation once hardware arrives.
 
-## 1) Pre-flight
+## 1. Pre-flight
+- [ ] Activate project venv
+- [ ] `pip install -r requirements.txt` (if needed)
+- [ ] Confirm app works in dummy mode (`USE_DUMMY_GENERATOR=true`)
+- [ ] Prepare 1–2 real contract PDFs
 
-- [ ] Activate project venv.
-- [ ] Install deps (`pip install -r requirements.txt`).
-- [ ] Confirm app runs in dummy mode first (`USE_DUMMY_GENERATOR=true`).
-- [ ] Keep at least 1-2 realistic contract PDFs ready.
+## 2. Model Selection (CPU priority)
+Recommended order:
+- [ ] `phi3.5:mini` -> `ollama pull phi3.5:mini` (preferred, newer/lighter)
+- [ ] Fallback: `phi3:mini`
+- [ ] Stronger option (more RAM): `llama3.1:8b` (quantized)
 
-## 2) Model choice (CPU-first order)
+Set model in:
+- `configs/config.yaml` -> `rag.generation.model`
+- or `.env` -> `OLLAMA_MODEL=phi3.5:mini`
 
-- [ ] Try `phi3.5:mini` first (if available): `ollama pull phi3.5:mini`
-- [ ] Fallback baseline: `ollama pull phi3:mini`
-- [ ] Optional quality-heavy fallback: `llama3.1:8b` (quantized)
+## 3. Start Ollama
+- [ ] Run `ollama serve` (keep terminal open)
+- [ ] `ollama list` -> confirm model is downloaded
+- [ ] Optional quick test: `ollama run <model>`
 
-Set one model for the run:
+## 4. Switch to Real Generation
+- [ ] Set `USE_DUMMY_GENERATOR=false` (or uncheck sidebar toggle)
+- [ ] Strict mode (optional): `OLLAMA_FALLBACK_TO_DUMMY=false`
+- [ ] Launch: `streamlit run src/app.py`
 
-- `configs/config.yaml` -> `rag.generation.model`, or
-- `.env` -> `OLLAMA_MODEL=...`
+## 5. Run Smoke Tests (3–5 realistic questions)
+Good legal-style prompts:
+- "Is there a non-compete clause longer than 2 years?"
+- "Summarize clause X"
+- "Extract parties and effective date"
+- "What are the termination triggers?"
+- "What penalties are defined and on which page?"
 
-## 3) Start local runtime
+## 6. Acceptance Criteria
+- [ ] Grounding: answers match retrieved chunks/pages, no clear hallucinations
+- [ ] Latency: average ~8–12 seconds on CPU
+- [ ] Stability: no OOM/crashes on 50-page PDF
+- [ ] Context handling: ~12k–16k chars of retrieval works reliably
 
-- [ ] Start server: `ollama serve`
-- [ ] Verify model list: `ollama list`
-- [ ] Confirm selected model appears.
-
-## 4) Switch app to real generation
-
-- [ ] Set `USE_DUMMY_GENERATOR=false` (or uncheck sidebar toggle).
-- [ ] Optional for strict behavior: `OLLAMA_FALLBACK_TO_DUMMY=false`
-- [ ] Launch app: `streamlit run src/app.py`
-
-## 5) Smoke questions (run 3-5)
-
-Use realistic legal prompts:
-
-- "Summarize clause X."
-- "Is there a non-compete longer than 2 years?"
-- "Extract parties and effective dates."
-- "What termination triggers are listed?"
-- "What penalties are defined and where?"
-
-## 6) Acceptance targets
-
-- [ ] **Grounding:** Answers match retrieved chunks/pages, no obvious hallucinations.
-- [ ] **Latency:** Average response under ~8-12s on CPU.
-- [ ] **Stability:** No OOM or crashes on a 50-page contract.
-- [ ] **Context:** Retrieval context around 12k-16k chars performs reliably.
-
-## 7) Capture quick evidence
-
-Record this in your test note:
-
+## 7. Quick Results Log
+Note:
 - Model used:
-- `top_k` and generation settings (`max_new_tokens`, `temperature`, `top_p`, `num_ctx`):
-- Average latency over 3-5 prompts:
-- Any timeout/OOM/errors:
-- Pass/Fail for each acceptance target:
+- Key settings (`top_k`, `max_new_tokens`, `temperature`, `num_ctx`):
+- Average latency (3–5 prompts):
+- Errors (if any):
+- Pass/Fail per criterion
 
-## 8) If failures occur
+## 8. Troubleshooting
+- Connection fail -> check `ollama serve` is running
+- Model missing -> `ollama pull <model>`
+- Timeouts -> reduce `top_k` / `max_new_tokens`
+- Poor grounding -> set `temperature=0`, refine prompt/chunk overlap
 
-- Connection errors -> verify `ollama serve` is still running.
-- Model not found -> `ollama pull <model>` and retry.
-- Timeouts -> reduce context size / `top_k` / `max_new_tokens`.
-- Weak grounding -> lower temperature, keep `do_sample=false`, refine prompt/chunks.
+Once this passes, full local generation is ready for real use.
