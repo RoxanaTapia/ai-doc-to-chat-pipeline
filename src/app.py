@@ -596,6 +596,18 @@ if st.session_state.allow_mode_toggle:
 st.sidebar.caption(
     f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
 )
+with st.sidebar.expander("About", expanded=False):
+    st.markdown(
+        """
+        Upload PDFs -> Extract -> Chat! 🚀
+
+        A local, private RAG chatbot for contracts, scans, and reports.
+        Built with LangChain + FAISS + Streamlit.
+        """
+    )
+st.sidebar.markdown("**Tech stack**")
+tech_tags = ["Python", "RAG", "LangChain", "FAISS", "Streamlit", "OCR", "PDF", "Local LLM"]
+st.sidebar.caption(" | ".join(tech_tags))
 
 st.session_state.enable_ocr = st.sidebar.toggle(
     "Enable OCR for scanned pages",
