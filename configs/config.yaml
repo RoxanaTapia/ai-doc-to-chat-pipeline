@@ -10,3 +10,22 @@ rag:
   top_k: 10                  # how many chunks to retrieve per query
   fetch_k: 75                # candidate pool size before MMR reranking
   early_page_max: 20         # prefer chunks from pages <= this value
+  retrieval:
+    strategy: "semantic"     # semantic | hybrid
+    bm25_fetch_k: 75         # candidate pool size for BM25 sparse retrieval
+    rrf_k: 60                # reciprocal rank fusion constant
+    dense_weight: 1.0        # weight of dense rank contribution in fusion
+    bm25_weight: 1.0         # weight of sparse rank contribution in fusion
+    reranker:
+      enabled: false
+      model_name: "BAAI/bge-reranker-base"
+      top_n: 50              # rerank this many candidates before selecting top_k
+  generation:
+    model: "phi3:mini"       # default local Ollama model
+    max_new_tokens: 256      # cap generated answer length
+    temperature: 0.3         # creativity when do_sample is true
+    top_p: 0.9               # nucleus sampling (useful to reduce repetition)
+    do_sample: false         # false => deterministic (temperature forced to 0)
+    fallback_to_dummy_on_error: false  # if true, returns dummy output when Ollama is unavailable
+    num_ctx: 4096            # context window limit passed to Ollama
+    timeout_seconds: 90      # generation timeout safeguard
