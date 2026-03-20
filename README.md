@@ -16,7 +16,8 @@ This local RAG (Retrieval-Augmented Generation) pipeline:
 
 Perfect for lawyers, compliance teams, support staff, or anyone who works with confidential or regulated documents.
 
-Try the **[live demo](https://ai-doc-to-chat-demo.streamlit.app)** right now — drag a PDF, ask a question, see how it cites pages.
+Try the **[live demo](https://ai-doc-to-chat-demo.streamlit.app)** right now — drag a PDF, ask a question, and see cited answers.  
+**Cut document review time by up to 40%** and turn your data into actionable insights with zero data exposure.
 
 ### Current Status (March 2026)
 
@@ -64,5 +65,3 @@ MIT licensed — free to use, modify, or build on commercially.
 Multi-user access, enterprise vector DB integration, audit logs, SSO, or cloud deployment? I'm available for freelance/consulting projects.
 
 Made with ❤️ by **Roxana Tapia** — March 2026
-
-From prototype to production-grade RAG: small models evolved to powerful local LLMs, but privacy stays king. This app recovers real context + generates accurate answers, modular and secure. For clients: "Cut document review time by 40% — try the demo and turn your data into real insights, zero risk."
