@@ -21,7 +21,7 @@ rag:
       model_name: "BAAI/bge-reranker-base"
       top_n: 50              # rerank this many candidates before selecting top_k
   generation:
-    model: "phi3:mini"       # default local Ollama model
+    model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
     max_new_tokens: 256      # cap generated answer length
     temperature: 0.3         # creativity when do_sample is true
     top_p: 0.9               # nucleus sampling (useful to reduce repetition)

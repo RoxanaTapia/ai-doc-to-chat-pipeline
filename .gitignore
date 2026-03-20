@@ -53,11 +53,13 @@ uploaded/
 .cache/huggingface/
 
 # =====================================
-# IDE / editor specifics (add only what you use)
+# Editor-specific
 # =====================================
+.cursor/
 .vscode/
 .idea/
-.cursor/*
+
+# Keep repo-tracked Cursor rule definitions
 !.cursor/rules/
 !.cursor/rules/*.mdc
 

@@ -46,8 +46,10 @@ def _presentation_mode() -> str:
 
 if _is_probably_streamlit_cloud():
     st.sidebar.info(
-        "This is a **public demo** hosted on Streamlit Cloud — documents are temporarily uploaded here. "
-        "For sensitive files, run the app **locally** (clone the repo & streamlit run src/app.py)."
+        "**Public demo (Streamlit Cloud)** — uploads here are temporary. "
+        "**Answers use the dummy generator only** (no Ollama on this host). "
+        "For **real private generation** with your PDFs, run the app **locally** with Ollama, "
+        "or **request a live session** if you need a hosted setup with a real model."
     )
 
 # Load configuration
@@ -402,19 +404,26 @@ def _finalize_retrieval_candidates(
     return raw_results, final_mode, reranker_warning, rerank_elapsed_ms
 
 
-def _render_ollama_recovery_help(reason: str) -> None:
-    """Show concise, actionable local recovery steps for generator issues."""
+def _ollama_recommended_models() -> list[str]:
     try:
-        model_name = load_generation_config().get("model", "phi3:mini")
+        model_name = load_generation_config().get("model", "llama3.1:8b")
     except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
-        model_name = "phi3:mini"
-    preferred_models = [model_name, "phi3.5:mini", "phi3:mini"]
-    # Keep order stable while removing duplicates.
-    recommended_models = list(dict.fromkeys(preferred_models))
-    pull_commands = "\n".join(f"ollama pull {name}" for name in recommended_models)
+        model_name = "llama3.1:8b"
+    preferred = [model_name, "llama3.1:8b", "phi3.5:latest", "phi3:mini"]
+    return list(dict.fromkeys(preferred))
 
-    st.warning(reason)
-    with st.expander("How to fix local generation", expanded=False):
+
+def _ollama_recovery_expander(*, expanded: bool = False) -> None:
+    """Terminal commands and model hints; no duplicate banners."""
+    recommended_models = _ollama_recommended_models()
+    pull_commands = "\n".join(f"ollama pull {name}" for name in recommended_models)
+    recommended_order_text = " → ".join(f"`{name}`" for name in recommended_models)
+    with st.expander("How to fix local generation (Ollama)", expanded=expanded):
+        st.markdown(
+            "**Metal / GPU crashes on macOS** often come from the Ollama runner. "
+            "Update Ollama, try another model/quantization, or reduce context "
+            f"(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
+        )
         st.markdown("Run these commands in a terminal:")
         st.code(
             "ollama serve\n"
@@ -422,11 +431,77 @@ def _render_ollama_recovery_help(reason: str) -> None:
             "ollama list",
             language="bash",
         )
-        recommended_order_text = " -> ".join(f"`{name}`" for name in recommended_models)
-        st.caption(
-            "Preferred order for CPU smoke tests: "
-            f"{recommended_order_text}."
+        st.caption(f"CPU smoke-test order: {recommended_order_text}.")
+
+
+def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
+    """Return (short_user_reason, normalized_error_text)."""
+    try:
+        model_name = load_generation_config().get("model", "llama3.1:8b")
+    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
+        model_name = "llama3.1:8b"
+    error_text = str(exc).lower()
+    if "connection" in error_text or "refused" in error_text:
+        reason = "Could not connect to Ollama. Start the Ollama server first."
+    elif "not found" in error_text or "model" in error_text:
+        reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
+    elif "timeout" in error_text or "timed out" in error_text:
+        reason = "Local model timed out. Retry with a shorter question or smaller context."
+    elif "mtllibrary" in error_text or "metal" in error_text or "llama runner process has terminated" in error_text:
+        reason = (
+            "Ollama’s local model runner crashed (often a Metal/GPU issue on macOS). "
+            "Update Ollama, try a smaller model, or lower `OLLAMA_NUM_CTX`."
         )
+    else:
+        reason = "Could not generate an Ollama answer right now."
+    return reason, error_text
+
+
+def _render_persistent_generation_error() -> None:
+    """Survives reruns (e.g. sidebar toggles) until dismissed or a new success."""
+    err = st.session_state.get("last_generation_error")
+    if not err:
+        return
+    reason = err.get("user_reason", "Generation failed.")
+    st.error(reason)
+    _ollama_recovery_expander(expanded=False)
+    detail = err.get("detail")
+    if st.session_state.developer_mode and detail:
+        with st.expander("Technical details", expanded=False):
+            st.code(detail, language="text")
+    if st.button("Dismiss", key="dismiss_generation_error_banner"):
+        st.session_state.last_generation_error = None
+        st.rerun()
+
+
+def _set_indexed_doc_stats(
+    *,
+    file_name: str,
+    pages: int,
+    chars: int,
+    reused_index: bool,
+) -> None:
+    st.session_state.indexed_doc_stats = {
+        "file_name": file_name,
+        "pages": pages,
+        "chars": chars,
+        "reused_index": reused_index,
+    }
+
+
+def _render_document_ready_caption() -> None:
+    """Single-line status for the indexed document (client-friendly)."""
+    stats = st.session_state.get("indexed_doc_stats")
+    if stats:
+        suffix = " · using saved index" if stats.get("reused_index") else " · ready to chat"
+        st.caption(
+            f"**{stats['file_name']}** · {stats['pages']} pages · "
+            f"{stats['chars']:,} characters{suffix}"
+        )
+    elif st.session_state.current_file:
+        st.caption(f"Ready: **{st.session_state.current_file}**")
+    elif st.session_state.vector_store is None:
+        st.caption("Upload and process a document to enable chat.")
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -518,6 +593,7 @@ def _reset_chat_state() -> None:
     st.session_state.last_context = ""
     st.session_state.last_answer = None
     st.session_state.last_retrieval_metrics = None
+    st.session_state.last_generation_error = None
     st.session_state.messages = []
 
 
@@ -529,6 +605,8 @@ def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
     st.session_state.last_processed_name = None
     st.session_state.last_processed_hash = None
     st.session_state.bm25_state = None
+    st.session_state.indexed_doc_stats = None
+    st.session_state.last_generation_error = None
     _reset_chat_state()
     if bump_uploader_key:
         st.session_state.uploader_key_version += 1
@@ -562,7 +640,11 @@ def _init_session_state() -> None:
         "developer_mode": _presentation_mode() == "developer",
         "enable_ocr": True,
         "use_page_separators": False,
-        "dummy_generator_only": _env_bool("USE_DUMMY_GENERATOR", True),
+        # Local: Ollama by default. Cloud: dummy only (no local Ollama). Env overrides either way.
+        "dummy_generator_only": _env_bool(
+            "USE_DUMMY_GENERATOR",
+            _is_probably_streamlit_cloud(),
+        ),
         "bm25_state": None,
         "retrieval_strategy": (
             RETRIEVAL_STRATEGY_DEFAULT
@@ -570,6 +652,8 @@ def _init_session_state() -> None:
             else "semantic"
         ),
         "enable_reranker": RERANKER_ENABLED_DEFAULT,
+        "indexed_doc_stats": None,
+        "last_generation_error": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -599,31 +683,31 @@ st.sidebar.caption(
 with st.sidebar.expander("About", expanded=False):
     st.markdown(
         """
-        Upload PDFs -> Extract -> Chat! 🚀
+        Upload PDFs → Extract → Chat! 🚀
 
         A local, private RAG chatbot for contracts, scans, and reports.
         Built with LangChain + FAISS + Streamlit.
+
+        **Stack:** Python · RAG · LangChain · FAISS · Streamlit · OCR · PDF · Local LLM
         """
     )
-st.sidebar.markdown("**Tech stack**")
-tech_tags = ["Python", "RAG", "LangChain", "FAISS", "Streamlit", "OCR", "PDF", "Local LLM"]
-st.sidebar.caption(" | ".join(tech_tags))
 
-st.session_state.enable_ocr = st.sidebar.toggle(
-    "Enable OCR for scanned pages",
-    value=st.session_state.enable_ocr,
-    help="Attempts OCR only on pages with little/no extractable text.",
-)
-st.session_state.use_page_separators = st.sidebar.checkbox(
-    "Use page separators in context",
-    value=st.session_state.use_page_separators,
-    help="Adds page labels between chunks when assembling context for generation.",
-)
-st.session_state.dummy_generator_only = st.sidebar.checkbox(
-    "Use dummy generator only (for testing)",
-    value=st.session_state.dummy_generator_only,
-    help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
-)
+with st.sidebar.expander("Document & chat options", expanded=False):
+    st.session_state.enable_ocr = st.toggle(
+        "Enable OCR for scanned pages",
+        value=st.session_state.enable_ocr,
+        help="Attempts OCR only on pages with little/no extractable text.",
+    )
+    st.session_state.use_page_separators = st.checkbox(
+        "Use page separators in context",
+        value=st.session_state.use_page_separators,
+        help="Adds page labels between chunks when assembling context for generation.",
+    )
+    st.session_state.dummy_generator_only = st.checkbox(
+        "Use dummy generator only (for testing)",
+        value=st.session_state.dummy_generator_only,
+        help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
+    )
 if st.session_state.developer_mode:
     st.session_state.retrieval_strategy = st.sidebar.selectbox(
         "Retrieval strategy",
@@ -641,6 +725,14 @@ if st.session_state.developer_mode:
             "Second-stage reranking of top candidates using a cross-encoder "
             f"({RERANKER_MODEL_NAME})."
         ),
+    )
+
+if _is_probably_streamlit_cloud():
+    st.warning(
+        "**Demo mode:** this hosted app uses **dummy chat responses** only. "
+        "There is no Ollama (or other LLM) on Streamlit Cloud. "
+        "For **real answers on your documents**, run **`streamlit run src/app.py` locally** with Ollama installed, "
+        "or **request a live session** for a private hosted demo."
     )
 
 st.title("Upload → Extract → Chat! 🚀")
@@ -667,73 +759,79 @@ if controls_col2.button(
 extracted_text = ""
 
 if uploaded_file is not None:
-    st.success(f"Received file: {uploaded_file.name}")
+    file_bytes = uploaded_file.getvalue()
+    uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
 
-    tmp_path = None
-    progress_bar = None
-    try:
-        progress_bar = st.progress(5, text="Preparing uploaded file...")
-        file_bytes = uploaded_file.getvalue()
-        uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
-        ocr_pages_used = 0
-        scanned_pages_detected = 0
-        ocr_pages_attempted = 0
-        ocr_warning: str | None = None
-
-        # Save uploaded file to temporary location
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(file_bytes)
-            tmp_path = Path(tmp_file.name)
-
-        progress_bar.progress(25, text="Extracting text from PDF...")
-
-        # Extract text with PyMuPDF
-        doc = fitz.open(str(tmp_path))
-        extracted_text = ""
-        page_docs = []
-        for page_num, page in enumerate(doc, start=1):
-            page_text = page.get_text("text") or ""
-            final_page_text = page_text
-            if st.session_state.enable_ocr and _is_likely_scanned_page(page_text):
-                scanned_pages_detected += 1
-                ocr_pages_attempted += 1
-                ocr_text, ocr_error = _ocr_page_text(page)
-                if ocr_error and ocr_warning is None:
-                    ocr_warning = ocr_error
-                if ocr_text:
-                    final_page_text = ocr_text
-                    ocr_pages_used += 1
-            extracted_text += f"\n--- Page {page_num} ---\n"
-            extracted_text += final_page_text + "\n"
-            page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
-        doc.close()
-        progress_bar.progress(45, text="Text extracted. Preparing chunking...")
-
-        extracted_char_count = len(extracted_text.strip())
-        st.success("Extraction complete.")
-        st.caption(
-            f"Pages detected: {len(page_docs)} | Characters extracted: {extracted_char_count:,}"
+    if (
+        uploaded_hash == st.session_state.last_processed_hash
+        and st.session_state.vector_store is not None
+    ):
+        st.session_state.current_file = uploaded_file.name
+        prev = st.session_state.indexed_doc_stats or {}
+        _set_indexed_doc_stats(
+            file_name=uploaded_file.name,
+            pages=int(prev.get("pages", 0)),
+            chars=int(prev.get("chars", 0)),
+            reused_index=True,
         )
-        _render_ocr_status(
-            enable_ocr=st.session_state.enable_ocr,
-            scanned_pages_detected=scanned_pages_detected,
-            ocr_pages_attempted=ocr_pages_attempted,
-            ocr_pages_used=ocr_pages_used,
-            ocr_warning=ocr_warning,
-            developer_mode=st.session_state.developer_mode,
-        )
-        if st.session_state.developer_mode and extracted_char_count > 0:
-            with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
-                st.text_area(
-                    "Extracted text sample",
-                    extracted_text[:2000],
-                    height=260,
+    else:
+        tmp_path = None
+        progress_bar = None
+        try:
+            progress_bar = st.progress(5, text="Preparing uploaded file...")
+            ocr_pages_used = 0
+            scanned_pages_detected = 0
+            ocr_pages_attempted = 0
+            ocr_warning: str | None = None
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(file_bytes)
+                tmp_path = Path(tmp_file.name)
+
+            progress_bar.progress(25, text="Extracting text from PDF...")
+
+            doc = fitz.open(str(tmp_path))
+            extracted_text = ""
+            page_docs = []
+            for page_num, page in enumerate(doc, start=1):
+                page_text = page.get_text("text") or ""
+                final_page_text = page_text
+                if st.session_state.enable_ocr and _is_likely_scanned_page(page_text):
+                    scanned_pages_detected += 1
+                    ocr_pages_attempted += 1
+                    ocr_text, ocr_error = _ocr_page_text(page)
+                    if ocr_error and ocr_warning is None:
+                        ocr_warning = ocr_error
+                    if ocr_text:
+                        final_page_text = ocr_text
+                        ocr_pages_used += 1
+                extracted_text += f"\n--- Page {page_num} ---\n"
+                extracted_text += final_page_text + "\n"
+                page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
+            doc.close()
+            progress_bar.progress(45, text="Text extracted. Preparing chunking...")
+
+            extracted_char_count = len(extracted_text.strip())
+            if st.session_state.developer_mode:
+                st.caption(
+                    f"Extraction: **{len(page_docs)}** pages · **{extracted_char_count:,}** characters"
                 )
+            _render_ocr_status(
+                enable_ocr=st.session_state.enable_ocr,
+                scanned_pages_detected=scanned_pages_detected,
+                ocr_pages_attempted=ocr_pages_attempted,
+                ocr_pages_used=ocr_pages_used,
+                ocr_warning=ocr_warning,
+                developer_mode=st.session_state.developer_mode,
+            )
+            if st.session_state.developer_mode and extracted_char_count > 0:
+                with st.expander("Raw extraction preview (first 2000 chars)", expanded=False):
+                    st.text_area(
+                        "Extracted text sample",
+                        extracted_text[:2000],
+                        height=260,
+                    )
 
-        # --- Chunking & Indexing (only if new file) ---
-        is_new_file = st.session_state.last_processed_hash != uploaded_hash
-
-        if is_new_file:
             with st.spinner("Splitting text into chunks..."):
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=CHUNK_SIZE,
@@ -750,6 +848,12 @@ if uploaded_file is not None:
                 _reset_document_state()
                 st.session_state.chunks = []
                 _set_processed_document(uploaded_file.name, uploaded_hash)
+                _set_indexed_doc_stats(
+                    file_name=uploaded_file.name,
+                    pages=len(page_docs),
+                    chars=extracted_char_count,
+                    reused_index=False,
+                )
                 finalize_progress(progress_bar, "No index created (no extractable text).")
                 st.warning(
                     "No extractable text chunks were found in this document, "
@@ -797,25 +901,28 @@ if uploaded_file is not None:
                         f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
                     )
                 else:
-                    st.success("Document processed. You can now ask questions.")
+                    st.toast("Document indexed — you can chat.", icon="✅")
 
                 _set_processed_document(uploaded_file.name, uploaded_hash)
+                _set_indexed_doc_stats(
+                    file_name=uploaded_file.name,
+                    pages=len(page_docs),
+                    chars=extracted_char_count,
+                    reused_index=False,
+                )
 
                 if len(chunks) <= 2:
                     st.warning("Very little text found in document. Search might not work well.")
 
-        else:
-            finalize_progress(progress_bar, "Same document detected. Reusing existing index.")
-            st.session_state.current_file = uploaded_file.name
-            st.info("Same document detected — skipping re-processing.")
+        except (OSError, ValueError, RuntimeError) as e:
+            finalize_progress(progress_bar, "Processing failed.")
+            st.error(f"Error processing PDF: {str(e)}")
+            st.exception(e)
+        finally:
+            if tmp_path and tmp_path.exists():
+                tmp_path.unlink(missing_ok=True)
 
-    except (OSError, ValueError, RuntimeError) as e:
-        finalize_progress(progress_bar, "Processing failed.")
-        st.error(f"Error processing PDF: {str(e)}")
-        st.exception(e)
-    finally:
-        if tmp_path and tmp_path.exists():
-            tmp_path.unlink(missing_ok=True)
+_render_document_ready_caption()
 
 # Chat history UI (persists across reruns)
 assistant_turn_count = 0
@@ -832,11 +939,6 @@ for message in st.session_state.messages:
                     )
                     st.code(source["preview"], language="text")
                     st.markdown("---")
-
-if st.session_state.current_file:
-    st.caption(f"Currently indexed: **{st.session_state.current_file}**")
-elif st.session_state.vector_store is None:
-    st.caption("Upload and process a document to enable chat.")
 
 query = st.chat_input(
     "Ask a question about the document...",
@@ -914,7 +1016,8 @@ if query and query.strip() and st.session_state.vector_store:
                     dummy_mode=st.session_state.dummy_generator_only,
                 )
                 generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-            except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as e:
+                st.session_state.last_generation_error = None
+            except Exception as e:
                 generation_error = e
                 generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
                 st.session_state.last_answer = None
@@ -983,22 +1086,11 @@ if query and query.strip() and st.session_state.vector_store:
     elif generation_error is not None:
         e = generation_error
         st.session_state.last_answer = None
-        try:
-            model_name = load_generation_config().get("model", "phi3:mini")
-        except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
-            model_name = "phi3:mini"
-        error_text = str(e).lower()
-        if "connection" in error_text or "refused" in error_text:
-            reason = "Could not connect to Ollama. Start the Ollama server first."
-        elif "not found" in error_text or "model" in error_text:
-            reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
-        elif "timeout" in error_text or "timed out" in error_text:
-            reason = "Local model timed out. Retry with a shorter question or smaller context."
-        else:
-            reason = "Could not generate an Ollama answer right now."
-        _render_ollama_recovery_help(reason)
-        if st.session_state.developer_mode:
-            st.caption(f"Generator error details: {e}")
+        reason, _ = _generation_failure_reason(e)
+        st.session_state.last_generation_error = {
+            "user_reason": reason,
+            "detail": str(e),
+        }
         assistant_message = (
             "I couldn't generate an answer right now. "
             f"{reason}"
@@ -1025,3 +1117,5 @@ if query and query.strip() and st.session_state.vector_store:
         _append_chat_message("assistant", assistant_message, sources=source_payload)
 elif query is not None and st.session_state.vector_store:
     st.warning("Please enter a non-empty question.")
+
+_render_persistent_generation_error()
