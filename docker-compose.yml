@@ -4,6 +4,13 @@ services:
     volumes:
       - ollama_models:/root/.ollama
     restart: unless-stopped
+    healthcheck:
+      # No curl in image; probes skip ENTRYPOINT — use /bin/ollama list against the local API.
+      test: ["CMD", "/bin/ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
   app:
     build: .
@@ -11,10 +18,12 @@ services:
       - "8501:8501"
     environment:
       OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: phi3:mini
       USE_DUMMY_GENERATOR: "false"
       STREAMLIT_SERVER_FILE_WATCHER_TYPE: none
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

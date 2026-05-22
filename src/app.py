@@ -361,8 +361,77 @@ def _hybrid_rrf_retrieval(
     }
 
 
-def _append_chat_message(role: str, content: str, sources: list[dict] | None = None) -> None:
+def _format_elapsed_ms(elapsed_ms: float) -> str:
+    """Format milliseconds as a short human-readable duration."""
+    seconds = max(0.0, elapsed_ms / 1000.0)
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds // 60)
+    rem = int(round(seconds % 60))
+    if rem == 60:
+        minutes += 1
+        rem = 0
+    return f"{minutes}m {rem}s" if rem else f"{minutes}m"
+
+
+def _response_timing_caption(
+    *,
+    total_ms: float,
+    retrieval_ms: float = 0.0,
+    generation_ms: float = 0.0,
+    developer_mode: bool = False,
+) -> str:
+    """Build a caption showing how long the last answer took."""
+    total_label = _format_elapsed_ms(total_ms)
+    if not developer_mode:
+        return f"Answered in {total_label}"
+    parts = []
+    if retrieval_ms > 0:
+        parts.append(f"retrieval {_format_elapsed_ms(retrieval_ms)}")
+    if generation_ms > 0:
+        parts.append(f"generation {_format_elapsed_ms(generation_ms)}")
+    if parts:
+        return f"Answered in {total_label} ({' · '.join(parts)})"
+    return f"Answered in {total_label}"
+
+
+def _assistant_message_with_timing(
+    content: str,
+    timing: dict[str, float] | None,
+    *,
+    developer_mode: bool,
+) -> str:
+    """Embed elapsed time in assistant markdown so it survives Streamlit reruns."""
+    if not timing or timing.get("total_ms", 0) <= 0:
+        return content
+    footer = _response_timing_caption(
+        total_ms=timing["total_ms"],
+        retrieval_ms=timing.get("retrieval_ms", 0.0),
+        generation_ms=timing.get("generation_ms", 0.0),
+        developer_mode=developer_mode,
+    )
+    return f"{content}\n\n---\n*{footer}*"
+
+
+def _remember_response_timing(timing: dict[str, float] | None) -> None:
+    """Persist last response timing for the status line above chat input."""
+    if timing and timing.get("total_ms", 0) > 0:
+        st.session_state.last_response_timing = timing
+
+
+def _append_chat_message(
+    role: str,
+    content: str,
+    sources: list[dict] | None = None,
+    timing: dict[str, float] | None = None,
+) -> None:
     """Append a chat message and prune old history."""
+    if role == "assistant":
+        content = _assistant_message_with_timing(
+            content,
+            timing,
+            developer_mode=st.session_state.developer_mode,
+        )
     message = {"role": role, "content": content}
     if sources:
         message["sources"] = sources
@@ -491,6 +560,60 @@ def _set_indexed_doc_stats(
     }
 
 
+def _clear_cached_upload() -> None:
+    """Drop persisted upload bytes (e.g. on clear document)."""
+    for key in ("uploaded_pdf_bytes", "uploaded_pdf_name", "uploaded_pdf_hash"):
+        st.session_state.pop(key, None)
+
+
+def _cache_upload(file_bytes: bytes, file_name: str) -> str:
+    """Persist upload in session so Rerun does not lose the file buffer."""
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    st.session_state.uploaded_pdf_bytes = file_bytes
+    st.session_state.uploaded_pdf_name = file_name
+    st.session_state.uploaded_pdf_hash = file_hash
+    return file_hash
+
+
+def _resolve_upload(uploaded_file) -> tuple[bytes, str] | None:
+    """Return file bytes and name from the widget or session cache."""
+    if uploaded_file is not None:
+        return uploaded_file.getvalue(), uploaded_file.name
+    cached_name = st.session_state.get("uploaded_pdf_name")
+    cached_bytes = st.session_state.get("uploaded_pdf_bytes")
+    if cached_name and cached_bytes:
+        return cached_bytes, cached_name
+    return None
+
+
+def _document_is_indexed() -> bool:
+    return st.session_state.vector_store is not None
+
+
+def _chat_input_placeholder() -> str:
+    if _document_is_indexed():
+        return "Ask a question about the document..."
+    if st.session_state.get("uploaded_pdf_bytes"):
+        return "Indexing your document… chat unlocks when ready."
+    return "Upload a PDF above to start."
+
+
+def _chat_blocked_user_message(uploaded_file) -> str:
+    if _document_is_indexed():
+        return ""
+    if uploaded_file is not None or st.session_state.get("uploaded_pdf_bytes"):
+        return (
+            "Your document is still being indexed. "
+            "Wait until you see **ready to chat** below, then ask again."
+        )
+    if st.session_state.current_file or st.session_state.get("uploaded_pdf_name"):
+        return (
+            "The file box may still show a name after **Rerun**, but the upload buffer was cleared. "
+            "Re-select your PDF above, or click **Clear current document**."
+        )
+    return "Upload a PDF and wait for indexing to finish before asking a question."
+
+
 def _render_document_ready_caption() -> None:
     """Single-line status for the indexed document (client-friendly)."""
     stats = st.session_state.get("indexed_doc_stats")
@@ -500,10 +623,12 @@ def _render_document_ready_caption() -> None:
             f"**{stats['file_name']}** · {stats['pages']} pages · "
             f"{stats['chars']:,} characters{suffix}"
         )
-    elif st.session_state.current_file:
-        st.caption(f"Ready: **{st.session_state.current_file}**")
-    elif st.session_state.vector_store is None:
-        st.caption("Upload and process a document to enable chat.")
+    elif _document_is_indexed() and st.session_state.current_file:
+        st.caption(f"**{st.session_state.current_file}** · ready to chat")
+    elif st.session_state.get("uploaded_pdf_name") and not _document_is_indexed():
+        st.caption(f"**{st.session_state.uploaded_pdf_name}** · indexing…")
+    elif not _document_is_indexed():
+        st.caption("Upload a PDF to enable chat.")
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -596,6 +721,7 @@ def _reset_chat_state() -> None:
     st.session_state.last_answer = None
     st.session_state.last_retrieval_metrics = None
     st.session_state.last_generation_error = None
+    st.session_state.last_response_timing = None
     st.session_state.messages = []
 
 
@@ -609,6 +735,7 @@ def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
     st.session_state.bm25_state = None
     st.session_state.indexed_doc_stats = None
     st.session_state.last_generation_error = None
+    _clear_cached_upload()
     _reset_chat_state()
     if bump_uploader_key:
         st.session_state.uploader_key_version += 1
@@ -656,6 +783,7 @@ def _init_session_state() -> None:
         "enable_reranker": RERANKER_ENABLED_DEFAULT,
         "indexed_doc_stats": None,
         "last_generation_error": None,
+        "last_response_timing": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -738,13 +866,13 @@ if _is_probably_streamlit_cloud():
     )
 
 st.title("Upload → Extract → Chat! 🚀")
-st.markdown("RAG-powered Document AI chatbot – coming soon!")
+st.caption("Private RAG chat over your PDF — upload, index, then ask questions.")
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"], key=uploader_key)
 
 controls_col1, controls_col2 = st.columns(2)
-if controls_col1.button("🗑️ Clear current document", type="primary"):
+if controls_col1.button("🗑️ Clear current document", type="secondary"):
     _reset_document_state(bump_uploader_key=True)
     st.success("Document cleared!")
     st.rerun()
@@ -760,18 +888,22 @@ if controls_col2.button(
 
 extracted_text = ""
 
-if uploaded_file is not None:
-    file_bytes = uploaded_file.getvalue()
-    uploaded_hash = hashlib.sha256(file_bytes).hexdigest()
+resolved_upload = _resolve_upload(uploaded_file)
+if resolved_upload is not None:
+    file_bytes, file_name = resolved_upload
+    uploaded_hash = _cache_upload(file_bytes, file_name)
+
+    if uploaded_file is None and not _document_is_indexed():
+        st.info("Restoring your document after a refresh — re-indexing now.")
 
     if (
         uploaded_hash == st.session_state.last_processed_hash
-        and st.session_state.vector_store is not None
+        and _document_is_indexed()
     ):
-        st.session_state.current_file = uploaded_file.name
+        st.session_state.current_file = file_name
         prev = st.session_state.indexed_doc_stats or {}
         _set_indexed_doc_stats(
-            file_name=uploaded_file.name,
+            file_name=file_name,
             pages=int(prev.get("pages", 0)),
             chars=int(prev.get("chars", 0)),
             reused_index=True,
@@ -849,9 +981,9 @@ if uploaded_file is not None:
             if not chunks:
                 _reset_document_state()
                 st.session_state.chunks = []
-                _set_processed_document(uploaded_file.name, uploaded_hash)
+                _set_processed_document(file_name, uploaded_hash)
                 _set_indexed_doc_stats(
-                    file_name=uploaded_file.name,
+                    file_name=file_name,
                     pages=len(page_docs),
                     chars=extracted_char_count,
                     reused_index=False,
@@ -905,9 +1037,9 @@ if uploaded_file is not None:
                 else:
                     st.toast("Document indexed — you can chat.", icon="✅")
 
-                _set_processed_document(uploaded_file.name, uploaded_hash)
+                _set_processed_document(file_name, uploaded_hash)
                 _set_indexed_doc_stats(
-                    file_name=uploaded_file.name,
+                    file_name=file_name,
                     pages=len(page_docs),
                     chars=extracted_char_count,
                     reused_index=False,
@@ -942,12 +1074,22 @@ for message in st.session_state.messages:
                     st.code(source["preview"], language="text")
                     st.markdown("---")
 
-query = st.chat_input(
-    "Ask a question about the document...",
-    disabled=st.session_state.vector_store is None,
-)
+last_timing = st.session_state.get("last_response_timing")
+if last_timing:
+    st.caption(
+        "⏱ Last answer: "
+        + _response_timing_caption(
+            total_ms=last_timing.get("total_ms", 0.0),
+            retrieval_ms=last_timing.get("retrieval_ms", 0.0),
+            generation_ms=last_timing.get("generation_ms", 0.0),
+            developer_mode=st.session_state.developer_mode,
+        )
+    )
 
-if query and query.strip() and st.session_state.vector_store:
+chat_ready = _document_is_indexed()
+query = st.chat_input(_chat_input_placeholder())
+
+if query and query.strip() and chat_ready:
     query = query.strip()
     with st.chat_message("user"):
         st.markdown(query)
@@ -1134,9 +1276,17 @@ if query and query.strip() and st.session_state.vector_store:
         st.warning(retrieval_reason)
         if st.session_state.developer_mode:
             st.caption(f"Retrieval error details: {retrieval_error}")
-        with st.chat_message("assistant"):
-            st.markdown(retrieval_reason)
-        _append_chat_message("assistant", retrieval_reason)
+        timing_payload = {
+            "total_ms": total_elapsed_ms,
+            "retrieval_ms": retrieval_elapsed_ms,
+            "generation_ms": generation_elapsed_ms,
+        }
+        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+        _append_chat_message(
+            "assistant",
+            retrieval_reason,
+            timing=timing_payload if total_elapsed_ms > 0 else None,
+        )
     elif generation_error is not None:
         e = generation_error
         st.session_state.last_answer = None
@@ -1149,17 +1299,34 @@ if query and query.strip() and st.session_state.vector_store:
             "I couldn't generate an answer right now. "
             f"{reason}"
         )
-        with st.chat_message("assistant"):
-            st.markdown(assistant_message)
-        _append_chat_message("assistant", assistant_message)
+        timing_payload = {
+            "total_ms": total_elapsed_ms,
+            "retrieval_ms": retrieval_elapsed_ms,
+            "generation_ms": generation_elapsed_ms,
+        }
+        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+        _append_chat_message(
+            "assistant",
+            assistant_message,
+            timing=timing_payload if total_elapsed_ms > 0 else None,
+        )
     else:
         assistant_message = (
             st.session_state.last_answer
             or "I could not generate an answer at this time. Please try again."
         )
         source_payload = _build_sources_payload(retrieved_docs)
+        timing_payload = {
+            "total_ms": total_elapsed_ms,
+            "retrieval_ms": retrieval_elapsed_ms,
+            "generation_ms": generation_elapsed_ms,
+        }
         with st.chat_message("assistant"):
             st.write_stream(_stream_text_chunks(assistant_message))
+            if total_elapsed_ms > 0:
+                st.markdown(
+                    f"---\n*{_response_timing_caption(**timing_payload, developer_mode=st.session_state.developer_mode)}*"
+                )
             if source_payload:
                 with st.expander("Sources", expanded=False):
                     for source_idx, source in enumerate(source_payload, start=1):
@@ -1168,8 +1335,16 @@ if query and query.strip() and st.session_state.vector_store:
                         )
                         st.code(source["preview"], language="text")
                         st.markdown("---")
-        _append_chat_message("assistant", assistant_message, sources=source_payload)
-elif query is not None and st.session_state.vector_store:
+        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+        _append_chat_message(
+            "assistant",
+            assistant_message,
+            sources=source_payload,
+            timing=timing_payload if total_elapsed_ms > 0 else None,
+        )
+elif query is not None and not chat_ready:
+    st.info(_chat_blocked_user_message(uploaded_file))
+elif query is not None:
     st.warning("Please enter a non-empty question.")
 
 _render_persistent_generation_error()

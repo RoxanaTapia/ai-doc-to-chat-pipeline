@@ -2,3 +2,10 @@
 # Docker has no hot-reload; disable watcher to avoid probing transformers submodules
 # that optionally import torchvision (not installed — not needed for embeddings).
 fileWatcherType = "none"
+
+[theme]
+# Neutral primary avoids Streamlit's default red/coral tint on chat input chrome.
+primaryColor = "#2563eb"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#31333f"
