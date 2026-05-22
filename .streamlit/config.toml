@@ -1,0 +1,4 @@
+[server]
+# Docker has no hot-reload; disable watcher to avoid probing transformers submodules
+# that optionally import torchvision (not installed — not needed for embeddings).
+fileWatcherType = "none"

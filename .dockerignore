@@ -15,7 +15,8 @@ htmlcov/
 .env.*
 !.env.example
 
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
 data/
 samples/
 uploaded/
