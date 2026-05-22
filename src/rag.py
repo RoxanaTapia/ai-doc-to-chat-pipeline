@@ -95,7 +95,7 @@ def load_generation_config() -> dict[str, Any]:
             logger.warning("Invalid %s=%r; using default %s", name, raw, default)
             return int(default)
 
-    default_model = str(generation.get("model", "phi3:mini"))
+    default_model = str(generation.get("model", "llama3.1:8b"))
     model_override = _env_text("OLLAMA_MODEL")
 
     return {
@@ -174,7 +174,7 @@ def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
     settings = load_generation_config()
     try:
         return _generate_with_ollama(context=safe_context, query=safe_query, settings=settings)
-    except (ConnectionError, TimeoutError, OSError, ValueError, RuntimeError) as exc:
+    except Exception as exc:
         logger.exception("Ollama generation failed: %s", exc)
         if settings.get("fallback_to_dummy_on_error", False):
             return (

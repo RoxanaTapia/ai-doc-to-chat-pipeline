@@ -53,13 +53,17 @@ uploaded/
 .cache/huggingface/
 
 # =====================================
-# IDE / editor specifics (add only what you use)
+# Editor-specific — track rules, agents, commands; ignore rest of .cursor/
 # =====================================
-.vscode/
-.idea/
 .cursor/*
 !.cursor/rules/
-!.cursor/rules/*.mdc
+!.cursor/rules/**
+!.cursor/agents/
+!.cursor/agents/**
+!.cursor/commands/
+!.cursor/commands/**
+.vscode/
+.idea/
 
 # =====================================
 # Testing & linting caches (add later when you write tests)

@@ -1,0 +1,32 @@
+---
+description: GitHub milestone workflow — one issue, one branch, granular commits, no secrets
+alwaysApply: true
+---
+
+# Milestone workflow (M7–M12)
+
+## Issue → PR discipline
+
+- One GitHub issue → one branch `feat/m7-<name>` → one PR → `Closes #NN` in PR body.
+- Do not start M7-2 until M7-1 merges (serial dependency).
+- Never commit `.env`, API keys, client hostnames, or real VPS URLs in git.
+
+## Commit granularity
+
+| Who | Commits? |
+|-----|----------|
+| Specialists (`deploy-engineer`, etc.) | **No** — report files changed + suggested split |
+| `milestone-orchestrator` | **Yes** — 1–4 commits per issue per ROADMAP |
+| `verifier` | **No** — tests only |
+
+Per issue caps: docs 1, infra 1–2, features 2–4. One logical change per commit; tests must pass on final tree.
+
+## Before every PR
+
+1. Read GitHub issue checklist and `docs/ROADMAP.md`.
+2. Run verifier (pytest; docker build when infra changed).
+3. Propose commit messages; commit only if user explicitly asked.
+
+## Agent dispatch
+
+See [AGENTS.md](AGENTS.md) for issue→agent mapping and parallel rules.

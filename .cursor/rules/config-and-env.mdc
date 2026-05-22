@@ -1,0 +1,13 @@
+---
+description: YAML config and .env.example — validate keys, document env vars, no secrets
+globs: configs/**,.env.example
+alwaysApply: false
+---
+
+# Config & environment
+
+- Keep `configs/config.yaml` and `configs/prompts.yaml` in sync with code that loads them.
+- Every new env var must appear in `.env.example` with an **empty** value and a short comment.
+- Use `OLLAMA_*`, `USE_DUMMY_GENERATOR`, `LLM_PROVIDER` naming consistently with `src/rag.py`.
+- Never commit filled `.env` files or API keys.
+- For M12+, `generation.provider` in YAML should match env override docs.
