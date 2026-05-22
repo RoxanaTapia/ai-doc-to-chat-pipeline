@@ -18,6 +18,7 @@ services:
       - "8501:8501"
     environment:
       OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: phi3:mini
       USE_DUMMY_GENERATOR: "false"
       STREAMLIT_SERVER_FILE_WATCHER_TYPE: none
     depends_on:
