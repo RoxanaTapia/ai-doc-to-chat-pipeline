@@ -1,6 +1,7 @@
 import streamlit as st
 import fitz  # PyMuPDF (pymupdf package)
 import tempfile
+import threading
 import yaml
 import time
 import hashlib
@@ -17,6 +18,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -962,66 +964,118 @@ if query and query.strip() and st.session_state.vector_store:
     rerank_elapsed_ms = 0.0
     generation_elapsed_ms = 0.0
     total_elapsed_ms = 0.0
-    with st.spinner("Thinking..."):
-        total_start = time.perf_counter()
-        retrieval_start = time.perf_counter()
-        try:
-            candidate_limit = (
-                max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
-            )
-            candidate_pool, mode, first_stage_warning, retrieval_diag = _run_first_stage_retrieval(
-                query,
-                candidate_limit=candidate_limit,
-            )
-            raw_results, final_mode, reranker_warning, rerank_elapsed_ms = _finalize_retrieval_candidates(
-                query,
-                candidate_pool=candidate_pool,
-                mode=mode,
-            )
-            st.session_state.last_retrieval_mode = final_mode
-            retrieval_warning = reranker_warning or first_stage_warning
-            retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+    thinking_row = st.empty()
+    with thinking_row.container():
+        timer_col, spin_col = st.columns([1, 5])
+        with timer_col:
+            timer_placeholder = st.empty()
+            timer_placeholder.caption("⏱ 0.0s")
+        stop_timer = threading.Event()
+        script_ctx = get_script_run_ctx()
 
-            for doc, score in raw_results:
-                doc.metadata["similarity"] = score
-            retrieved_docs = [doc for doc, _score in raw_results]
+        def _thinking_timer_loop() -> None:
+            if script_ctx is not None:
+                add_script_run_ctx(threading.current_thread(), script_ctx)
+            t0 = time.perf_counter()
+            while not stop_timer.wait(0.12):
+                elapsed = time.perf_counter() - t0
+                timer_placeholder.caption(f"⏱ {elapsed:.1f}s")
 
-            st.session_state.last_query = query
-            st.session_state.last_raw_results = raw_results
-            st.session_state.last_retrieved_docs = retrieved_docs
-            context = _assemble_context(
-                raw_results,
-                use_page_separators=st.session_state.use_page_separators,
-            )
-            st.session_state.last_context = context
-        except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
-            retrieval_error = e
-            retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-            st.session_state.last_retrieval_mode = "retrieval_failed"
-            raw_results = []
-            retrieved_docs = []
-            context = ""
-            st.session_state.last_query = query
-            st.session_state.last_raw_results = []
-            st.session_state.last_retrieved_docs = []
-            st.session_state.last_context = ""
-            st.session_state.last_answer = None
+        with spin_col:
+            with st.spinner("Thinking..."):
+                timer_thread = None
+                if script_ctx is not None:
+                    timer_thread = threading.Thread(
+                        target=_thinking_timer_loop,
+                        daemon=True,
+                        name="thinking-timer",
+                    )
+                    timer_thread.start()
+                try:
+                    total_start = time.perf_counter()
+                    retrieval_start = time.perf_counter()
+                    try:
+                        candidate_limit = (
+                            max(TOP_K, RERANKER_TOP_N)
+                            if st.session_state.enable_reranker
+                            else TOP_K
+                        )
+                        candidate_pool, mode, first_stage_warning, retrieval_diag = (
+                            _run_first_stage_retrieval(
+                                query,
+                                candidate_limit=candidate_limit,
+                            )
+                        )
+                        raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
+                            _finalize_retrieval_candidates(
+                                query,
+                                candidate_pool=candidate_pool,
+                                mode=mode,
+                            )
+                        )
+                        st.session_state.last_retrieval_mode = final_mode
+                        retrieval_warning = reranker_warning or first_stage_warning
+                        retrieval_elapsed_ms = (
+                            time.perf_counter() - retrieval_start
+                        ) * 1000.0
 
-        if retrieval_error is None:
-            try:
-                generation_start = time.perf_counter()
-                st.session_state.last_answer = generate_answer(
-                    context=context,
-                    query=query,
-                    dummy_mode=st.session_state.dummy_generator_only,
-                )
-                generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-                st.session_state.last_generation_error = None
-            except Exception as e:
-                generation_error = e
-                generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-                st.session_state.last_answer = None
-        total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+                        for doc, score in raw_results:
+                            doc.metadata["similarity"] = score
+                        retrieved_docs = [doc for doc, _score in raw_results]
+
+                        st.session_state.last_query = query
+                        st.session_state.last_raw_results = raw_results
+                        st.session_state.last_retrieved_docs = retrieved_docs
+                        context = _assemble_context(
+                            raw_results,
+                            use_page_separators=st.session_state.use_page_separators,
+                        )
+                        st.session_state.last_context = context
+                    except (
+                        AttributeError,
+                        KeyError,
+                        TypeError,
+                        ValueError,
+                        RuntimeError,
+                    ) as e:
+                        retrieval_error = e
+                        retrieval_elapsed_ms = (
+                            time.perf_counter() - retrieval_start
+                        ) * 1000.0
+                        st.session_state.last_retrieval_mode = "retrieval_failed"
+                        raw_results = []
+                        retrieved_docs = []
+                        context = ""
+                        st.session_state.last_query = query
+                        st.session_state.last_raw_results = []
+                        st.session_state.last_retrieved_docs = []
+                        st.session_state.last_context = ""
+                        st.session_state.last_answer = None
+
+                    if retrieval_error is None:
+                        try:
+                            generation_start = time.perf_counter()
+                            st.session_state.last_answer = generate_answer(
+                                context=context,
+                                query=query,
+                                dummy_mode=st.session_state.dummy_generator_only,
+                            )
+                            generation_elapsed_ms = (
+                                time.perf_counter() - generation_start
+                            ) * 1000.0
+                            st.session_state.last_generation_error = None
+                        except Exception as e:
+                            generation_error = e
+                            generation_elapsed_ms = (
+                                time.perf_counter() - generation_start
+                            ) * 1000.0
+                            st.session_state.last_answer = None
+                    total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+                finally:
+                    if timer_thread is not None:
+                        stop_timer.set()
+                        timer_thread.join(timeout=5.0)
+    thinking_row.empty()
 
     if retrieval_warning:
         st.warning(retrieval_warning)
