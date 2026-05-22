@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 # LangChain imports for Milestone 3
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
