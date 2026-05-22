@@ -23,23 +23,63 @@ Open [http://localhost:8501](http://localhost:8501). For Ollama-backed answers, 
 
 ## Docker Compose (app + Ollama)
 
-Start both services on the default Compose network:
+### Fresh start (end-to-end)
+
+1. Start Ollama and wait until it is healthy (the app service does not start until then):
+
+   ```bash
+   docker compose up -d ollama
+   docker compose ps ollama   # STATUS should show "healthy"
+   ```
+
+2. Pull a model **once** into the persistent `ollama_models` volume (choose one):
+
+   ```bash
+   # CPU demo default (see AGENTS.md)
+   docker compose exec ollama ollama pull phi3:mini
+
+   # GPU / more capable hosts
+   docker compose exec ollama ollama pull llama3.1:8b
+   ```
+
+3. Start the app (or bring up the full stack):
+
+   ```bash
+   docker compose up --build
+   ```
+
+   Compose starts `ollama` first; `app` waits on `depends_on: condition: service_healthy` so Streamlit does not race a still-booting Ollama daemon.
+
+4. Optional: match the pulled model in a local `.env` (e.g. `OLLAMA_MODEL=phi3:mini`), add `env_file: .env` under the `app` service, or export before `docker compose up`.
+
+5. Open [http://localhost:8501](http://localhost:8501), upload a PDF, and ask a question. The first run may be slow while Hugging Face embedding weights download inside the app container.
+
+The app service receives `OLLAMA_HOST=http://ollama:11434` and `USE_DUMMY_GENERATOR=false`.
+
+### One-shot equivalent
+
+If you prefer a single command after models are already pulled:
 
 ```bash
 docker compose up --build
 ```
 
-The app service receives `OLLAMA_HOST=http://ollama:11434` and `USE_DUMMY_GENERATOR=false`. Ollama model weights persist in the `ollama_models` volume.
+Model weights still persist in the `ollama_models` volume across restarts.
 
-Pull a model once (CPU demo default from [AGENTS.md](AGENTS.md)):
+## Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|--------|----------------|------------|
+| `app` never starts / stays "Waiting" | Ollama not healthy yet | `docker compose logs ollama`; wait for `healthy` in `docker compose ps`. Increase `start_period` on slow disks if needed. |
+| **Connection refused** / cannot connect to Ollama | Ollama down, wrong host, or app started before Ollama was ready | Use Compose (not `docker run` app alone) or set `OLLAMA_HOST` to a running server. Check `docker compose ps` shows `ollama` healthy. |
+| **Model not found** / pull errors in chat | No model in the volume | Run `docker compose exec ollama ollama pull phi3:mini` (or `llama3.1:8b`). Set `OLLAMA_MODEL` to the same name. |
+| Slow or OOM on first answer | Large default model on CPU | Use `phi3:mini` and/or lower `OLLAMA_NUM_CTX` in `.env`. |
+
+Verify Ollama from the host (optional):
 
 ```bash
-docker compose exec ollama ollama pull phi3:mini
+docker compose exec ollama ollama list
 ```
-
-Optional: set `OLLAMA_MODEL=phi3:mini` in a local `.env` file and add `env_file: .env` under the `app` service, or export it before `docker compose up`.
-
-Open [http://localhost:8501](http://localhost:8501) and ask a question after uploading a PDF. First run may be slow while embedding weights download inside the app container.
 
 ## Notes
 
