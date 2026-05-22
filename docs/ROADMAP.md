@@ -150,3 +150,20 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
 ```
 
 Current repo (pre-M7): single Streamlit process, in-memory FAISS, external Ollama.
+
+---
+
+## Cursor workflow (agents & rules)
+
+This repo uses Cursor **rules**, **subagents**, and **slash commands** to deliver M7–M12 with one-issue-one-PR discipline.
+
+| Resource | Location |
+|----------|----------|
+| Orchestration playbook | [AGENTS.md](../AGENTS.md) |
+| Agent definitions | `.cursor/agents/` |
+| Slash commands | `/ship-m7-issue`, `/ship-milestone`, `/verify`, `/parallel-m7-bootstrap` |
+| Workflow rules | `.cursor/rules/milestone-workflow.mdc` |
+
+**Operator loop:** pick GitHub issue → `/ship-m7-issue #NN` → resolve blockers → approve commits → merge PR.
+
+M7 issues [#33–#39](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1) map to specialists (`deploy-engineer`, `config-guardian`, `docs-writer`) — see AGENTS.md.

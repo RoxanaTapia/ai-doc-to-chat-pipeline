@@ -53,15 +53,17 @@ uploaded/
 .cache/huggingface/
 
 # =====================================
-# Editor-specific
+# Editor-specific — track rules, agents, commands; ignore rest of .cursor/
 # =====================================
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+!.cursor/agents/
+!.cursor/agents/**
+!.cursor/commands/
+!.cursor/commands/**
 .vscode/
 .idea/
-
-# Keep repo-tracked Cursor rule definitions
-!.cursor/rules/
-!.cursor/rules/*.mdc
 
 # =====================================
 # Testing & linting caches (add later when you write tests)

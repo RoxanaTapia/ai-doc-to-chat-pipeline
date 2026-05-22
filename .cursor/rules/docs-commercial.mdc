@@ -1,0 +1,14 @@
+---
+description: Deployment and commercial documentation — clear, client-facing prose
+globs: docs/**,DEPLOYMENT*.md,RUNBOOK.md
+alwaysApply: false
+---
+
+# Docs & commercial writing
+
+- Write for a technical buyer: ops steps, sizing, cost bands, privacy boundaries.
+- Use placeholders (`YOUR_VPS_IP`, `demo.example.com`) until human provides real values.
+- Link to [AGENTS.md](AGENTS.md) and [docs/ROADMAP.md](docs/ROADMAP.md) where relevant.
+- DEPLOYMENT docs: prerequisites → install → verify → troubleshoot.
+- No secrets, client names, or internal passwords in committed docs.
+- Keep README deploy section short; detail lives in `DEPLOYMENT.md`.
