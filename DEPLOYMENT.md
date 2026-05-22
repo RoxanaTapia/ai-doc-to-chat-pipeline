@@ -19,7 +19,27 @@ docker build -t ai-doc-to-chat .
 docker run --rm -p 8501:8501 ai-doc-to-chat
 ```
 
-Open [http://localhost:8501](http://localhost:8501). For Ollama-backed answers, run Ollama on the host and pass `OLLAMA_HOST` (Compose wiring arrives in M7-2).
+Open [http://localhost:8501](http://localhost:8501). For Ollama-backed answers, use Docker Compose (below) or run Ollama on the host and pass `OLLAMA_HOST`.
+
+## Docker Compose (app + Ollama)
+
+Start both services on the default Compose network:
+
+```bash
+docker compose up --build
+```
+
+The app service receives `OLLAMA_HOST=http://ollama:11434` and `USE_DUMMY_GENERATOR=false`. Ollama model weights persist in the `ollama_models` volume.
+
+Pull a model once (CPU demo default from [AGENTS.md](AGENTS.md)):
+
+```bash
+docker compose exec ollama ollama pull phi3:mini
+```
+
+Optional: set `OLLAMA_MODEL=phi3:mini` in a local `.env` file and add `env_file: .env` under the `app` service, or export it before `docker compose up`.
+
+Open [http://localhost:8501](http://localhost:8501) and ask a question after uploading a PDF. First run may be slow while embedding weights download inside the app container.
 
 ## Notes
 

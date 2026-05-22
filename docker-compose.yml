@@ -1,0 +1,21 @@
+services:
+  ollama:
+    image: ollama/ollama:0.6.5
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      USE_DUMMY_GENERATOR: "false"
+      STREAMLIT_SERVER_FILE_WATCHER_TYPE: none
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
