@@ -117,9 +117,27 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 ## Contributing
 
-Developed in small, tested increments so pilots can harden into production without surprises.
+This project is built **agentically in [Cursor](https://cursor.com)** — one GitHub issue, one branch, one reviewable PR — so pilot features ship in small, tested steps instead of ad-hoc prompts.
 
-Open-source contributors: [AGENTS.md](AGENTS.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
+**How it works**
+
+| Cursor feature | Role in this repo |
+|----------------|-------------------|
+| **Rules** (`.cursor/rules/`) | Persistent standards — Python/RAG style, Docker deploy, docs tone, milestone workflow |
+| **Subagents** (`.cursor/agents/`) | Specialists with file ownership (`deploy-engineer`, `rag-core-engineer`, `docs-writer`, `verifier`, …) |
+| **Slash commands** (`.cursor/commands/`) | Repeatable flows — e.g. `/ship-m7-issue`, `/verify` |
+| **Orchestrator** | Reads issues, dispatches specialists, runs tests, splits granular commits |
+
+**Why bother**
+
+- **Clear ownership** — agents edit only their files; fewer merge conflicts and surprise diffs
+- **Production-shaped history** — granular commits and PRs that map to roadmap milestones
+- **Verify before merge** — pytest/ruff (and Docker checks when infra changes) before every PR
+- **Human in the loop** — you approve commits, pushes, and merges; agents propose, you decide
+
+**Get started:** [AGENTS.md](AGENTS.md) (playbook) · [docs/ROADMAP.md](docs/ROADMAP.md) (milestones M7–M12) · open a GitHub issue or pick one from the [M7 milestone](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1).
+
+Using Cursor is optional for drive-by fixes — but matching the one-issue-one-PR workflow helps reviews stay fast.
 
 ---
 
