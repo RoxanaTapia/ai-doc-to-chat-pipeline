@@ -20,9 +20,13 @@ rag:
     dense_weight: 1.0        # weight of dense rank contribution in fusion
     bm25_weight: 1.0         # weight of sparse rank contribution in fusion
     reranker:
-      enabled: false
+      enabled: true          # R4-A: cross-encoder re-rank after hybrid fusion
       model_name: "BAAI/bge-reranker-base"
       top_n: 50              # rerank this many candidates before selecting top_k
+    section_aware:
+      enabled: true          # R4-C: boost/filter when query names "Section N"
+      boost: 1.5
+      min_chunks: 2
   generation:
     model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
     max_new_tokens: 384      # room for bullet answers (Round 2)

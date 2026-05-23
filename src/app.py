@@ -18,6 +18,12 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
+from sectioning import (
+    annotate_chunk_sections,
+    apply_section_aware_retrieval,
+    chunk_on_section,
+    extract_target_section,
+)
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 st.set_page_config(page_title="Ask your PDF · Private RAG", layout="wide")
@@ -206,6 +212,11 @@ try:
     RERANKER_MODEL_NAME = str(reranker_cfg.get("model_name", "BAAI/bge-reranker-base"))
     RERANKER_TOP_N = int(reranker_cfg.get("top_n", 50))
 
+    section_cfg = retrieval_cfg.get("section_aware", {}) or {}
+    SECTION_AWARE_ENABLED = bool(section_cfg.get("enabled", True))
+    SECTION_AWARE_BOOST = float(section_cfg.get("boost", 1.5))
+    SECTION_AWARE_MIN_CHUNKS = int(section_cfg.get("min_chunks", 2))
+
     ui_cfg = rag_cfg.get("ui", {}) or {}
     SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 5))
     SOURCE_PREVIEW_CHARS = int(ui_cfg.get("source_preview_chars", 280))
@@ -241,18 +252,31 @@ def _readable_excerpt(text: str, max_chars: int) -> str:
     return f"{snippet.rstrip()}…"
 
 
-def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
+EVAL_CHECKLIST_PREVIEW_CHARS = 80
+
+
+def _build_sources_payload(
+    retrieved_docs: list[Document],
+    *,
+    query: str | None = None,
+) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
+    target_section = extract_target_section(query) if query else None
     payload = []
     for chunk in retrieved_docs[:SOURCES_DISPLAY_MAX]:
         similarity = chunk.metadata.get("similarity")
-        payload.append(
-            {
-                "page": chunk.metadata.get("page", "N/A"),
-                "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
-                "preview": _readable_excerpt(chunk.page_content, SOURCE_PREVIEW_CHARS),
-            }
-        )
+        entry = {
+            "page": chunk.metadata.get("page", "N/A"),
+            "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
+            "preview": _readable_excerpt(chunk.page_content, SOURCE_PREVIEW_CHARS),
+        }
+        if target_section is not None:
+            entry["checklist_preview"] = _readable_excerpt(
+                chunk.page_content,
+                EVAL_CHECKLIST_PREVIEW_CHARS,
+            )
+            entry["on_section"] = chunk_on_section(chunk, target_section)
+        payload.append(entry)
     return payload
 
 
@@ -272,6 +296,65 @@ def _render_sources_panel(
                 header += f" · relevance {source['score']}"
             st.markdown(header)
             st.markdown(f"> {source['preview']}")
+
+
+def _on_section_label(on_section: bool | None) -> str:
+    if on_section is True:
+        return "**Y**"
+    if on_section is False:
+        return "**N**"
+    return "N/A"
+
+
+def _render_source_checklist(
+    sources: list[dict],
+    *,
+    target_section: str | None = None,
+) -> None:
+    """Dev-only Round 4 eval aid: page, ~80 char excerpt, on-section Y/N per source."""
+    if not sources:
+        return
+    with st.expander("📋 Source checklist (eval)", expanded=False):
+        if target_section:
+            st.caption(
+                f"Target section: **{target_section}** · auto-tag is heuristic — "
+                "confirm manually when scoring."
+            )
+        else:
+            st.caption("No section in question — on-section column shows N/A.")
+        for source_idx, source in enumerate(sources, start=1):
+            preview = source.get("checklist_preview") or source.get("preview", "")
+            st.markdown(
+                f"{source_idx}. **Page {source['page']}** · "
+                f"on-section {_on_section_label(source.get('on_section'))}  \n"
+                f"> {preview}"
+            )
+        if target_section:
+            on_count = sum(1 for source in sources if source.get("on_section") is True)
+            st.caption(
+                f"Auto on-section count: **{on_count}/{len(sources)}** "
+                "(Round 4 bar: ≥3/5 on-section for Q1 and Q2)."
+            )
+
+
+def _render_eval_context_panel(
+    eval_context: str,
+    *,
+    target_section: str | None = None,
+    chunk_count: int | None = None,
+) -> None:
+    """Dev-only: persisted exact context for retrieval vs generation diagnosis."""
+    with st.expander("📄 Exact Context fed to LLM", expanded=False):
+        st.code(eval_context, language="text")
+        chunk_note = f" • {chunk_count} chunks" if chunk_count else ""
+        st.caption(f"• {len(eval_context)} chars{chunk_note} · top-k={TOP_K}")
+        if target_section == "3":
+            st.info(
+                "Round 4 Q2 diagnostic: if return/destroy or termination language "
+                "appears **in this context**, retrieval is likely at fault; "
+                "if Section 3 duties are here but missing from the answer, "
+                "generation is likely at fault."
+            )
 
 
 def _assemble_context(raw_results: list[tuple[Document, float]], use_page_separators: bool) -> str:
@@ -592,6 +675,9 @@ def _append_chat_message(
     sources: list[dict] | None = None,
     timing: dict[str, float] | None = None,
     for_question: str | None = None,
+    eval_context: str | None = None,
+    target_section: str | None = None,
+    eval_chunk_count: int | None = None,
 ) -> None:
     """Append a chat message and prune old history."""
     if role == "assistant":
@@ -605,6 +691,13 @@ def _append_chat_message(
         message["sources"] = sources
     if role == "assistant" and for_question:
         message["for_question"] = _question_preview(for_question)
+    if role == "assistant" and st.session_state.developer_mode:
+        if eval_context:
+            message["eval_context"] = eval_context
+        if target_section:
+            message["target_section"] = target_section
+        if eval_chunk_count is not None:
+            message["eval_chunk_count"] = eval_chunk_count
     st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
@@ -629,20 +722,40 @@ def _finalize_retrieval_candidates(
     candidate_pool: list[tuple[Document, float]],
     mode: str,
 ) -> tuple[list[tuple[Document, float]], str, str | None, float]:
-    """Apply optional reranker and return final top-k retrieval results."""
-    if not st.session_state.enable_reranker:
-        return candidate_pool[:TOP_K], mode, None, 0.0
+    """Apply optional reranker and section-aware routing; return final top-k results."""
+    reranker_warning: str | None = None
+    rerank_elapsed_ms = 0.0
+    pool = candidate_pool
 
-    rerank_start = time.perf_counter()
-    raw_results, reranker_warning = _apply_reranker(
-        query,
-        candidate_pool,
-        top_n=RERANKER_TOP_N,
-        model_name=RERANKER_MODEL_NAME,
-    )
-    rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
-    final_mode = f"{mode}_reranked"
-    return raw_results, final_mode, reranker_warning, rerank_elapsed_ms
+    if st.session_state.enable_reranker:
+        rerank_start = time.perf_counter()
+        pool, reranker_warning = _apply_reranker(
+            query,
+            candidate_pool,
+            top_n=RERANKER_TOP_N,
+            model_name=RERANKER_MODEL_NAME,
+        )
+        rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
+        mode = f"{mode}_reranked"
+
+    section_warning: str | None = None
+    if SECTION_AWARE_ENABLED:
+        pool, section_warning = apply_section_aware_retrieval(
+            query,
+            pool,
+            top_k=TOP_K,
+            boost=SECTION_AWARE_BOOST,
+            min_matching=SECTION_AWARE_MIN_CHUNKS,
+        )
+        if section_warning:
+            mode = f"{mode}_section_aware"
+    else:
+        pool = pool[:TOP_K]
+
+    combined_warning = " · ".join(
+        part for part in (reranker_warning, section_warning) if part
+    ) or None
+    return pool[:TOP_K], mode, combined_warning, rerank_elapsed_ms
 
 
 def _ollama_recommended_models() -> list[str]:
@@ -1208,6 +1321,12 @@ if resolved_upload is not None:
                     add_start_index=True,
                 )
                 chunks = text_splitter.split_documents(page_docs)
+                page_texts = {
+                    doc.metadata["page"]: doc.page_content
+                    for doc in page_docs
+                    if isinstance(doc.metadata.get("page"), int)
+                }
+                annotate_chunk_sections(chunks, page_texts)
             progress_bar.progress(65, text=(
                 "Chunks created. Loading embedding model…"
                 if st.session_state.developer_mode
@@ -1320,6 +1439,17 @@ for message in st.session_state.messages:
                 developer_mode=st.session_state.developer_mode,
                 title=_sources_panel_title(message),
             )
+            if st.session_state.developer_mode:
+                _render_source_checklist(
+                    message["sources"],
+                    target_section=message.get("target_section"),
+                )
+                if message.get("eval_context"):
+                    _render_eval_context_panel(
+                        message["eval_context"],
+                        target_section=message.get("target_section"),
+                        chunk_count=message.get("eval_chunk_count"),
+                    )
 
 chat_ready = _document_is_indexed()
 query = st.chat_input(
@@ -1550,7 +1680,8 @@ if query and query.strip() and chat_ready:
             st.session_state.last_answer
             or "I could not generate an answer at this time. Please try again."
         )
-        source_payload = _build_sources_payload(retrieved_docs)
+        target_section = extract_target_section(query)
+        source_payload = _build_sources_payload(retrieved_docs, query=query)
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
@@ -1558,6 +1689,9 @@ if query and query.strip() and chat_ready:
             sources=source_payload,
             timing=timing_payload if total_elapsed_ms > 0 else None,
             for_question=query,
+            eval_context=context if st.session_state.developer_mode else None,
+            target_section=target_section,
+            eval_chunk_count=len(raw_results),
         )
         st.rerun()
 elif query is not None and not chat_ready:
