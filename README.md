@@ -103,6 +103,8 @@ Honest expectations for the **evaluation pilot** — not a limitation of RAG in 
 
 For production depth (API, persistence, SSO, ops), see [Future work](#future-work). For setup, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+**Evaluation example:** [Round 1 pilot test](docs/pilot-evaluation-round1.md) on a sample confidentiality agreement — what we measured, what worked, and current limits.
+
 ---
 
 ## Future work
