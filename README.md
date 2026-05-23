@@ -44,7 +44,7 @@ Pilots use in-session indexing (ideal for evaluations). Longer-term deployments 
 ## Demo vs private pilot
 
 1. **Public demo** — open the link, upload a sample PDF, explore the UX. Generation is intentionally limited on the hosted demo.
-2. **Private pilot** — real local AI on your or my infrastructure, suitable for confidential or redacted documents under NDA.
+2. **Private pilot** — real local AI on your or my infrastructure, suitable for confidential or redacted documents under NDA. Password-protected HTTPS on a dedicated server; see [For teams and consulting](#for-teams-and-consulting).
 3. **Production rollout** — persistence, SSO, runbooks, and your choice of cloud or on-prem — scoped per engagement.
 
 ---
@@ -76,9 +76,9 @@ Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment** — Docker Compose stack (app + local Ollama) with a full [deployment guide](DEPLOYMENT.md) for VPS or laptop pilots.
+**Reference deployment** — Docker Compose stack (app + local Ollama) with **HTTPS and basic auth** via Caddy; see the [deployment guide](DEPLOYMENT.md).
 
-**Coming next:** HTTPS + access control on the pilot URL, demo video.
+**Coming next:** demo video and architecture diagram for sales calls.
 
 ---
 
@@ -95,11 +95,13 @@ The current pilot is a **session-based** app (indexes per upload). Typical produ
 
 ## Self-hosted pilot
 
-Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, and step-by-step setup on a VPS or your laptop.
+Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, HTTPS with basic auth, and step-by-step setup on a VPS or your laptop.
 
 ---
 
 ## For teams and consulting
+
+> A private, password-protected pilot on a dedicated server — upload PDFs, chat with real local AI, documents processed in your environment. Ideal for evaluation before production rollout.
 
 I deploy **private document AI** for organizations that cannot send contracts or policies to public chat tools — from single-VM pilots through production-shaped stacks on **your** cloud or dedicated infrastructure.
 
