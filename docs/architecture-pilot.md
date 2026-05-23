@@ -1,6 +1,6 @@
-# Architecture — single-VM pilot (M7 target)
+# Architecture — single-VM pilot
 
-Reference layout for the self-hosted demo / small-office pilot.
+Reference layout for a self-hosted demo or small-office pilot.
 
 ```text
                     Internet
@@ -18,7 +18,7 @@ Reference layout for the self-hosted demo / small-office pilot.
   └──────────────┘ OLLAMA_HOST└──────────────┘
          │
          │  PDF upload → extract → chunk
-         │  FAISS + embeddings (in-process, M7)
+         │  FAISS + embeddings (in-process)
          ▼
    User browser (chat + sources)
 ```
@@ -29,10 +29,9 @@ Reference layout for the self-hosted demo / small-office pilot.
 2. User asks question → semantic/hybrid retrieval → context assembly.
 3. App POSTs prompt to Ollama → grounded answer + source chunks in UI.
 
-## M9+ evolution
+## Planned evolution
 
-Replace in-memory FAISS with **Postgres/pgvector** and **MinIO** for PDF storage;
-add **FastAPI** (M8) as the integration surface. Ollama or Anthropic (M12) as LLM backend.
+Production rollouts typically add persistent document storage, a REST API for integrations, and enterprise authentication — while keeping the same retrieval and generation core. Ollama remains the default LLM; cloud APIs can be swapped in where procurement requires it.
 
 ## Environment variables (pilot)
 
@@ -41,3 +40,5 @@ add **FastAPI** (M8) as the integration surface. Ollama or Anthropic (M12) as LL
 | `OLLAMA_HOST` | Ollama URL (e.g. `http://ollama:11434` in Compose) |
 | `USE_DUMMY_GENERATOR` | `false` for real generation |
 | `OLLAMA_MODEL` | Optional override (default from `configs/config.yaml`) |
+
+Full operator notes: see [DEPLOYMENT.md](../DEPLOYMENT.md#environment-variables).

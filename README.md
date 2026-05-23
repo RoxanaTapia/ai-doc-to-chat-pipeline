@@ -62,7 +62,7 @@ Team ──► HTTPS ──► Streamlit + Ollama (one VM or VPC)
 | **Hardening** | Backups, monitoring, model tuning |
 | **Production** | Client-owned cloud, persistent indexes, SSO, audit trail |
 
-Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.md](docs/architecture-pilot.md)
+Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 
@@ -76,14 +76,9 @@ Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.m
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment**
+**Reference deployment** — Docker Compose stack (app + local Ollama) with a full [deployment guide](DEPLOYMENT.md) for VPS or laptop pilots.
 
-- [`Dockerfile`](Dockerfile) — reproducible app image (Python 3.12, OCR runtime)
-- [`docker-compose.yml`](docker-compose.yml) — app + Ollama, health-gated startup, persistent model volume
-- [`DEPLOYMENT.md`](DEPLOYMENT.md) — VPS and local guide (sizing, deploy, verify, troubleshooting)
-- [`.env.example`](.env.example) — documented settings for self-hosted pilots
-
-**Coming next:** HTTPS + access control on the pilot URL, demo video assets.
+**Coming next:** HTTPS + access control on the pilot URL, demo video.
 
 ---
 
@@ -98,20 +93,9 @@ The current pilot is a **session-based** app (indexes per upload). Typical produ
 
 ---
 
-## Quick start (self-hosted)
+## Self-hosted pilot
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the full walkthrough.
-
-```bash
-git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
-cd ai-doc-to-chat-pipeline
-
-docker compose up -d ollama
-docker compose exec ollama ollama pull phi3:mini
-docker compose up --build
-```
-
-Open [http://localhost:8501](http://localhost:8501) — real local generation with Docker Compose.
+Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, and step-by-step setup on a VPS or your laptop.
 
 ---
 
@@ -131,11 +115,11 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 ---
 
-## How this project is built
+## Contributing
 
-Developed with **agentic workflows in Cursor** — milestone-driven delivery with automated review and verification, so pilots and production features ship in small, auditable steps rather than ad-hoc prompts.
+Developed in small, tested increments so pilots can harden into production without surprises.
 
-Open-source contributors: [AGENTS.md](AGENTS.md)
+Open-source contributors: [AGENTS.md](AGENTS.md) · [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ---
 

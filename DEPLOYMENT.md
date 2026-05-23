@@ -41,7 +41,7 @@ Model weights persist in the Docker volume `ollama_models` across restarts; pull
 
 ## Deploy on a VPS
 
-Replace `YOUR_VPS_IP` with your server’s public address. HTTPS and access control are planned for M7-6 (Caddy); until then, restrict port **8501** to trusted IPs.
+Replace `YOUR_VPS_IP` with your server’s public address. HTTPS and access control ship in a follow-up update; until then, restrict port **8501** to trusted IPs.
 
 ### 1. Prepare the server
 
@@ -269,4 +269,4 @@ docker compose exec ollama ollama list
 
 - No secrets are baked into the image; use runtime env vars or a mounted `.env` file (never commit `.env`).
 - First query may be slow while Hugging Face embedding weights download into the app container cache.
-- HTTPS, basic auth, and a public demo hostname are covered in M7-6 — see [docs/ROADMAP.md](docs/ROADMAP.md).
+- HTTPS, basic auth, and a public demo hostname — add in a follow-up deployment update; until then restrict port **8501** to trusted IPs (see [Deploy on a VPS](#deploy-on-a-vps)).
