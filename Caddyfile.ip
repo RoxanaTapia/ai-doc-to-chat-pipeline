@@ -1,0 +1,15 @@
+# Interim IP demo (no domain): self-signed TLS on :443 — browsers show a warning.
+# Use with CADDYFILE=./Caddyfile.ip in .env until you have a subdomain for Let's Encrypt.
+
+:443 {
+	tls internal
+
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	reverse_proxy app:8501 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}

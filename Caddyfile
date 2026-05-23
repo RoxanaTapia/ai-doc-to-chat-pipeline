@@ -1,0 +1,18 @@
+# Production pilot: automatic HTTPS via Let's Encrypt.
+# Set SITE_ADDRESS to your subdomain (e.g. demo.example.com) and BASIC_AUTH_* in .env.
+# See DEPLOYMENT.md § HTTPS (Caddy).
+
+{
+	email {$ACME_EMAIL:you@example.com}
+}
+
+{$SITE_ADDRESS} {
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	reverse_proxy app:8501 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}

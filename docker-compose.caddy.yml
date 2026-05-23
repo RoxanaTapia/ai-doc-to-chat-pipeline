@@ -1,0 +1,31 @@
+# HTTPS reverse proxy overlay — use with the base stack:
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# Streamlit stays on the internal Compose network; only Caddy publishes 80/443.
+# Copy .env.example → .env and set SITE_ADDRESS (or CADDYFILE=./Caddyfile.ip).
+
+services:
+  app:
+    ports: !override []
+
+  caddy:
+    image: caddy:2.9.1-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
