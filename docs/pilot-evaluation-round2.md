@@ -137,6 +137,6 @@ Round 2 tests the **config + UX slice** (hybrid retrieval, tighter `top_k`, sect
 
 ## Next step
 
-**Round 3** — [proposed plan](pilot-evaluation-round3-plan.md): section-aware retrieval, reranker A/B, optional legal-tuned model, VPS demo, and source–section alignment metrics.
+**Round 3** — [observed results + UX fixes](pilot-evaluation-round3.md) · [retrieval plan](pilot-evaluation-round3-plan.md)
 
 Questions or a pilot on your PDFs: [README → For teams and consulting](../README.md#for-teams-and-consulting).

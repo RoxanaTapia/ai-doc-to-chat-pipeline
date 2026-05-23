@@ -220,7 +220,7 @@ A serious buyer should ask: *“Can we run the same three question types on our 
 | Persistent document library | Planned ([ROADMAP.md](ROADMAP.md) M9) |
 | API / agents / SSO | Planned (M8–M10) |
 
-**Next evaluation steps:** **Round 2** (config + UX below) on same NDA; then VPS with HTTPS; client PDFs under NDA; demo walkthrough (M7-7).
+**Next evaluation steps:** **Round 3** complete — see [Round 3 results](pilot-evaluation-round3.md); retrieval tuning + VPS next.
 
 ---
 

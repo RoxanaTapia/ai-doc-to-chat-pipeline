@@ -2,7 +2,7 @@
 
 **Goal:** Close the gap between **good answers** and **trustworthy sources** — the main Round 2 finding — then validate on **HTTPS VPS** before client PDFs.
 
-**Builds on:** [Round 1](pilot-evaluation-round1.md) · [Round 2 results](pilot-evaluation-round2.md)
+**Builds on:** [Round 1](pilot-evaluation-round1.md) · [Round 2 results](pilot-evaluation-round2.md) · **[Round 3 observed (UX + eval)](pilot-evaluation-round3.md)**
 
 ---
 
@@ -129,7 +129,8 @@ Week C — VPS demo
 
 | Artifact | Location |
 |----------|----------|
-| Round 3 observed results | `docs/pilot-evaluation-round3.md` (create after test pass) |
+| Round 3 observed results | [pilot-evaluation-round3.md](pilot-evaluation-round3.md) |
+| Round 4+ (retrieval tuning) | Append after reranker / section filter |
 | Config deltas | `configs/config.yaml`, `configs/prompts.yaml` |
 | VPS checklist | `DEPLOYMENT.md` |
 | Demo script | `docs/demo-script.md` (M7-7) |
