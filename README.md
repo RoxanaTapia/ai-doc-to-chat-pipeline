@@ -6,7 +6,7 @@
 
 **Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
 
-**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** For a **private pilot** with real local AI, [get in touch on GitHub](https://github.com/RoxanaTapia).
+**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** For a **private pilot** with real local AI, [hire on Upwork](https://www.upwork.com/freelancers/roxanadev) or [reach out on GitHub](https://github.com/RoxanaTapia).
 
 ---
 
@@ -111,7 +111,7 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 **Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
 
-**Get in touch:** [github.com/RoxanaTapia](https://github.com/RoxanaTapia) — use profile contact for a live private demo, pilot setup, or production scoping.
+**Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) (private pilot, consulting, production scoping) · [GitHub](https://github.com/RoxanaTapia) (OSS and technical questions)
 
 ---
 
