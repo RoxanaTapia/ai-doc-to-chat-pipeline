@@ -14,6 +14,7 @@ Act as **milestone-orchestrator** for milestone: **$ARGUMENTS** (e.g. M7, M8).
 
 - Work **one issue at a time** unless I explicitly request `/parallel-m7-bootstrap`.
 - Follow `/ship-m7-issue` workflow per issue for M7 (#33–#39).
+- PR bodies must start with **`## Main contribution`** (see milestone-workflow rule).
 - For M8+: dispatch **rag-core-engineer**, **config-guardian**, **deploy-engineer** as ROADMAP specifies.
 
 ## Milestone definitions of done
