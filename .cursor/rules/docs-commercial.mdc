@@ -1,14 +1,25 @@
 ---
 description: Deployment and commercial documentation — clear, client-facing prose
-globs: docs/**,DEPLOYMENT*.md,RUNBOOK.md
+globs: docs/**,DEPLOYMENT*.md,RUNBOOK.md,README.md
 alwaysApply: false
 ---
 
 # Docs & commercial writing
 
-- Write for a technical buyer: ops steps, sizing, cost bands, privacy boundaries.
+## Audiences
+
+| Doc | Audience | Tone |
+|-----|----------|------|
+| **README.md** | Clients, buyers, casual visitors | Outcomes, privacy, pilot path — no issue numbers or deploy commands |
+| **DEPLOYMENT.md** | Client IT, technical buyers | Prerequisites → install → verify → troubleshoot |
+| **docs/architecture-pilot.md** | Client IT | Diagram + data flow; no milestone jargon |
+| **docs/ROADMAP.md**, **AGENTS.md** | Contributors | Issues, agents, workflow |
+| **`docs-private/`** | Operator (local, gitignored) | Sales, switches, provider picks, full roadmap, demo script |
+
+## Rules
+
+- Write for a technical buyer in DEPLOYMENT; write for a business buyer in README.
 - Use placeholders (`YOUR_VPS_IP`, `demo.example.com`) until human provides real values.
-- Link to [AGENTS.md](AGENTS.md) and [docs/ROADMAP.md](docs/ROADMAP.md) where relevant.
-- DEPLOYMENT docs: prerequisites → install → verify → troubleshoot.
+- Link README → DEPLOYMENT for setup; do not duplicate compose commands in README.
 - No secrets, client names, or internal passwords in committed docs.
-- Keep README deploy section short; detail lives in `DEPLOYMENT.md`.
+- After updating public deploy docs, mirror operator-only detail in `docs-private/` when a counterpart file exists.
