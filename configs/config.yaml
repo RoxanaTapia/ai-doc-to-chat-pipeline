@@ -7,11 +7,14 @@ embeddings:
   model_name: "all-MiniLM-L6-v2"  # fast 384-dim model, excellent for private RAG
 
 rag:
-  top_k: 10                  # how many chunks to retrieve per query
+  top_k: 5                   # chunks fed to the LLM (Round 2: tighter for short contracts)
   fetch_k: 75                # candidate pool size before MMR reranking
   early_page_max: 20         # prefer chunks from pages <= this value
+  ui:
+    sources_display_max: 5   # sources shown in chat UI (can be <= top_k)
+    source_preview_chars: 280
   retrieval:
-    strategy: "semantic"     # semantic | hybrid
+    strategy: "hybrid"       # Round 2 default: semantic + BM25 for section/term lookup
     bm25_fetch_k: 75         # candidate pool size for BM25 sparse retrieval
     rrf_k: 60                # reciprocal rank fusion constant
     dense_weight: 1.0        # weight of dense rank contribution in fusion
@@ -22,7 +25,7 @@ rag:
       top_n: 50              # rerank this many candidates before selecting top_k
   generation:
     model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
-    max_new_tokens: 256      # cap generated answer length
+    max_new_tokens: 384      # room for bullet answers (Round 2)
     temperature: 0.3         # creativity when do_sample is true
     top_p: 0.9               # nucleus sampling (useful to reduce repetition)
     do_sample: false         # false => deterministic (temperature forced to 0)
