@@ -56,7 +56,7 @@ Only **milestone-orchestrator** runs `git commit` after parallel subagents retur
 3. Branch: `feat/m7-<short-name>` (one branch per issue).
 4. Specialists edit; orchestrator splits **1–2 granular commits** (see ROADMAP).
 5. `verifier` runs before PR.
-6. PR body: `Closes #NN`. Push/merge only when human approves.
+6. PR body: **`## Main contribution`** paragraph first (outcome, why it matters), then Summary, Test plan, and `Closes #NN`. Push/merge only when human approves.
 
 ---
 

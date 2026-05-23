@@ -22,7 +22,23 @@ Act as **milestone-orchestrator**. Ship the M7 GitHub issue specified below (def
 5. Specialists must **NOT** run `git commit`.
 6. Invoke **verifier** — pytest; docker build if Dockerfile/compose changed.
 7. Split into **1–2 granular commits** per ROADMAP; show messages; commit **only if I said commit**.
-8. Draft PR title/body with `Closes #NN`. **Do not push** unless I say push.
+8. Draft PR title/body with **`## Main contribution`** first (one outcome paragraph), then Summary, Test plan, and `Closes #NN`. **Do not push** unless I say push.
+
+### PR body template
+
+```markdown
+## Main contribution
+
+<One paragraph: what this delivers, why it matters, who benefits. No file list.>
+
+## Summary
+- ...
+
+## Test plan
+- [ ] ...
+
+Closes #NN
+```
 
 ## If blocked
 

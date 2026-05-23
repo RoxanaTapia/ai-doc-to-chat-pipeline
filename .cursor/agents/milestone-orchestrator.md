@@ -16,7 +16,7 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 - Dispatch specialists by file ownership; never parallelize same-file edits.
 - Collect specialist reports; **you alone** run `git commit` (1–2 granular commits per ROADMAP).
 - Invoke `verifier` before PR; invoke `blocker-reporter` when human decision needed — then STOP.
-- Output PR title/body with `Closes #NN`. Do not push unless user explicitly asks.
+- Output PR title/body with `Closes #NN`. **PR body must start with `## Main contribution`** — one outcome-focused paragraph before Summary (see milestone-workflow rule). Do not push unless user explicitly asks.
 
 ## Forbidden
 
@@ -51,4 +51,20 @@ When stuck, output:
 
 ## Report format
 
-End every run with: files changed, suggested commits, PR draft, blockers, next human action.
+End every run with: files changed, suggested commits, PR draft (**Main contribution** paragraph first), blockers, next human action.
+
+## PR body template
+
+```markdown
+## Main contribution
+
+<One paragraph: what this delivers, why it matters, who benefits. No file list.>
+
+## Summary
+- ...
+
+## Test plan
+- [ ] ...
+
+Closes #NN
+```
