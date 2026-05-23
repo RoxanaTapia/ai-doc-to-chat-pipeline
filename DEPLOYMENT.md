@@ -23,7 +23,7 @@ Optional: copy [`.env.example`](.env.example) to `.env` if you need to override 
 
 ## VPS sizing
 
-Choose hardware to match the Ollama model you plan to run. The Compose stack defaults to **`phi3:mini`** on the app service — suitable for CPU-only demos.
+Choose hardware to match the Ollama model you plan to run. The Compose stack defaults to **`llama3.1:8b`** (override with `OLLAMA_MODEL=phi3:mini` in `.env` for CPU-only demos).
 
 | Profile | Example sizing | Model | Typical use | Cost band (placeholder) |
 |---------|----------------|-------|-------------|-------------------------|
@@ -314,7 +314,7 @@ Open [http://localhost:8501](http://localhost:8501). For real Ollama answers, us
 
 5. Open [http://localhost:8501](http://localhost:8501), upload a PDF, and ask a question.
 
-The app receives `OLLAMA_HOST=http://ollama:11434`, `USE_DUMMY_GENERATOR=false`, and `OLLAMA_MODEL=phi3:mini` from Compose.
+The app receives `OLLAMA_HOST=http://ollama:11434`, `USE_DUMMY_GENERATOR=false`, and `OLLAMA_MODEL=llama3.1:8b` from Compose (unless overridden in `.env`).
 
 #### One-shot equivalent
 
@@ -334,9 +334,13 @@ Pilot-relevant settings are documented in [`.env.example`](.env.example).
 |----------|-----------------|--------|
 | `OLLAMA_HOST` | `http://ollama:11434` | Ollama API URL (Compose service name, not `localhost`) |
 | `USE_DUMMY_GENERATOR` | `false` | Must be `false` for real Ollama answers on Compose/VPS |
-| `OLLAMA_MODEL` | `phi3:mini` | Override; YAML default in `configs/config.yaml` is `llama3.1:8b` |
+| `OLLAMA_MODEL` | `llama3.1:8b` | Override; set `phi3:mini` in `.env` for CPU-only hosts |
+| `APP_ALLOW_DEV_TOGGLE` | `false` | `false` hides the developer-mode toggle (client-facing pilot URL) |
+| `APP_PRESENTATION_MODE` | `client` | `client` = About + How to use only; `developer` = retrieval debug when toggle allowed |
 
 To override via file: `cp .env.example .env`, edit values, and add `env_file: .env` under the `app` service. Generation tuning (`temperature`, `num_ctx`, etc.) follows `configs/config.yaml` → `rag.generation` unless set as `OLLAMA_*` in `.env`.
+
+**Client demo URL:** keep `APP_ALLOW_DEV_TOGGLE=false` so buyers never see Advanced options or retrieval debug. For your own tuning on the same VPS, temporarily set `APP_ALLOW_DEV_TOGGLE=true` in `.env` and restart the app service.
 
 See also [docs/architecture-pilot.md](docs/architecture-pilot.md#environment-variables-pilot).
 
