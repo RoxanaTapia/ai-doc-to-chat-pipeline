@@ -76,9 +76,9 @@ Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment** — Docker Compose stack (app + local Ollama) with a full [deployment guide](DEPLOYMENT.md) for VPS or laptop pilots.
+**Reference deployment** — Docker Compose stack (app + local Ollama) with **HTTPS and basic auth** via Caddy; see the [deployment guide](DEPLOYMENT.md).
 
-**Coming next:** HTTPS + access control on the pilot URL, demo video.
+**Coming next:** demo video and architecture diagram for sales calls.
 
 ---
 
@@ -95,7 +95,7 @@ The current pilot is a **session-based** app (indexes per upload). Typical produ
 
 ## Self-hosted pilot
 
-Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, and step-by-step setup on a VPS or your laptop.
+Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, HTTPS with basic auth, and step-by-step setup on a VPS or your laptop.
 
 ---
 
