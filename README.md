@@ -111,7 +111,7 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 **Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
 
-**How I deliver:** I build with **agentic workflows in [Cursor](https://cursor.com)** — rules, specialized agents, and automated tests — so features ship in small, reviewable steps. That means **faster iteration** on your pilot (deploy docs, Docker, RAG tweaks) while keeping **auditable PRs** and human sign-off on what goes to production. You get working software and a clear paper trail, not a one-off prompt dump.
+This reference pilot was built with **[Cursor](https://cursor.com)** — the same test-backed, reviewable workflow I use to ship client work without cutting corners. That is how the stack, deployment guide, and docs moved quickly while staying auditable in git. **Your PDFs and prompts are not part of that:** at runtime everything stays on **your** VM or VPC (local Ollama). My tooling builds the product; your data never leaves your environment.
 
 **Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) (private pilot, consulting, production scoping) · [GitHub](https://github.com/RoxanaTapia) (OSS and technical questions)
 
