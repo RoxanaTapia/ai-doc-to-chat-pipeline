@@ -6,7 +6,7 @@
 
 **Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
 
-**Want real answers on confidential documents?** The [public demo](https://ai-doc-to-chat-demo.streamlit.app) shows the interface only. [Contact me](#for-teams-and-consulting) for a **private pilot** with real local AI, or deployment inside your company.
+**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** [Contact me](#for-teams-and-consulting) for a **private pilot** with real local AI on your infrastructure (or mine).
 
 ---
 
@@ -109,9 +109,9 @@ I deploy **private document AI** for organizations that cannot send contracts or
 | **Reproducibility** | Docker Compose reference deployment your IT can audit and reproduce |
 | **Honesty** | Public demo shows the UI; private pilot delivers real generation — clearly separated |
 
-**Typical path:** pilot on your infrastructure → hardening and persistence → production with auth and runbooks. Local Ollama for air-gap; private cloud APIs when quality or procurement requires it.
+**Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
 
-**[Contact me](#for-teams-and-consulting)** for a live private demo, pilot setup, or scoping a production rollout.
+**[Contact me](#for-teams-and-consulting)** for a live private demo, pilot setup, or scoping a production rollout · [GitHub @RoxanaTapia](https://github.com/RoxanaTapia)
 
 ---
 
