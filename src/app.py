@@ -261,15 +261,11 @@ def _render_sources_panel(
     *,
     developer_mode: bool,
     title: str = "Sources",
-    panel_key: str | None = None,
 ) -> None:
     """Render source excerpts in a client-friendly expander."""
     if not sources:
         return
-    expander_kwargs = {"expanded": False}
-    if panel_key:
-        expander_kwargs["key"] = panel_key
-    with st.expander(title, **expander_kwargs):
+    with st.expander(title, expanded=False):
         for source_idx, source in enumerate(sources, start=1):
             header = f"**Source {source_idx}** · Page {source['page']}"
             if developer_mode and source.get("score") != "N/A":
@@ -575,11 +571,27 @@ def _remember_response_timing(timing: dict[str, float] | None) -> None:
         st.session_state.last_response_timing = timing
 
 
+def _question_preview(text: str, max_len: int = 52) -> str:
+    """Short label for Sources expander — ties excerpts to the question asked."""
+    one_line = " ".join((text or "").split())
+    if len(one_line) <= max_len:
+        return one_line
+    return one_line[: max_len - 1].rstrip() + "…"
+
+
+def _sources_panel_title(message: dict) -> str:
+    preview = message.get("for_question")
+    if preview:
+        return f"Sources — {preview}"
+    return "Sources for this answer"
+
+
 def _append_chat_message(
     role: str,
     content: str,
     sources: list[dict] | None = None,
     timing: dict[str, float] | None = None,
+    for_question: str | None = None,
 ) -> None:
     """Append a chat message and prune old history."""
     if role == "assistant":
@@ -591,6 +603,8 @@ def _append_chat_message(
     message = {"role": role, "content": content}
     if sources:
         message["sources"] = sources
+    if role == "assistant" and for_question:
+        message["for_question"] = _question_preview(for_question)
     st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
@@ -784,15 +798,15 @@ def _render_document_status(
         name = stats.get("file_name") or st.session_state.current_file or "Document"
         pages = stats.get("pages", 0)
         st.success(_CLIENT_COPY["doc_ready"].format(name=name))
-        detail = f"{pages} page{'s' if pages != 1 else ''} indexed"
-        if stats.get("chars"):
-            detail += f" · {stats['chars']:,} characters extracted"
         if st.session_state.developer_mode:
+            detail = f"{pages} page{'s' if pages != 1 else ''} indexed"
+            if stats.get("chars"):
+                detail += f" · {stats['chars']:,} characters extracted"
             if stats.get("reused_index"):
                 detail += " · index reused (no re-processing)"
             st.caption(detail)
-        elif not stats.get("reused_index"):
-            st.caption(detail)
+        elif pages:
+            st.caption(f"{pages} page{'s' if pages != 1 else ''} processed")
         return
 
     if _document_is_indexed() and st.session_state.current_file:
@@ -1297,15 +1311,14 @@ _render_document_status(
 )
 
 # Chat history UI (persists across reruns)
-for msg_idx, message in enumerate(st.session_state.messages):
+for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message["role"] == "assistant" and message.get("sources"):
             _render_sources_panel(
                 message["sources"],
                 developer_mode=st.session_state.developer_mode,
-                title="Sources",
-                panel_key=f"sources_msg_{msg_idx}",
+                title=_sources_panel_title(message),
             )
 
 chat_ready = _document_is_indexed()
@@ -1321,6 +1334,9 @@ if query and query.strip() and chat_ready:
     query = query.strip()
     _append_chat_message("user", query)
 
+    with st.chat_message("user"):
+        st.markdown(query)
+
     retrieval_error = None
     generation_error = None
     raw_results: list[tuple[Document, float]] = []
@@ -1332,12 +1348,9 @@ if query and query.strip() and chat_ready:
     rerank_elapsed_ms = 0.0
     generation_elapsed_ms = 0.0
     total_elapsed_ms = 0.0
-    thinking_row = st.empty()
-    with thinking_row.container():
-        timer_col, spin_col = st.columns([1, 5])
-        with timer_col:
-            timer_placeholder = st.empty()
-            timer_placeholder.caption("⏱ 0.0s")
+
+    with st.chat_message("assistant"):
+        timer_placeholder = st.empty()
         stop_timer = threading.Event()
         script_ctx = get_script_run_ctx()
 
@@ -1347,171 +1360,169 @@ if query and query.strip() and chat_ready:
             t0 = time.perf_counter()
             while not stop_timer.wait(0.12):
                 elapsed = time.perf_counter() - t0
-                timer_placeholder.caption(f"⏱ {elapsed:.1f}s")
+                timer_placeholder.caption(f"⏱ {elapsed:.1f}s · Thinking…")
 
-        with spin_col:
-            with st.spinner("Thinking..."):
-                timer_thread = None
-                if script_ctx is not None:
-                    timer_thread = threading.Thread(
-                        target=_thinking_timer_loop,
-                        daemon=True,
-                        name="thinking-timer",
-                    )
-                    timer_thread.start()
+        with st.spinner("Thinking…"):
+            timer_thread = None
+            if script_ctx is not None:
+                timer_thread = threading.Thread(
+                    target=_thinking_timer_loop,
+                    daemon=True,
+                    name="thinking-timer",
+                )
+                timer_thread.start()
+            try:
+                total_start = time.perf_counter()
+                retrieval_start = time.perf_counter()
                 try:
-                    total_start = time.perf_counter()
-                    retrieval_start = time.perf_counter()
+                    candidate_limit = (
+                        max(TOP_K, RERANKER_TOP_N)
+                        if st.session_state.enable_reranker
+                        else TOP_K
+                    )
+                    candidate_pool, mode, first_stage_warning, retrieval_diag = (
+                        _run_first_stage_retrieval(
+                            query,
+                            candidate_limit=candidate_limit,
+                        )
+                    )
+                    raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
+                        _finalize_retrieval_candidates(
+                            query,
+                            candidate_pool=candidate_pool,
+                            mode=mode,
+                        )
+                    )
+                    st.session_state.last_retrieval_mode = final_mode
+                    retrieval_warning = reranker_warning or first_stage_warning
+                    retrieval_elapsed_ms = (
+                        time.perf_counter() - retrieval_start
+                    ) * 1000.0
+
+                    for doc, score in raw_results:
+                        doc.metadata["similarity"] = score
+                    retrieved_docs = [doc for doc, _score in raw_results]
+
+                    st.session_state.last_query = query
+                    st.session_state.last_raw_results = raw_results
+                    st.session_state.last_retrieved_docs = retrieved_docs
+                    context = _assemble_context(
+                        raw_results,
+                        use_page_separators=st.session_state.use_page_separators,
+                    )
+                    st.session_state.last_context = context
+                except (
+                    AttributeError,
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                ) as e:
+                    retrieval_error = e
+                    retrieval_elapsed_ms = (
+                        time.perf_counter() - retrieval_start
+                    ) * 1000.0
+                    st.session_state.last_retrieval_mode = "retrieval_failed"
+                    raw_results = []
+                    retrieved_docs = []
+                    context = ""
+                    st.session_state.last_query = query
+                    st.session_state.last_raw_results = []
+                    st.session_state.last_retrieved_docs = []
+                    st.session_state.last_context = ""
+                    st.session_state.last_answer = None
+
+                if retrieval_error is None:
                     try:
-                        candidate_limit = (
-                            max(TOP_K, RERANKER_TOP_N)
-                            if st.session_state.enable_reranker
-                            else TOP_K
+                        generation_start = time.perf_counter()
+                        st.session_state.last_answer = generate_answer(
+                            context=context,
+                            query=query,
+                            dummy_mode=st.session_state.dummy_generator_only,
                         )
-                        candidate_pool, mode, first_stage_warning, retrieval_diag = (
-                            _run_first_stage_retrieval(
-                                query,
-                                candidate_limit=candidate_limit,
-                            )
-                        )
-                        raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
-                            _finalize_retrieval_candidates(
-                                query,
-                                candidate_pool=candidate_pool,
-                                mode=mode,
-                            )
-                        )
-                        st.session_state.last_retrieval_mode = final_mode
-                        retrieval_warning = reranker_warning or first_stage_warning
-                        retrieval_elapsed_ms = (
-                            time.perf_counter() - retrieval_start
+                        generation_elapsed_ms = (
+                            time.perf_counter() - generation_start
                         ) * 1000.0
-
-                        for doc, score in raw_results:
-                            doc.metadata["similarity"] = score
-                        retrieved_docs = [doc for doc, _score in raw_results]
-
-                        st.session_state.last_query = query
-                        st.session_state.last_raw_results = raw_results
-                        st.session_state.last_retrieved_docs = retrieved_docs
-                        context = _assemble_context(
-                            raw_results,
-                            use_page_separators=st.session_state.use_page_separators,
-                        )
-                        st.session_state.last_context = context
-                    except (
-                        AttributeError,
-                        KeyError,
-                        TypeError,
-                        ValueError,
-                        RuntimeError,
-                    ) as e:
-                        retrieval_error = e
-                        retrieval_elapsed_ms = (
-                            time.perf_counter() - retrieval_start
+                        st.session_state.last_generation_error = None
+                    except Exception as e:
+                        generation_error = e
+                        generation_elapsed_ms = (
+                            time.perf_counter() - generation_start
                         ) * 1000.0
-                        st.session_state.last_retrieval_mode = "retrieval_failed"
-                        raw_results = []
-                        retrieved_docs = []
-                        context = ""
-                        st.session_state.last_query = query
-                        st.session_state.last_raw_results = []
-                        st.session_state.last_retrieved_docs = []
-                        st.session_state.last_context = ""
                         st.session_state.last_answer = None
+                total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+            finally:
+                if timer_thread is not None:
+                    stop_timer.set()
+                    timer_thread.join(timeout=5.0)
+        timer_placeholder.empty()
 
-                    if retrieval_error is None:
-                        try:
-                            generation_start = time.perf_counter()
-                            st.session_state.last_answer = generate_answer(
-                                context=context,
-                                query=query,
-                                dummy_mode=st.session_state.dummy_generator_only,
-                            )
-                            generation_elapsed_ms = (
-                                time.perf_counter() - generation_start
-                            ) * 1000.0
-                            st.session_state.last_generation_error = None
-                        except Exception as e:
-                            generation_error = e
-                            generation_elapsed_ms = (
-                                time.perf_counter() - generation_start
-                            ) * 1000.0
-                            st.session_state.last_answer = None
-                    total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
-                finally:
-                    if timer_thread is not None:
-                        stop_timer.set()
-                        timer_thread.join(timeout=5.0)
-    thinking_row.empty()
+        if retrieval_warning:
+            st.warning(retrieval_warning)
 
-    if retrieval_warning:
-        st.warning(retrieval_warning)
+        st.session_state.last_retrieval_metrics = {
+            "strategy": st.session_state.retrieval_strategy,
+            "mode": st.session_state.last_retrieval_mode,
+            "reranker_enabled": st.session_state.enable_reranker,
+            "retrieved_chunks": len(raw_results),
+            "context_chars": len(context),
+            "retrieval_ms": round(retrieval_elapsed_ms, 1),
+            "rerank_ms": round(rerank_elapsed_ms, 1),
+            "generation_ms": round(generation_elapsed_ms, 1),
+            "total_ms": round(total_elapsed_ms, 1),
+            **retrieval_diag,
+        }
 
-    st.session_state.last_retrieval_metrics = {
-        "strategy": st.session_state.retrieval_strategy,
-        "mode": st.session_state.last_retrieval_mode,
-        "reranker_enabled": st.session_state.enable_reranker,
-        "retrieved_chunks": len(raw_results),
-        "context_chars": len(context),
-        "retrieval_ms": round(retrieval_elapsed_ms, 1),
-        "rerank_ms": round(rerank_elapsed_ms, 1),
-        "generation_ms": round(generation_elapsed_ms, 1),
-        "total_ms": round(total_elapsed_ms, 1),
-        **retrieval_diag,
+        if st.session_state.developer_mode:
+            if st.session_state.last_retrieval_metrics:
+                with st.expander("📊 Retrieval metrics (last run)", expanded=False):
+                    metrics = st.session_state.last_retrieval_metrics
+                    st.markdown(
+                        f"- strategy: `{metrics['strategy']}`  \n"
+                        f"- mode: `{metrics['mode']}`  \n"
+                        f"- reranker enabled: `{metrics['reranker_enabled']}`  \n"
+                        f"- candidates (dense/sparse/fused): "
+                        f"`{metrics.get('dense_candidates', 0)}` / "
+                        f"`{metrics.get('sparse_candidates', 0)}` / "
+                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`  \n"
+                        f"- selected before rerank: `{metrics.get('selected_before_rerank', 0)}`  \n"
+                        f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
+                        f"- context chars: `{metrics['context_chars']}`  \n"
+                        f"- timing ms (retrieval/rerank/generation/total): "
+                        f"`{metrics['retrieval_ms']}` / `{metrics['rerank_ms']}` / "
+                        f"`{metrics['generation_ms']}` / `{metrics['total_ms']}`"
+                    )
+                    if retrieval_warning:
+                        st.caption(f"Retrieval warning: {retrieval_warning}")
+            with st.expander("📄 Exact Context fed to LLM", expanded=False):
+                st.code(context, language="text")
+                st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
+            with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
+                for i, (doc, _raw_score) in enumerate(raw_results, start=1):
+                    similarity = doc.metadata.get("similarity")
+                    st.markdown(
+                        f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
+                        f"Page: {doc.metadata.get('page', '?')}"
+                    )
+                    st.code(doc.page_content, language="text")
+
+    timing_payload = {
+        "total_ms": total_elapsed_ms,
+        "retrieval_ms": retrieval_elapsed_ms,
+        "generation_ms": generation_elapsed_ms,
     }
-
-    if st.session_state.developer_mode:
-        if st.session_state.last_retrieval_metrics:
-            with st.expander("📊 Retrieval metrics (last run)", expanded=False):
-                metrics = st.session_state.last_retrieval_metrics
-                st.markdown(
-                    f"- strategy: `{metrics['strategy']}`  \n"
-                    f"- mode: `{metrics['mode']}`  \n"
-                    f"- reranker enabled: `{metrics['reranker_enabled']}`  \n"
-                    f"- candidates (dense/sparse/fused): "
-                    f"`{metrics.get('dense_candidates', 0)}` / "
-                    f"`{metrics.get('sparse_candidates', 0)}` / "
-                    f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`  \n"
-                    f"- selected before rerank: `{metrics.get('selected_before_rerank', 0)}`  \n"
-                    f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
-                    f"- context chars: `{metrics['context_chars']}`  \n"
-                    f"- timing ms (retrieval/rerank/generation/total): "
-                    f"`{metrics['retrieval_ms']}` / `{metrics['rerank_ms']}` / "
-                    f"`{metrics['generation_ms']}` / `{metrics['total_ms']}`"
-                )
-                if retrieval_warning:
-                    st.caption(f"Retrieval warning: {retrieval_warning}")
-        with st.expander("📄 Exact Context fed to LLM", expanded=False):
-            st.code(context, language="text")
-            st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
-        with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
-            for i, (doc, _raw_score) in enumerate(raw_results, start=1):
-                similarity = doc.metadata.get("similarity")
-                st.markdown(
-                    f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
-                    f"Page: {doc.metadata.get('page', '?')}"
-                )
-                st.code(doc.page_content, language="text")
 
     if retrieval_error is not None:
         retrieval_reason = (
             "I couldn't retrieve relevant document chunks right now. "
             "Please try again."
         )
-        st.warning(retrieval_reason)
-        if st.session_state.developer_mode:
-            st.caption(f"Retrieval error details: {retrieval_error}")
-        timing_payload = {
-            "total_ms": total_elapsed_ms,
-            "retrieval_ms": retrieval_elapsed_ms,
-            "generation_ms": generation_elapsed_ms,
-        }
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
             retrieval_reason,
             timing=timing_payload if total_elapsed_ms > 0 else None,
+            for_question=query,
         )
         st.rerun()
     elif generation_error is not None:
@@ -1526,16 +1537,12 @@ if query and query.strip() and chat_ready:
             "I couldn't generate an answer right now. "
             f"{reason}"
         )
-        timing_payload = {
-            "total_ms": total_elapsed_ms,
-            "retrieval_ms": retrieval_elapsed_ms,
-            "generation_ms": generation_elapsed_ms,
-        }
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
             assistant_message,
             timing=timing_payload if total_elapsed_ms > 0 else None,
+            for_question=query,
         )
         st.rerun()
     else:
@@ -1544,17 +1551,13 @@ if query and query.strip() and chat_ready:
             or "I could not generate an answer at this time. Please try again."
         )
         source_payload = _build_sources_payload(retrieved_docs)
-        timing_payload = {
-            "total_ms": total_elapsed_ms,
-            "retrieval_ms": retrieval_elapsed_ms,
-            "generation_ms": generation_elapsed_ms,
-        }
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
             assistant_message,
             sources=source_payload,
             timing=timing_payload if total_elapsed_ms > 0 else None,
+            for_question=query,
         )
         st.rerun()
 elif query is not None and not chat_ready:
