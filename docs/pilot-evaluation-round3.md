@@ -114,11 +114,10 @@ Retrieval tuning (reranker, section filter) from the Round 3 plan is **not yet a
 
 ---
 
-## Next steps (from plan)
+## Next steps
 
-1. Enable **cross-encoder reranker** + **section boost** — re-run Q1–Q3 on same NDA.  
-2. Record results in **Round 4** or append to this doc.  
-3. **HTTPS VPS** smoke test with `APP_ALLOW_DEV_TOGGLE=false`.  
-4. **Go / no-go** for client redacted PDFs after source alignment ≥3/5 on Q1–Q2.
+1. **[Round 4 plan](pilot-evaluation-round4-plan.md)** — reranker, section metadata, section-aware retrieval, re-eval Q1–Q3.  
+2. **HTTPS VPS** smoke test (parallel).  
+3. **Go / no-go** for client redacted PDFs after Round 4 source alignment.
 
 Questions or a pilot on your PDFs: [README → For teams and consulting](../README.md#for-teams-and-consulting).
