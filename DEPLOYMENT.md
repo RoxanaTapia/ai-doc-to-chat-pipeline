@@ -56,6 +56,20 @@ Open [http://localhost:8501](http://localhost:8501). For Ollama-backed answers, 
 
 The app service receives `OLLAMA_HOST=http://ollama:11434` and `USE_DUMMY_GENERATOR=false`.
 
+### Environment variables
+
+Pilot-relevant settings are documented in [`.env.example`](.env.example). For self-hosted deployments:
+
+| Variable | Compose default | Purpose |
+|----------|-----------------|--------|
+| `OLLAMA_HOST` | `http://ollama:11434` | Ollama API URL (service name in Compose, not `localhost`) |
+| `USE_DUMMY_GENERATOR` | `false` | Must be `false` for real Ollama answers on Compose/VPS |
+| `OLLAMA_MODEL` | `phi3:mini` | Override; YAML default is `llama3.1:8b` in `configs/config.yaml` |
+
+To override via a file: `cp .env.example .env`, edit values, and add `env_file: .env` under the `app` service in `docker-compose.yml`. Generation tuning (`temperature`, `num_ctx`, etc.) follows `configs/config.yaml` → `rag.generation` unless set as `OLLAMA_*` in `.env`.
+
+See also [docs/architecture-pilot.md](docs/architecture-pilot.md#environment-variables-pilot).
+
 ### One-shot equivalent
 
 If you prefer a single command after models are already pulled:
