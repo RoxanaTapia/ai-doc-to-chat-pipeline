@@ -20,11 +20,41 @@ from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-st.set_page_config(page_title="AI Doc-to-Chat", layout="wide")
+st.set_page_config(page_title="Ask your PDF · Private RAG", layout="wide")
 APP_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+# Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
+_APP_BOOT_ID = str(os.getpid())
+
+# Client-demo microcopy — memorable pilot tone, serious for legal/ops buyers
+_CLIENT_COPY = {
+    "hero_title": "🔒 Ask your PDF anything ✨",
+    "hero_lead": (
+        "Private, grounded answers with <strong>page-level sources</strong> — "
+        "on infrastructure you control."
+    ),
+    "hero_kicker": "Upload · index · ask. No public ChatGPT tab required.",
+    "chat_ready": "What would you like to know?",
+    "chat_indexing": "Almost there…",
+    "chat_waiting": "Your questions land here once the PDF is ready.",
+    "doc_ready": (
+        "**{name}** is ready — your turn. Ask in plain language; "
+        "open **Sources** under each answer to verify the page."
+    ),
+    "doc_indexing": "Getting to know **{name}**…",
+    "doc_cleared": "Fresh start — upload another PDF whenever you're ready.",
+    "chat_cleared": "Chat cleared. Your indexed document is still here.",
+    "session_fresh": (
+        "Upload a PDF below — when you see the green **ready** message, "
+        "you can ask your first question."
+    ),
+    "doc_stale": (
+        "This PDF is not indexed yet — wait for the green **ready** message, "
+        "or click **Clear current document** and upload again."
+    ),
+}
 
 
 def _is_probably_streamlit_cloud() -> bool:
@@ -39,11 +69,99 @@ def _presentation_mode() -> str:
     """
     Return 'client' or 'developer'.
     Override with APP_PRESENTATION_MODE=client|developer.
+    Default is client (pilot demos); use developer for local tuning.
     """
     override = (os.getenv("APP_PRESENTATION_MODE") or "").strip().lower()
     if override in {"client", "developer"}:
         return override
-    return "client" if _is_probably_streamlit_cloud() else "developer"
+    return "client"
+
+
+def _dev_toggle_allowed() -> bool:
+    """Whether the sidebar shows the developer-mode toggle."""
+    return _env_bool(
+        "APP_ALLOW_DEV_TOGGLE",
+        not _is_probably_streamlit_cloud(),
+    )
+
+
+def _inject_demo_styles() -> None:
+    """Light hero styling for client-facing demos (Streamlit-safe CSS)."""
+    st.markdown(
+        """
+        <style>
+        .app-hero { margin: -0.75rem 0 1.25rem 0; }
+        .app-hero__lead {
+            font-size: 1.15rem;
+            line-height: 1.55;
+            color: #4b5563;
+            margin: 0 0 0.45rem 0;
+        }
+        .app-hero__kicker {
+            font-size: 0.95rem;
+            color: #9ca3af;
+            margin: 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_client_hero() -> None:
+    """Main headline — trustworthy, memorable, hire-me without being salesy."""
+    _inject_demo_styles()
+    st.title(_CLIENT_COPY["hero_title"])
+    st.markdown(
+        f"""
+        <div class="app-hero">
+          <p class="app-hero__lead">{_CLIENT_COPY["hero_lead"]}</p>
+          <p class="app-hero__kicker">{_CLIENT_COPY["hero_kicker"]}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _on_new_browser_session() -> None:
+    """
+    New Streamlit session (tab refresh, reconnect after compose restart).
+    Bump uploader key so ghost filenames do not look 'ready' without an index.
+    """
+    if st.session_state.get("_app_boot_id") == _APP_BOOT_ID:
+        return
+    st.session_state._app_boot_id = _APP_BOOT_ID
+    st.session_state.uploader_key_version = (
+        int(st.session_state.get("uploader_key_version", 0)) + 1
+    )
+    st.session_state._fresh_session_hint = True
+    for key in ("uploaded_pdf_bytes", "uploaded_pdf_name", "uploaded_pdf_hash"):
+        st.session_state.pop(key, None)
+    st.session_state.last_processed_name = None
+    st.session_state.last_processed_hash = None
+    st.session_state.current_file = None
+    st.session_state.vector_store = None
+    st.session_state.chunks = None
+    st.session_state.indexed_doc_stats = None
+    st.session_state.bm25_state = None
+
+
+def _apply_presentation_mode_lock() -> None:
+    """
+    When the dev toggle is hidden, pin UI mode from APP_PRESENTATION_MODE.
+    Prevents clients on VPS from seeing or enabling developer controls.
+    """
+    if not _dev_toggle_allowed():
+        st.session_state.developer_mode = _presentation_mode() == "developer"
+
+
+def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | None) -> bool:
+    """True when we have file bytes but no searchable index yet."""
+    if _document_is_indexed():
+        return False
+    return resolved_upload is not None or uploaded_file is not None or bool(
+        st.session_state.get("uploaded_pdf_bytes")
+    )
 
 
 if _is_probably_streamlit_cloud():
@@ -87,6 +205,10 @@ try:
     RERANKER_ENABLED_DEFAULT = bool(reranker_cfg.get("enabled", False))
     RERANKER_MODEL_NAME = str(reranker_cfg.get("model_name", "BAAI/bge-reranker-base"))
     RERANKER_TOP_N = int(reranker_cfg.get("top_n", 50))
+
+    ui_cfg = rag_cfg.get("ui", {}) or {}
+    SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 5))
+    SOURCE_PREVIEW_CHARS = int(ui_cfg.get("source_preview_chars", 280))
 except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError, ValueError) as exc:
     st.error(f"Configuration error in {CONFIG_PATH}: {exc}")
     st.stop()
@@ -106,20 +228,54 @@ def finalize_progress(progress_bar, message: str) -> None:
         progress_bar.empty()
 
 
+def _readable_excerpt(text: str, max_chars: int) -> str:
+    """Trim chunk text at word or sentence boundaries for human-readable source previews."""
+    cleaned = " ".join((text or "").split())
+    if len(cleaned) <= max_chars:
+        return cleaned
+    snippet = cleaned[:max_chars]
+    for sep in (". ", "; ", ", ", " "):
+        cut = snippet.rfind(sep)
+        if cut > max_chars // 2:
+            return f"{snippet[: cut + len(sep)].strip()}…"
+    return f"{snippet.rstrip()}…"
+
+
 def _build_sources_payload(retrieved_docs: list[Document]) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     payload = []
-    for chunk in retrieved_docs:
-        preview = chunk.page_content[:100]
+    for chunk in retrieved_docs[:SOURCES_DISPLAY_MAX]:
         similarity = chunk.metadata.get("similarity")
         payload.append(
             {
                 "page": chunk.metadata.get("page", "N/A"),
                 "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
-                "preview": preview,
+                "preview": _readable_excerpt(chunk.page_content, SOURCE_PREVIEW_CHARS),
             }
         )
     return payload
+
+
+def _render_sources_panel(
+    sources: list[dict],
+    *,
+    developer_mode: bool,
+    title: str = "Sources",
+    panel_key: str | None = None,
+) -> None:
+    """Render source excerpts in a client-friendly expander."""
+    if not sources:
+        return
+    expander_kwargs = {"expanded": False}
+    if panel_key:
+        expander_kwargs["key"] = panel_key
+    with st.expander(title, **expander_kwargs):
+        for source_idx, source in enumerate(sources, start=1):
+            header = f"**Source {source_idx}** · Page {source['page']}"
+            if developer_mode and source.get("score") != "N/A":
+                header += f" · relevance {source['score']}"
+            st.markdown(header)
+            st.markdown(f"> {source['preview']}")
 
 
 def _assemble_context(raw_results: list[tuple[Document, float]], use_page_separators: bool) -> str:
@@ -590,12 +746,16 @@ def _document_is_indexed() -> bool:
     return st.session_state.vector_store is not None
 
 
-def _chat_input_placeholder() -> str:
+def _chat_input_placeholder(
+    *,
+    uploaded_file,
+    resolved_upload: tuple[bytes, str] | None,
+) -> str:
     if _document_is_indexed():
-        return "Ask a question about the document..."
-    if st.session_state.get("uploaded_pdf_bytes"):
-        return "Indexing your document… chat unlocks when ready."
-    return "Upload a PDF above to start."
+        return _CLIENT_COPY["chat_ready"]
+    if _upload_in_flight(uploaded_file=uploaded_file, resolved_upload=resolved_upload):
+        return _CLIENT_COPY["chat_indexing"]
+    return _CLIENT_COPY["chat_waiting"]
 
 
 def _chat_blocked_user_message(uploaded_file) -> str:
@@ -603,8 +763,7 @@ def _chat_blocked_user_message(uploaded_file) -> str:
         return ""
     if uploaded_file is not None or st.session_state.get("uploaded_pdf_bytes"):
         return (
-            "Your document is still being indexed. "
-            "Wait until you see **ready to chat** below, then ask again."
+            "Still indexing — wait for the green **ready** message, then ask again."
         )
     if st.session_state.current_file or st.session_state.get("uploaded_pdf_name"):
         return (
@@ -614,21 +773,46 @@ def _chat_blocked_user_message(uploaded_file) -> str:
     return "Upload a PDF and wait for indexing to finish before asking a question."
 
 
-def _render_document_ready_caption() -> None:
-    """Single-line status for the indexed document (client-friendly)."""
+def _render_document_status(
+    *,
+    uploaded_file,
+    resolved_upload: tuple[bytes, str] | None,
+) -> None:
+    """Show clear indexing / ready state — persists when toggling presentation mode."""
     stats = st.session_state.get("indexed_doc_stats")
-    if stats:
-        suffix = " · using saved index" if stats.get("reused_index") else " · ready to chat"
-        st.caption(
-            f"**{stats['file_name']}** · {stats['pages']} pages · "
-            f"{stats['chars']:,} characters{suffix}"
+    if stats and _document_is_indexed():
+        name = stats.get("file_name") or st.session_state.current_file or "Document"
+        pages = stats.get("pages", 0)
+        st.success(_CLIENT_COPY["doc_ready"].format(name=name))
+        detail = f"{pages} page{'s' if pages != 1 else ''} indexed"
+        if stats.get("chars"):
+            detail += f" · {stats['chars']:,} characters extracted"
+        if st.session_state.developer_mode:
+            if stats.get("reused_index"):
+                detail += " · index reused (no re-processing)"
+            st.caption(detail)
+        elif not stats.get("reused_index"):
+            st.caption(detail)
+        return
+
+    if _document_is_indexed() and st.session_state.current_file:
+        st.success(
+            _CLIENT_COPY["doc_ready"].format(name=st.session_state.current_file)
         )
-    elif _document_is_indexed() and st.session_state.current_file:
-        st.caption(f"**{st.session_state.current_file}** · ready to chat")
-    elif st.session_state.get("uploaded_pdf_name") and not _document_is_indexed():
-        st.caption(f"**{st.session_state.uploaded_pdf_name}** · indexing…")
-    elif not _document_is_indexed():
-        st.caption("Upload a PDF to enable chat.")
+        return
+
+    if st.session_state.get("uploaded_pdf_name") and not _document_is_indexed():
+        st.info(
+            _CLIENT_COPY["doc_indexing"].format(
+                name=st.session_state.uploaded_pdf_name
+            )
+        )
+        return
+
+    if _upload_in_flight(
+        uploaded_file=uploaded_file, resolved_upload=resolved_upload
+    ):
+        st.warning(_CLIENT_COPY["doc_stale"])
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -768,7 +952,7 @@ def _init_session_state() -> None:
         "messages": [],
         "developer_mode": _presentation_mode() == "developer",
         "enable_ocr": True,
-        "use_page_separators": False,
+        "use_page_separators": True,
         # Local: Ollama by default. Cloud: dummy only (no local Ollama). Env overrides either way.
         "dummy_generator_only": _env_bool(
             "USE_DUMMY_GENERATOR",
@@ -789,16 +973,12 @@ def _init_session_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = value
 
-    if "allow_mode_toggle" not in st.session_state:
-        # Keep toggle visibility stable during a session to avoid disappearing controls.
-        st.session_state.allow_mode_toggle = (
-            (not _is_probably_streamlit_cloud()) or st.session_state.developer_mode
-        )
-
 
 _init_session_state()
+_on_new_browser_session()
+_apply_presentation_mode_lock()
 
-if st.session_state.allow_mode_toggle:
+if _dev_toggle_allowed():
     st.session_state.developer_mode = st.sidebar.toggle(
         "Developer mode (show retrieval debug)",
         value=st.session_state.developer_mode,
@@ -807,38 +987,59 @@ if st.session_state.allow_mode_toggle:
             "OFF: cleaner client-facing presentation."
         ),
     )
-st.sidebar.caption(
-    f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
-)
+    st.sidebar.caption(
+        f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
+    )
 with st.sidebar.expander("About", expanded=False):
     st.markdown(
         """
-        Upload PDFs → Extract → Chat! 🚀
+        **Built for teams who won't paste contracts into ChatGPT.**
 
-        A local, private RAG chatbot for contracts, scans, and reports.
-        Built with LangChain + FAISS + Streamlit.
+        Upload a PDF, ask in plain language, get answers with **sources you
+        can verify**. Everything runs on **your** infrastructure — private
+        by design.
 
-        **Stack:** Python · RAG · LangChain · FAISS · Streamlit · OCR · PDF · Local LLM
+        Digital PDFs shine; scanned pages work too (OCR when needed).
+
+        **Like what you see?** [Upwork](https://www.upwork.com/freelancers/roxanadev) ·
+        [GitHub](https://github.com/RoxanaTapia)
+        """
+    )
+    if st.session_state.developer_mode:
+        st.caption(
+            "Stack: Python · LangChain · FAISS · Streamlit · OCR · Ollama"
+        )
+
+with st.sidebar.expander("How to use", expanded=False):
+    st.markdown(
+        """
+        **Three moves:**
+        1. Drop a PDF — contract, policy, report.
+        2. Wait for the green **ready** message.
+        3. Ask like you'd ask a colleague — then open **Sources**.
+
+        Name the section in your question for sharper answers.
+        Scanned pages? OCR kicks in automatically.
         """
     )
 
-with st.sidebar.expander("Document & chat options", expanded=False):
-    st.session_state.enable_ocr = st.toggle(
-        "Enable OCR for scanned pages",
-        value=st.session_state.enable_ocr,
-        help="Attempts OCR only on pages with little/no extractable text.",
-    )
-    st.session_state.use_page_separators = st.checkbox(
-        "Use page separators in context",
-        value=st.session_state.use_page_separators,
-        help="Adds page labels between chunks when assembling context for generation.",
-    )
-    st.session_state.dummy_generator_only = st.checkbox(
-        "Use dummy generator only (for testing)",
-        value=st.session_state.dummy_generator_only,
-        help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
-    )
 if st.session_state.developer_mode:
+    with st.sidebar.expander("Advanced options", expanded=False):
+        st.session_state.enable_ocr = st.toggle(
+            "Enable OCR for scanned pages",
+            value=st.session_state.enable_ocr,
+            help="Attempts OCR only on pages with little/no extractable text.",
+        )
+        st.session_state.use_page_separators = st.checkbox(
+            "Use page separators in context",
+            value=st.session_state.use_page_separators,
+            help="Adds page labels between chunks when assembling context for generation.",
+        )
+        st.session_state.dummy_generator_only = st.checkbox(
+            "Use dummy generator only (for testing)",
+            value=st.session_state.dummy_generator_only,
+            help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
+        )
     st.session_state.retrieval_strategy = st.sidebar.selectbox(
         "Retrieval strategy",
         options=["semantic", "hybrid"],
@@ -865,16 +1066,23 @@ if _is_probably_streamlit_cloud():
         "or **request a live session** for a private hosted demo."
     )
 
-st.title("Upload → Extract → Chat! 🚀")
-st.caption("Private RAG chat over your PDF — upload, index, then ask questions.")
+_render_client_hero()
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
-uploaded_file = st.file_uploader("Upload PDF or document", type=["pdf"], key=uploader_key)
+uploaded_file = st.file_uploader(
+    "PDF",
+    type=["pdf"],
+    key=uploader_key,
+    label_visibility="collapsed",
+)
+
+if st.session_state.pop("_fresh_session_hint", False) and not _document_is_indexed():
+    st.info(_CLIENT_COPY["session_fresh"])
 
 controls_col1, controls_col2 = st.columns(2)
 if controls_col1.button("🗑️ Clear current document", type="secondary"):
     _reset_document_state(bump_uploader_key=True)
-    st.success("Document cleared!")
+    st.success(_CLIENT_COPY["doc_cleared"])
     st.rerun()
 has_chat_history = bool(st.session_state.messages)
 if controls_col2.button(
@@ -883,7 +1091,7 @@ if controls_col2.button(
     help="No chat history yet." if not has_chat_history else None,
 ):
     _reset_chat_state()
-    st.success("Chat cleared. Indexed document remains available.")
+    st.success(_CLIENT_COPY["chat_cleared"])
     st.rerun()
 
 extracted_text = ""
@@ -894,7 +1102,7 @@ if resolved_upload is not None:
     uploaded_hash = _cache_upload(file_bytes, file_name)
 
     if uploaded_file is None and not _document_is_indexed():
-        st.info("Restoring your document after a refresh — re-indexing now.")
+        st.info("Welcome back — re-indexing your document now.")
 
     if (
         uploaded_hash == st.session_state.last_processed_hash
@@ -912,7 +1120,7 @@ if resolved_upload is not None:
         tmp_path = None
         progress_bar = None
         try:
-            progress_bar = st.progress(5, text="Preparing uploaded file...")
+            progress_bar = st.progress(5, text="Preparing your document…")
             ocr_pages_used = 0
             scanned_pages_detected = 0
             ocr_pages_attempted = 0
@@ -922,7 +1130,11 @@ if resolved_upload is not None:
                 tmp_file.write(file_bytes)
                 tmp_path = Path(tmp_file.name)
 
-            progress_bar.progress(25, text="Extracting text from PDF...")
+            progress_bar.progress(25, text=(
+                "Extracting text from PDF…"
+                if st.session_state.developer_mode
+                else "Getting to know your document…"
+            ))
 
             doc = fitz.open(str(tmp_path))
             extracted_text = ""
@@ -943,7 +1155,11 @@ if resolved_upload is not None:
                 extracted_text += final_page_text + "\n"
                 page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
             doc.close()
-            progress_bar.progress(45, text="Text extracted. Preparing chunking...")
+            progress_bar.progress(45, text=(
+                "Text extracted. Preparing chunking…"
+                if st.session_state.developer_mode
+                else "Preparing your document for questions…"
+            ))
 
             extracted_char_count = len(extracted_text.strip())
             if st.session_state.developer_mode:
@@ -966,7 +1182,11 @@ if resolved_upload is not None:
                         height=260,
                     )
 
-            with st.spinner("Splitting text into chunks..."):
+            with st.spinner(
+                "Splitting text into chunks…"
+                if st.session_state.developer_mode
+                else "Organizing content…"
+            ):
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=CHUNK_SIZE,
                     chunk_overlap=CHUNK_OVERLAP,
@@ -974,7 +1194,11 @@ if resolved_upload is not None:
                     add_start_index=True,
                 )
                 chunks = text_splitter.split_documents(page_docs)
-            progress_bar.progress(65, text="Chunks created. Loading embedding model...")
+            progress_bar.progress(65, text=(
+                "Chunks created. Loading embedding model…"
+                if st.session_state.developer_mode
+                else "Almost ready…"
+            ))
 
             if st.session_state.developer_mode:
                 st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
@@ -1014,8 +1238,16 @@ if resolved_upload is not None:
                 st.session_state.bm25_state = None
 
                 had_existing_index = st.session_state.vector_store is not None
-                progress_bar.progress(80, text="Embeddings ready. Building FAISS index...")
-                with st.spinner(f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index..."):
+                progress_bar.progress(80, text=(
+                    "Embeddings ready. Building FAISS index…"
+                    if st.session_state.developer_mode
+                    else "Almost ready for your first question…"
+                ))
+                with st.spinner(
+                    f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index…"
+                    if st.session_state.developer_mode
+                    else "Making your document searchable…"
+                ):
                     start = time.time()
 
                     embeddings = get_embeddings(EMBEDDING_MODEL)
@@ -1027,7 +1259,10 @@ if resolved_upload is not None:
 
                     st.session_state.vector_store = vector_store
                     took = time.time() - start
-                finalize_progress(progress_bar, "Indexing complete.")
+                finalize_progress(
+                    progress_bar,
+                    "Indexing complete." if st.session_state.developer_mode else "Good to go.",
+                )
 
                 if st.session_state.developer_mode:
                     st.success(
@@ -1056,43 +1291,34 @@ if resolved_upload is not None:
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
 
-_render_document_ready_caption()
+_render_document_status(
+    uploaded_file=uploaded_file,
+    resolved_upload=resolved_upload,
+)
 
 # Chat history UI (persists across reruns)
-assistant_turn_count = 0
-for message in st.session_state.messages:
+for msg_idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message["role"] == "assistant" and message.get("sources"):
-            assistant_turn_count += 1
-            turn_number = assistant_turn_count
-            with st.expander(f"Sources (turn {turn_number})", expanded=False):
-                for source_idx, source in enumerate(message["sources"], start=1):
-                    st.markdown(
-                        f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
-                    )
-                    st.code(source["preview"], language="text")
-                    st.markdown("---")
-
-last_timing = st.session_state.get("last_response_timing")
-if last_timing:
-    st.caption(
-        "⏱ Last answer: "
-        + _response_timing_caption(
-            total_ms=last_timing.get("total_ms", 0.0),
-            retrieval_ms=last_timing.get("retrieval_ms", 0.0),
-            generation_ms=last_timing.get("generation_ms", 0.0),
-            developer_mode=st.session_state.developer_mode,
-        )
-    )
+            _render_sources_panel(
+                message["sources"],
+                developer_mode=st.session_state.developer_mode,
+                title="Sources",
+                panel_key=f"sources_msg_{msg_idx}",
+            )
 
 chat_ready = _document_is_indexed()
-query = st.chat_input(_chat_input_placeholder())
+query = st.chat_input(
+    _chat_input_placeholder(
+        uploaded_file=uploaded_file,
+        resolved_upload=resolved_upload,
+    ),
+    disabled=not chat_ready,
+)
 
 if query and query.strip() and chat_ready:
     query = query.strip()
-    with st.chat_message("user"):
-        st.markdown(query)
     _append_chat_message("user", query)
 
     retrieval_error = None
@@ -1287,6 +1513,7 @@ if query and query.strip() and chat_ready:
             retrieval_reason,
             timing=timing_payload if total_elapsed_ms > 0 else None,
         )
+        st.rerun()
     elif generation_error is not None:
         e = generation_error
         st.session_state.last_answer = None
@@ -1310,6 +1537,7 @@ if query and query.strip() and chat_ready:
             assistant_message,
             timing=timing_payload if total_elapsed_ms > 0 else None,
         )
+        st.rerun()
     else:
         assistant_message = (
             st.session_state.last_answer
@@ -1321,20 +1549,6 @@ if query and query.strip() and chat_ready:
             "retrieval_ms": retrieval_elapsed_ms,
             "generation_ms": generation_elapsed_ms,
         }
-        with st.chat_message("assistant"):
-            st.write_stream(_stream_text_chunks(assistant_message))
-            if total_elapsed_ms > 0:
-                st.markdown(
-                    f"---\n*{_response_timing_caption(**timing_payload, developer_mode=st.session_state.developer_mode)}*"
-                )
-            if source_payload:
-                with st.expander("Sources", expanded=False):
-                    for source_idx, source in enumerate(source_payload, start=1):
-                        st.markdown(
-                            f"**Source {source_idx}** (similarity score: {source['score']}) - page {source['page']}"
-                        )
-                        st.code(source["preview"], language="text")
-                        st.markdown("---")
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
@@ -1342,6 +1556,7 @@ if query and query.strip() and chat_ready:
             sources=source_payload,
             timing=timing_payload if total_elapsed_ms > 0 else None,
         )
+        st.rerun()
 elif query is not None and not chat_ready:
     st.info(_chat_blocked_user_message(uploaded_file))
 elif query is not None:
