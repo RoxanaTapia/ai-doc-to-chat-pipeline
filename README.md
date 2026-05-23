@@ -76,14 +76,14 @@ Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.m
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment (M7 — shipping now)**
+**Reference deployment**
 
 - [`Dockerfile`](Dockerfile) — reproducible app image (Python 3.12, OCR runtime)
 - [`docker-compose.yml`](docker-compose.yml) — app + Ollama, health-gated startup, persistent model volume
-- [`DEPLOYMENT.md`](DEPLOYMENT.md) — build, compose, model pull, environment setup, troubleshooting
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — VPS and local guide (sizing, deploy, verify, troubleshooting)
 - [`.env.example`](.env.example) — documented settings for self-hosted pilots
 
-**Next on the M7 finish line:** HTTPS + access control, full VPS guide, demo assets.
+**Coming next:** HTTPS + access control on the pilot URL, demo video assets.
 
 ---
 
@@ -133,9 +133,9 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 ## How this project is built
 
-Developed with **agentic workflows in Cursor** — specialized agents (orchestrator, deploy-engineer, docs-writer, config-guardian, verifier) own distinct parts of the stack and ship one GitHub issue per PR. That keeps delivery fast, reviewable, and aligned with a production roadmap rather than ad-hoc prompts.
+Developed with **agentic workflows in Cursor** — milestone-driven delivery with automated review and verification, so pilots and production features ship in small, auditable steps rather than ad-hoc prompts.
 
-Contributor playbook: [AGENTS.md](AGENTS.md)
+Open-source contributors: [AGENTS.md](AGENTS.md)
 
 ---
 
