@@ -15,7 +15,7 @@ Full roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · M7 GitHub milestone: [#1](ht
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
 | `rag-core-engineer` | M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
 | `streamlit-engineer` | All UI | `src/app.py` | Docker, FastAPI internals |
-| `docs-writer` | M7, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, README deploy sections | Python except docstrings |
+| `docs-writer` | M7, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README** (status, deploy pointers, production vision — not app code) | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
 | `blocker-reporter` | All | Blocker summaries | Code changes |
 
@@ -101,7 +101,27 @@ Specialists and `blocker-reporter` use this format:
 
 ---
 
-## Repository strategy
+## Documentation maintenance
+
+Keep user-facing docs aligned when milestones ship or deployment behavior changes.
+
+| File | Owner | Update when |
+|------|-------|-------------|
+| **README.md** | `docs-writer` | Milestone status changes, new deploy paths, production vision shifts |
+| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` review | Compose, env, VPS, HTTPS, troubleshooting |
+| **docs/ROADMAP.md** | `docs-writer` | M7–M12 scope or definition-of-done changes |
+| **docs/architecture-pilot.md** | `docs-writer` | Architecture target changes (M9+ especially) |
+| **AGENTS.md** | Human + orchestrator | New agents, decision log, issue→agent map |
+
+**After merging a GitHub milestone slice** (e.g. M7 complete, M8 started):
+
+1. Orchestrator or human opens a **docs issue** or adds sub-task: “Sync README + ROADMAP status.”
+2. Dispatch **`docs-writer` only** — do not parallelize with code issues on the same PR unless docs-only.
+3. README stays **short** — link to `DEPLOYMENT.md` and `docs/ROADMAP.md` for depth ([`docs-commercial` rule](.cursor/rules/docs-commercial.mdc)).
+
+There is **no separate README agent** — use **`docs-writer`** for README status, deploy sections, and production narrative.
+
+---
 
 - **Public repo:** app code, generic Compose, `DEPLOYMENT.md`, agents/rules (this file).
 - **Private deploy repo (later):** client hostnames, SSO configs, production secrets — not duplicated app logic.

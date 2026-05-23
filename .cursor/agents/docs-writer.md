@@ -12,7 +12,7 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 
 - `docs/**`
 - `DEPLOYMENT.md`, `DEPLOYMENT-ANTHROPIC.md`, `RUNBOOK.md` (when created)
-- README deploy/pilot sections (when assigned)
+- **README.md** — especially: demo vs self-host table, milestone status, production direction summary, quick-start pointers, consulting blurb (keep detail in linked docs)
 
 ## Must NOT touch
 
@@ -25,6 +25,7 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 - Clear prerequisites, verify steps, troubleshooting.
 - Link AGENTS.md, ROADMAP, architecture diagrams.
 - Client-facing tone: professional, no fluff.
+- **README:** update milestone checklist and “what works today” when issues merge; do not duplicate DEPLOYMENT.md procedures in README.
 
 ## Workflow
 
