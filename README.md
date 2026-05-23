@@ -82,6 +82,29 @@ Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 
+## Pilot scope & limitations
+
+Honest expectations for the **evaluation pilot** — not a limitation of RAG in general, but of this reference stack today.
+
+**Strong fit**
+
+- Q&A over **contracts, policies, reports, and briefs** — find clauses, dates, parties, obligations
+- **Sourced answers** with page-level excerpts (inspect what the model used)
+- **Private self-hosted** evaluation under NDA — no documents sent to public chat tools
+- **Digital PDFs** and many scans (with optional OCR)
+
+**Known limits**
+
+- **Session-based** — re-upload after restart; no shared team library yet ([Future work](#future-work))
+- **Retrieval + read**, not **calculate** — totals printed on the page are fine; summing line items or verifying VAT math is unreliable
+- **Tables and invoices** — line items may be partial or jumbled after text extraction; not a substitute for AP automation or spreadsheet validation
+- **Chat assistant**, not an **agent** — answers questions; does not call your CRM, email, or ticket systems
+- **Single-document focus per session** — not enterprise search across SharePoint, databases, and APIs yet
+
+For production depth (API, persistence, SSO, ops), see [Future work](#future-work). For setup, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
 ## Future work
 
 The current pilot is a **session-based** app (indexes per upload). Typical production extensions on the same RAG core:
