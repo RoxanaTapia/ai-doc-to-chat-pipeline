@@ -1,109 +1,148 @@
 # AI Doc to Chat
 
-[Live Demo](https://ai-doc-to-chat-demo.streamlit.app)
+> **Privacy · Reproducibility · Honesty** — grounded answers on *your* infrastructure, not a black-box SaaS tab.
 
-**Private, local chat with your PDFs** — upload contracts, invoices, reports or scans, ask real questions in plain language, and get accurate answers with exact page references. No hallucinations, no data leaves your machine.
+[Live Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md)
 
-### Why this matters in 2026
+**Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
 
-Public AI tools like ChatGPT or Claude are great for casual use, but when dealing with sensitive contracts, legal docs, or internal policies, you need **privacy**, **control**, and **traceability**.
+**Want real answers on confidential documents?** The [public demo](https://ai-doc-to-chat-demo.streamlit.app) shows the interface only. [Contact me](#for-teams-and-consulting) for a **private pilot** with real local AI, or deployment inside your company.
 
-This local RAG (Retrieval-Augmented Generation) pipeline:
+---
 
-- Retrieves only relevant parts of your documents
-- Generates grounded answers backed by real sources
-- Runs completely offline (after setup)
-- Can reduce document review time by up to 40% in real workflows
+## Two ways to use this project
 
-Perfect for lawyers, compliance teams, support staff, or anyone who works with confidential or regulated documents.
+| Mode | Where | Generation | Best for |
+|------|--------|------------|----------|
+| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI + retrieval preview (no LLM on that host) | Try the experience, share a link |
+| **Private pilot** | Your infrastructure or mine | **Real Ollama** — answers grounded in your documents | Confidential PDFs, evaluations, rollouts |
 
-Try the **[live demo](https://ai-doc-to-chat-demo.streamlit.app)** right now — drag a PDF, ask a question, and see cited answers.  
-**Cut document review time by up to 40%** and turn your data into actionable insights with zero data exposure.
+---
 
-### Project Milestones (March 2026)
+## How it works
 
-- ✅ Milestone 1 — Local prototype (upload + chat shell)
-- ✅ Milestone 2 — Reliable PDF extraction (including OCR fallback)
-- ✅ Milestone 3 — Chunking + embeddings + FAISS retrieval
-- ✅ Milestone 4 — Basic RAG generation and answer display
-- ✅ Milestone 5 — Live demo deployment completed ([ai-doc-to-chat-demo.streamlit.app](https://ai-doc-to-chat-demo.streamlit.app))
-- ✅ Milestone 6 (`v0.6.0`) — First stable cloud-ready release
+Each question flows through a **single private stack** — your documents never leave your environment:
 
-Last tagged release: `v0.6.0`.
-
-### Run Locally From Scratch (Docker + Ollama)
-
-1. Install Docker Desktop (Apple Silicon or Intel), launch it, and verify:
-
-```bash
-docker --version
-docker run hello-world
+```text
+Browser ──► Streamlit (upload + chat)
+              ├─► Extract text from PDF (digital + scanned/OCR)
+              ├─► Find relevant passages (local embeddings + search)
+              └─► Ollama (local LLM) → answer with page-level sources
 ```
 
-1. Clone project and install Python dependencies:
+| Layer | Role |
+|-------|------|
+| **Interface** | Upload PDFs, chat, inspect sources (page, score, excerpt) |
+| **Retrieval** | Semantic and hybrid search over your document — runs locally |
+| **Generation** | Local LLM produces answers from retrieved context only |
+| **Deployment** | Docker Compose packages app + Ollama for a one-VM pilot |
+
+Pilots use in-session indexing (ideal for evaluations). Longer-term deployments add persistent storage, API access, and enterprise auth — see [Future work](#future-work).
+
+---
+
+## Demo vs private pilot
+
+1. **Public demo** — open the link, upload a sample PDF, explore the UX. Generation is intentionally limited on the hosted demo.
+2. **Private pilot** — real local AI on your or my infrastructure, suitable for confidential or redacted documents under NDA.
+3. **Production rollout** — persistence, SSO, runbooks, and your choice of cloud or on-prem — scoped per engagement.
+
+---
+
+## Typical company pilot
+
+```text
+Team ──► HTTPS ──► Streamlit + Ollama (one VM or VPC)
+                      └── PDFs processed in your environment
+```
+
+| Phase | Outcome |
+|-------|---------|
+| **Pilot** | Single VM, real answers, access control on the URL |
+| **Hardening** | Backups, monitoring, model tuning |
+| **Production** | Client-owned cloud, persistent indexes, SSO, audit trail |
+
+Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.md](docs/architecture-pilot.md)
+
+---
+
+## What works today
+
+**Document AI (stable baseline, `v0.6.0`)**
+
+- PDF upload with **PyMuPDF** and optional **Tesseract OCR** for scans
+- Local **embeddings** and **FAISS** retrieval — semantic and hybrid (BM25 + dense)
+- **Streamlit** chat with source previews (page, score, chunk text)
+- **Ollama** for private generation, or dummy mode for the public demo
+- Optional developer view: retrieval metrics and context transparency
+
+**Reference deployment (M7 — shipping now)**
+
+- [`Dockerfile`](Dockerfile) — reproducible app image (Python 3.12, OCR runtime)
+- [`docker-compose.yml`](docker-compose.yml) — app + Ollama, health-gated startup, persistent model volume
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — build, compose, model pull, environment setup, troubleshooting
+- [`.env.example`](.env.example) — documented settings for self-hosted pilots
+
+**Next on the M7 finish line:** HTTPS + access control, full VPS guide, demo assets.
+
+---
+
+## Future work
+
+The current pilot is a **session-based** app (indexes per upload). Typical production extensions on the same RAG core:
+
+- **API layer** — integrate beyond the Streamlit UI
+- **Persistent storage** — documents and vectors survive restarts
+- **Enterprise access** — SSO, security documentation, operational runbooks
+- **Flexible LLM backend** — local Ollama, or private cloud APIs where procurement requires it
+
+---
+
+## Quick start (self-hosted)
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full walkthrough.
 
 ```bash
 git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
 cd ai-doc-to-chat-pipeline
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+
+docker compose up -d ollama
+docker compose exec ollama ollama pull phi3:mini
+docker compose up --build
 ```
 
-1. Start Ollama server in Docker on port `11435`:
+Open [http://localhost:8501](http://localhost:8501) — real local generation with Docker Compose.
 
-```bash
-docker run -d --name ollama-cpu --restart unless-stopped -p 11435:11434 -v ollama:/root/.ollama ollama/ollama
-# If container already exists:
-# docker start ollama-cpu
-```
+---
 
-1. Pull a model into that same Ollama server:
+## For teams and consulting
 
-```bash
-OLLAMA_HOST=http://127.0.0.1:11435 ollama pull phi3:mini
-# Optional larger model:
-# OLLAMA_HOST=http://127.0.0.1:11435 ollama pull llama3.1:8b
-```
+I deploy **private document AI** for organizations that cannot send contracts or policies to public chat tools — from single-VM pilots through production-shaped stacks on **your** cloud or dedicated infrastructure.
 
-1. Verify Ollama is reachable:
+| | |
+|--|--|
+| **Privacy** | Documents and prompts stay in your environment; local or VPC-hosted LLM |
+| **Reproducibility** | Docker Compose reference deployment your IT can audit and reproduce |
+| **Honesty** | Public demo shows the UI; private pilot delivers real generation — clearly separated |
 
-```bash
-curl http://127.0.0.1:11435/api/tags
-```
+**Typical path:** pilot on your infrastructure → hardening and persistence → production with auth and runbooks. Local Ollama for air-gap; private cloud APIs when quality or procurement requires it.
 
-1. Run Streamlit against Docker Ollama:
+**[Contact me](#for-teams-and-consulting)** for a live private demo, pilot setup, or scoping a production rollout.
 
-```bash
-OLLAMA_HOST=http://127.0.0.1:11435 OLLAMA_MODEL=phi3:mini streamlit run src/app.py
-```
+---
 
-Open `http://localhost:8501`, upload a PDF, and ask questions.
+## How this project is built
 
-### Recommended Docker Resources
+Developed with **agentic workflows in Cursor** — specialized agents (orchestrator, deploy-engineer, docs-writer, config-guardian, verifier) own distinct parts of the stack and ship one GitHub issue per PR. That keeps delivery fast, reviewable, and aligned with a production roadmap rather than ad-hoc prompts.
 
-- CPU: `8-10` cores
-- Memory: `16 GB` minimum (`24 GB` recommended for `llama3.1:8b`)
-- Swap: `2-4 GB`
+Contributor playbook: [AGENTS.md](AGENTS.md)
 
-If generation is slow or fails with memory errors, use `phi3:mini` and/or lower context (`OLLAMA_NUM_CTX=2048`).
+---
 
-### Apple M5 / Metal Compatibility Note
+## Core stack
 
-On some M5/macOS combinations, native Ollama can crash in the Metal backend (`MTLLibraryErrorDomain`).  
-Running Ollama inside Docker is the recommended workaround until upstream Metal fixes are fully stable across builds.
-
-### Core Technologies (simple view)
-
-- **Streamlit** — clean, interactive UI  
-- **LangChain + FAISS** — fast, private RAG retrieval  
-- **PyMuPDF + Tesseract** — handles any PDF (digital or scanned)  
-- **Ollama** — local LLM generation (phi3, llama3.1, etc.)  
-- Fully configurable via YAML files
+Streamlit · LangChain · FAISS · sentence-transformers · PyMuPDF · Tesseract · Ollama · Docker
 
 MIT licensed — free to use, modify, or build on commercially.
 
-**Looking for a customized version?**  
-Multi-user access, enterprise vector DB integration, audit logs, SSO, or cloud deployment? I'm available for freelance/consulting projects.
-
-Made with ❤️ by **Roxana Tapia** — March 2026
+Made with ❤️ by **Roxana Tapia** — 2026

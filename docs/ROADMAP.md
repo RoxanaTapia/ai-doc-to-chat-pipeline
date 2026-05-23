@@ -149,7 +149,7 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
                               └── LLM backend (Ollama | Anthropic)
 ```
 
-Current repo (pre-M7): single Streamlit process, in-memory FAISS, external Ollama.
+**Today (M7 in progress):** Streamlit app in Docker Compose with co-located Ollama, health-gated startup, in-memory FAISS per session. **M9+** adds Postgres/pgvector persistence.
 
 ---
 
@@ -165,5 +165,7 @@ This repo uses Cursor **rules**, **subagents**, and **slash commands** to delive
 | Workflow rules | `.cursor/rules/milestone-workflow.mdc` |
 
 **Operator loop:** pick GitHub issue → `/ship-m7-issue #NN` → resolve blockers → approve commits → merge PR.
+
+**After a milestone phase ships:** dispatch `docs-writer` to sync [README.md](../README.md) status with this roadmap.
 
 M7 issues [#33–#39](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1) map to specialists (`deploy-engineer`, `config-guardian`, `docs-writer`) — see AGENTS.md.

@@ -73,6 +73,9 @@ uploaded/
 .coverage
 htmlcov/
 
+# Private operator notes (sales / deployment — not for repo)
+docs-private/
+
 # OS / temp files
 .DS_Store
 Thumbs.db
