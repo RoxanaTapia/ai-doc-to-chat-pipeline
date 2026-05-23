@@ -6,7 +6,7 @@
 
 **Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
 
-**Want real answers on confidential documents?** The [public demo](https://ai-doc-to-chat-demo.streamlit.app) shows the interface only. [Contact me](#for-teams-and-consulting) for a **private pilot** with real local AI, or deployment inside your company.
+**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** For a **private pilot** with real local AI, [hire on Upwork](https://www.upwork.com/freelancers/roxanadev) or [reach out on GitHub](https://github.com/RoxanaTapia).
 
 ---
 
@@ -62,7 +62,7 @@ Team ──► HTTPS ──► Streamlit + Ollama (one VM or VPC)
 | **Hardening** | Backups, monitoring, model tuning |
 | **Production** | Client-owned cloud, persistent indexes, SSO, audit trail |
 
-Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.md](docs/architecture-pilot.md)
+Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
 
@@ -76,14 +76,9 @@ Operational detail: [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/architecture-pilot.m
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment (M7 — shipping now)**
+**Reference deployment** — Docker Compose stack (app + local Ollama) with a full [deployment guide](DEPLOYMENT.md) for VPS or laptop pilots.
 
-- [`Dockerfile`](Dockerfile) — reproducible app image (Python 3.12, OCR runtime)
-- [`docker-compose.yml`](docker-compose.yml) — app + Ollama, health-gated startup, persistent model volume
-- [`DEPLOYMENT.md`](DEPLOYMENT.md) — build, compose, model pull, environment setup, troubleshooting
-- [`.env.example`](.env.example) — documented settings for self-hosted pilots
-
-**Next on the M7 finish line:** HTTPS + access control, full VPS guide, demo assets.
+**Coming next:** HTTPS + access control on the pilot URL, demo video.
 
 ---
 
@@ -98,20 +93,9 @@ The current pilot is a **session-based** app (indexes per upload). Typical produ
 
 ---
 
-## Quick start (self-hosted)
+## Self-hosted pilot
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the full walkthrough.
-
-```bash
-git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
-cd ai-doc-to-chat-pipeline
-
-docker compose up -d ollama
-docker compose exec ollama ollama pull phi3:mini
-docker compose up --build
-```
-
-Open [http://localhost:8501](http://localhost:8501) — real local generation with Docker Compose.
+Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, and step-by-step setup on a VPS or your laptop.
 
 ---
 
@@ -125,17 +109,17 @@ I deploy **private document AI** for organizations that cannot send contracts or
 | **Reproducibility** | Docker Compose reference deployment your IT can audit and reproduce |
 | **Honesty** | Public demo shows the UI; private pilot delivers real generation — clearly separated |
 
-**Typical path:** pilot on your infrastructure → hardening and persistence → production with auth and runbooks. Local Ollama for air-gap; private cloud APIs when quality or procurement requires it.
+**Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
 
-**[Contact me](#for-teams-and-consulting)** for a live private demo, pilot setup, or scoping a production rollout.
+This reference pilot was built with **[Cursor](https://cursor.com)** — the same test-backed, reviewable workflow I use to ship client work without cutting corners. That is how the stack, deployment guide, and docs moved quickly while staying auditable in git. **Your PDFs and prompts are not part of that:** at runtime everything stays on **your** VM or VPC (local Ollama). My tooling builds the product; your data never leaves your environment.
+
+**Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) (private pilot, consulting, production scoping) · [GitHub](https://github.com/RoxanaTapia) (OSS and technical questions)
 
 ---
 
-## How this project is built
+## Contributing
 
-Developed with **agentic workflows in Cursor** — specialized agents (orchestrator, deploy-engineer, docs-writer, config-guardian, verifier) own distinct parts of the stack and ship one GitHub issue per PR. That keeps delivery fast, reviewable, and aligned with a production roadmap rather than ad-hoc prompts.
-
-Contributor playbook: [AGENTS.md](AGENTS.md)
+Pull requests welcome. For how this repo is organized (agents, milestones, verify-before-merge), see [AGENTS.md](AGENTS.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -145,4 +129,4 @@ Streamlit · LangChain · FAISS · sentence-transformers · PyMuPDF · Tesseract
 
 MIT licensed — free to use, modify, or build on commercially.
 
-Made with ❤️ by **Roxana Tapia** — 2026
+Made with ❤️ by **[Roxana Tapia](https://github.com/RoxanaTapia)** — 2026

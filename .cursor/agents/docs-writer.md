@@ -12,7 +12,10 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 
 - `docs/**`
 - `DEPLOYMENT.md`, `DEPLOYMENT-ANTHROPIC.md`, `RUNBOOK.md` (when created)
-- **README.md** — especially: demo vs self-host table, milestone status, production direction summary, quick-start pointers, consulting blurb (keep detail in linked docs)
+- **README.md** — client-facing only: demo vs pilot, outcomes, consulting CTA, short pointers to DEPLOYMENT (no compose commands, issue numbers, or env priority chains)
+- `docs/**` (public)
+- `DEPLOYMENT.md`, `DEPLOYMENT-ANTHROPIC.md`, `RUNBOOK.md` (when created)
+- **`docs-private/`** — local operator notes (gitignored); sync when public deploy/sales docs change
 
 ## Must NOT touch
 
@@ -22,10 +25,11 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 ## Standards
 
 - Placeholders for URLs/hostnames until human provides values.
-- Clear prerequisites, verify steps, troubleshooting.
-- Link AGENTS.md, ROADMAP, architecture diagrams.
-- Client-facing tone: professional, no fluff.
-- **README:** update milestone checklist and “what works today” when issues merge; do not duplicate DEPLOYMENT.md procedures in README.
+- Clear prerequisites, verify steps, troubleshooting in DEPLOYMENT.
+- Link ROADMAP and architecture from contributor-facing docs, not README.
+- Client-facing tone in README; IT-facing tone in DEPLOYMENT.
+- **README:** update “what works today” when issues merge; never duplicate DEPLOYMENT procedures.
+- **docs-private:** recording scripts, sales playbook, env “switches”, provider recommendations — not in public repo.
 
 ## Workflow
 

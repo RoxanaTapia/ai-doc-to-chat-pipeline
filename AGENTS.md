@@ -107,17 +107,31 @@ Keep user-facing docs aligned when milestones ship or deployment behavior change
 
 | File | Owner | Update when |
 |------|-------|-------------|
-| **README.md** | `docs-writer` | Milestone status changes, new deploy paths, production vision shifts |
-| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` review | Compose, env, VPS, HTTPS, troubleshooting |
-| **docs/ROADMAP.md** | `docs-writer` | M7–M12 scope or definition-of-done changes |
-| **docs/architecture-pilot.md** | `docs-writer` | Architecture target changes (M9+ especially) |
+| **README.md** | `docs-writer` | Milestone status changes, new deploy paths — **client-facing only** |
+| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` review | Compose, env, VPS, HTTPS, troubleshooting (technical buyers + IT) |
+| **docs/ROADMAP.md** | `docs-writer` | M7–M12 scope or definition-of-done changes (contributors) |
+| **docs/architecture-pilot.md** | `docs-writer` | Architecture target changes (client/IT summary) |
+| **docs/demo-script.md** | `docs-writer` | Public stub only — link placeholder until video ships |
+| **`docs-private/`** | Human + `docs-writer` | **Local only (gitignored)** — sales playbook, env switches, full roadmap detail, demo recording script, infra notes |
 | **AGENTS.md** | Human + orchestrator | New agents, decision log, issue→agent map |
+
+**Audience split**
+
+| Audience | Read | Do not put here |
+|----------|------|-----------------|
+| **Clients / buyers** | README | Issue numbers, agent names, env priority chains, sales scripts |
+| **Client IT** | DEPLOYMENT.md, architecture-pilot | Internal pricing, VPS provider picks, funnel scripts |
+| **You / operators** | `docs-private/` | Real hostnames, secrets, client names |
+| **Contributors** | AGENTS.md, ROADMAP | Sales playbook |
+
+**Bootstrap `docs-private/`** on a new machine: copy or recreate the folder locally (see index in your existing `docs-private/README.md`). It is never committed.
 
 **After merging a GitHub milestone slice** (e.g. M7 complete, M8 started):
 
 1. Orchestrator or human opens a **docs issue** or adds sub-task: “Sync README + ROADMAP status.”
 2. Dispatch **`docs-writer` only** — do not parallelize with code issues on the same PR unless docs-only.
-3. README stays **short** — link to `DEPLOYMENT.md` and `docs/ROADMAP.md` for depth ([`docs-commercial` rule](.cursor/rules/docs-commercial.mdc)).
+3. **README** stays **short and client-facing** — no operator jargon, env implementation detail, milestone issue numbers, or duplicate deploy commands. Link to `DEPLOYMENT.md` for setup ([`docs-commercial` rule](.cursor/rules/docs-commercial.mdc)).
+4. **Operator / sales detail** (funnel scripts, VPS provider picks, “the switches”, clone-vs-URL hosting, demo recording checklist) lives in **`docs-private/`** on your machine — never committed. After shipping public docs, sync the matching `docs-private/` file if one exists.
 
 There is **no separate README agent** — use **`docs-writer`** for README status, deploy sections, and production narrative.
 
