@@ -111,33 +111,15 @@ I deploy **private document AI** for organizations that cannot send contracts or
 
 **Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
 
+**How I deliver:** I build with **agentic workflows in [Cursor](https://cursor.com)** — rules, specialized agents, and automated tests — so features ship in small, reviewable steps. That means **faster iteration** on your pilot (deploy docs, Docker, RAG tweaks) while keeping **auditable PRs** and human sign-off on what goes to production. You get working software and a clear paper trail, not a one-off prompt dump.
+
 **Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) (private pilot, consulting, production scoping) · [GitHub](https://github.com/RoxanaTapia) (OSS and technical questions)
 
 ---
 
 ## Contributing
 
-This project is built **agentically in [Cursor](https://cursor.com)** — one GitHub issue, one branch, one reviewable PR — so pilot features ship in small, tested steps instead of ad-hoc prompts.
-
-**How it works**
-
-| Cursor feature | Role in this repo |
-|----------------|-------------------|
-| **Rules** (`.cursor/rules/`) | Persistent standards — Python/RAG style, Docker deploy, docs tone, milestone workflow |
-| **Subagents** (`.cursor/agents/`) | Specialists with file ownership (`deploy-engineer`, `rag-core-engineer`, `docs-writer`, `verifier`, …) |
-| **Slash commands** (`.cursor/commands/`) | Repeatable flows — e.g. `/ship-m7-issue`, `/verify` |
-| **Orchestrator** | Reads issues, dispatches specialists, runs tests, splits granular commits |
-
-**Why bother**
-
-- **Clear ownership** — agents edit only their files; fewer merge conflicts and surprise diffs
-- **Production-shaped history** — granular commits and PRs that map to roadmap milestones
-- **Verify before merge** — pytest/ruff (and Docker checks when infra changes) before every PR
-- **Human in the loop** — you approve commits, pushes, and merges; agents propose, you decide
-
-**Get started:** [AGENTS.md](AGENTS.md) (playbook) · [docs/ROADMAP.md](docs/ROADMAP.md) (milestones M7–M12) · open a GitHub issue or pick one from the [M7 milestone](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1).
-
-Using Cursor is optional for drive-by fixes — but matching the one-issue-one-PR workflow helps reviews stay fast.
+Pull requests welcome. For how this repo is organized (agents, milestones, verify-before-merge), see [AGENTS.md](AGENTS.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
