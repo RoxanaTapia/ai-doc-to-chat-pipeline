@@ -19,10 +19,17 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
+from retrieval_quality import (
+    INSUFFICIENT_CONTEXT_ANSWER,
+    context_sufficient_for_query,
+    dedupe_similar_chunks,
+)
 from sectioning import (
     annotate_chunk_sections,
     apply_hard_section_context_filter,
     apply_section_aware_retrieval,
+    split_documents_by_legal_headers,
+    limit_chunks_per_page,
     chunk_on_section,
     extract_target_section,
 )
@@ -194,6 +201,7 @@ try:
 
     CHUNK_SIZE = config["chunking"]["chunk_size"]
     CHUNK_OVERLAP = config["chunking"]["chunk_overlap"]
+    SPLIT_ON_LEGAL_HEADERS = bool(config["chunking"].get("split_on_legal_headers", True))
     EMBEDDING_MODEL = config["embeddings"]["model_name"]
     rag_cfg = config.get("rag", {}) or {}
     retrieval_cfg = rag_cfg.get("retrieval", {}) or {}
@@ -219,6 +227,10 @@ try:
     SECTION_AWARE_MIN_CHUNKS = int(section_cfg.get("min_chunks", 2))
     SECTION_HARD_CONTEXT_FILTER = bool(section_cfg.get("hard_context_filter", True))
     SECTION_CONTEXT_MIN_CHUNKS = int(section_cfg.get("context_min_chunks", 2))
+    MAX_CHUNKS_PER_PAGE = int(retrieval_cfg.get("max_chunks_per_page", 2))
+    DEDUPE_SIMILAR_CHUNKS = bool(retrieval_cfg.get("dedupe_similar_chunks", True))
+    DEDUPE_PREFIX_CHARS = int(retrieval_cfg.get("dedupe_prefix_chars", 180))
+    CONTEXT_SUFFICIENCY_GUARD = bool(retrieval_cfg.get("context_sufficiency_guard", True))
 
     ui_cfg = rag_cfg.get("ui", {}) or {}
     SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 5))
@@ -311,9 +323,9 @@ def _render_sources_panel(
 
 def _on_section_label(on_section: bool | None) -> str:
     if on_section is True:
-        return "**Y**"
+        return "Yes"
     if on_section is False:
-        return "**N**"
+        return "No"
     return "N/A"
 
 
@@ -796,6 +808,17 @@ def _finalize_retrieval_candidates(
     else:
         pool = pool[:TOP_K]
 
+    if MAX_CHUNKS_PER_PAGE > 0:
+        pool = limit_chunks_per_page(pool, top_k=TOP_K, max_per_page=MAX_CHUNKS_PER_PAGE)
+
+    if DEDUPE_SIMILAR_CHUNKS:
+        pool = dedupe_similar_chunks(
+            pool,
+            top_k=TOP_K,
+            prefix_chars=DEDUPE_PREFIX_CHARS,
+        )
+        mode = f"{mode}_deduped"
+
     combined_warning = " · ".join(
         part for part in (reranker_warning, section_warning) if part
     ) or None
@@ -878,13 +901,34 @@ def _set_indexed_doc_stats(
     pages: int,
     chars: int,
     reused_index: bool,
+    chunks: int | None = None,
 ) -> None:
     st.session_state.indexed_doc_stats = {
         "file_name": file_name,
         "pages": pages,
         "chars": chars,
         "reused_index": reused_index,
+        "chunks": chunks,
+        "header_split": SPLIT_ON_LEGAL_HEADERS,
     }
+
+
+def _set_dev_index_logs(
+    *,
+    chunks_msg: str | None = None,
+    faiss_msg: str | None = None,
+) -> None:
+    """Persist dev indexing messages so they render above chat, not mid-turn."""
+    logs = dict(st.session_state.get("dev_index_logs") or {})
+    if chunks_msg is not None:
+        logs["chunks"] = chunks_msg
+    if faiss_msg is not None:
+        logs["faiss"] = faiss_msg
+    st.session_state.dev_index_logs = logs
+
+
+def _clear_dev_index_logs() -> None:
+    st.session_state.pop("dev_index_logs", None)
 
 
 def _clear_cached_upload() -> None:
@@ -956,11 +1000,20 @@ def _render_document_status(
         pages = stats.get("pages", 0)
         st.success(_CLIENT_COPY["doc_ready"].format(name=name))
         if st.session_state.developer_mode:
+            dev_logs = st.session_state.get("dev_index_logs") or {}
+            if dev_logs.get("chunks"):
+                st.success(dev_logs["chunks"])
+            if dev_logs.get("faiss"):
+                st.success(dev_logs["faiss"])
             detail = f"{pages} page{'s' if pages != 1 else ''} indexed"
             if stats.get("chars"):
                 detail += f" · {stats['chars']:,} characters extracted"
             if stats.get("reused_index"):
                 detail += " · index reused (no re-processing)"
+            if stats.get("chunks") is not None:
+                detail += f" · {stats['chunks']} chunks"
+            if stats.get("header_split") is not None:
+                detail += f" · header split {'ON' if stats['header_split'] else 'OFF'}"
             st.caption(detail)
         elif pages:
             st.caption(f"{pages} page{'s' if pages != 1 else ''} processed")
@@ -1090,6 +1143,7 @@ def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
     st.session_state.bm25_state = None
     st.session_state.indexed_doc_stats = None
     st.session_state.last_generation_error = None
+    _clear_dev_index_logs()
     _clear_cached_upload()
     _reset_chat_state()
     if bump_uploader_key:
@@ -1137,6 +1191,7 @@ def _init_session_state() -> None:
         ),
         "enable_reranker": RERANKER_ENABLED_DEFAULT,
         "indexed_doc_stats": None,
+        "dev_index_logs": None,
         "last_generation_error": None,
         "last_response_timing": None,
         "_uploader_widget_had_file": False,
@@ -1213,6 +1268,15 @@ if st.session_state.developer_mode:
             value=st.session_state.dummy_generator_only,
             help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
         )
+        st.caption(
+            f"**Chunking:** header split **{'ON' if SPLIT_ON_LEGAL_HEADERS else 'OFF'}** "
+            f"· size={CHUNK_SIZE} · overlap={CHUNK_OVERLAP}"
+        )
+        st.caption(
+            f"**Retrieval defaults:** {RETRIEVAL_STRATEGY_DEFAULT} · "
+            f"dedupe {'ON' if DEDUPE_SIMILAR_CHUNKS else 'OFF'} · "
+            f"context guard {'ON' if CONTEXT_SUFFICIENCY_GUARD else 'OFF'}"
+        )
     st.session_state.retrieval_strategy = st.sidebar.selectbox(
         "Retrieval strategy",
         options=["semantic", "hybrid"],
@@ -1283,6 +1347,7 @@ if resolved_upload is not None:
             pages=int(prev.get("pages", 0)),
             chars=int(prev.get("chars", 0)),
             reused_index=True,
+            chunks=prev.get("chunks"),
         )
     else:
         tmp_path = None
@@ -1361,7 +1426,12 @@ if resolved_upload is not None:
                     length_function=len,
                     add_start_index=True,
                 )
-                chunks = text_splitter.split_documents(page_docs)
+                docs_to_split = (
+                    split_documents_by_legal_headers(page_docs)
+                    if SPLIT_ON_LEGAL_HEADERS
+                    else page_docs
+                )
+                chunks = text_splitter.split_documents(docs_to_split)
                 page_texts = {
                     doc.metadata["page"]: doc.page_content
                     for doc in page_docs
@@ -1375,7 +1445,13 @@ if resolved_upload is not None:
             ))
 
             if st.session_state.developer_mode:
-                st.success(f"Created {len(chunks)} chunks (size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
+                split_note = " · header split ON" if SPLIT_ON_LEGAL_HEADERS else ""
+                _set_dev_index_logs(
+                    chunks_msg=(
+                        f"Created {len(chunks)} chunks "
+                        f"(size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP}{split_note})"
+                    ),
+                )
             if not chunks:
                 _reset_document_state()
                 st.session_state.chunks = []
@@ -1439,9 +1515,11 @@ if resolved_upload is not None:
                 )
 
                 if st.session_state.developer_mode:
-                    st.success(
-                        f"FAISS index {'re-' if had_existing_index else ''}created "
-                        f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
+                    _set_dev_index_logs(
+                        faiss_msg=(
+                            f"FAISS index {'re-' if had_existing_index else ''}created "
+                            f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
+                        ),
                     )
                 else:
                     st.toast("Document indexed — you can chat.", icon="✅")
@@ -1452,6 +1530,7 @@ if resolved_upload is not None:
                     pages=len(page_docs),
                     chars=extracted_char_count,
                     reused_index=False,
+                    chunks=len(chunks),
                 )
 
                 if len(chunks) <= 2:
@@ -1618,6 +1697,33 @@ if query and query.strip() and chat_ready:
                         use_page_separators=st.session_state.use_page_separators,
                     )
                     st.session_state.last_context = context
+
+                    context_ok, _context_gap = context_sufficient_for_query(query, context)
+                    if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
+                        st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
+                        st.session_state.last_generation_error = None
+                        st.session_state.last_retrieval_mode = (
+                            f"{st.session_state.last_retrieval_mode}_context_guard"
+                        )
+                        generation_elapsed_ms = 0.0
+                    else:
+                        try:
+                            generation_start = time.perf_counter()
+                            st.session_state.last_answer = generate_answer(
+                                context=context,
+                                query=query,
+                                dummy_mode=st.session_state.dummy_generator_only,
+                            )
+                            generation_elapsed_ms = (
+                                time.perf_counter() - generation_start
+                            ) * 1000.0
+                            st.session_state.last_generation_error = None
+                        except Exception as e:
+                            generation_error = e
+                            generation_elapsed_ms = (
+                                time.perf_counter() - generation_start
+                            ) * 1000.0
+                            st.session_state.last_answer = None
                 except (
                     AttributeError,
                     KeyError,
@@ -1639,24 +1745,6 @@ if query and query.strip() and chat_ready:
                     st.session_state.last_context = ""
                     st.session_state.last_answer = None
 
-                if retrieval_error is None:
-                    try:
-                        generation_start = time.perf_counter()
-                        st.session_state.last_answer = generate_answer(
-                            context=context,
-                            query=query,
-                            dummy_mode=st.session_state.dummy_generator_only,
-                        )
-                        generation_elapsed_ms = (
-                            time.perf_counter() - generation_start
-                        ) * 1000.0
-                        st.session_state.last_generation_error = None
-                    except Exception as e:
-                        generation_error = e
-                        generation_elapsed_ms = (
-                            time.perf_counter() - generation_start
-                        ) * 1000.0
-                        st.session_state.last_answer = None
                 total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
             finally:
                 if timer_thread is not None:

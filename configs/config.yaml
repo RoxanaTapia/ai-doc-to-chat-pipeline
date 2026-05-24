@@ -1,7 +1,8 @@
 # configs/config.yaml
 chunking:
   chunk_size: 1000          # characters per chunk – tune for your documents
-  chunk_overlap: 400        # overlap to preserve context between chunks
+  chunk_overlap: 200        # R4-D: smaller overlap to reduce cross-section bleed
+  split_on_legal_headers: true  # tuning #2: split at numbered / title-style clause headers
 
 embeddings:
   model_name: "all-MiniLM-L6-v2"  # fast 384-dim model, excellent for private RAG
@@ -23,6 +24,10 @@ rag:
       enabled: true          # R4-A: cross-encoder re-rank after hybrid fusion
       model_name: "BAAI/bge-reranker-base"
       top_n: 50              # rerank this many candidates before selecting top_k
+    max_chunks_per_page: 2   # R4-D: diversify top-k across pages
+    dedupe_similar_chunks: true   # tuning #3: drop near-duplicate source chunks
+    dedupe_prefix_chars: 180
+    context_sufficiency_guard: true   # tuning #3: skip LLM when context cannot answer
     section_aware:
       enabled: true          # R4-C: boost/filter when query names "Section N"
       boost: 1.5
