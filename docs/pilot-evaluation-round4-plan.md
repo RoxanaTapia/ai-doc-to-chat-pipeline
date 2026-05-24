@@ -10,7 +10,7 @@
 
 | Caveat | Symptom | Round 4 target |
 |--------|---------|----------------|
-| **Source misalignment** | Q1 Sources: WHEREAS, exclusions, title — not definition body | **≥3/5** excerpts clearly from **Section 1** |
+| **Source misalignment** | Q1 Sources: WHEREAS, exclusions, title — not definition body | **100% on-section** in LLM context (post R4-E); optional dev metric: raw top-5 recall |
 | **Wrong section in answer** | Q2 answered with **return/destroy on termination** (later sections) | Answer lists **four Section 3 duties** + material-breach sentence on **page 2** |
 | **Adjacent-page bleed** | Page 2 mixes Section 3 + Section 4 in one chunk | Chunks ranked/filtered by **section**, not just page |
 | **Honesty (must not regress)** | Q3 **pass** — no fake €/$ | Q3 stays **pass** after every experiment |
@@ -40,7 +40,7 @@ Each step: same NDA, fresh session, **Q1 → Q2 → Q3**, record in `docs/pilot-
 |----|--------|---------------|----------------|
 | **R4-A** | **Reranker ON** | `rag.retrieval.reranker.enabled: true` | Source alignment Q1, Q2 |
 | **R4-B** | **Section metadata at index** | Parse `^\d+\.` / `Section N` headers when chunking; store `metadata.section` | Q2 content + sources |
-| **R4-C** | **Section-aware retrieval** | If query matches `Section N`, boost/filter candidates with `section == N` | Q1 + Q2 **≥3/5** on-section sources |
+| **R4-C** | **Section-aware retrieval** | If query matches `Section N`, boost/filter candidates with `section == N` | Q1 + Q2 context **100% on-section** |
 | **R4-D** | **MMR / page dedupe** | Prefer diverse pages/sections in top 5 (avoid three× page 1) | Q1 source diversity |
 | **R4-E** | **Prompt v3 + context trim** | Hard rule: when section in question, **drop non-matching chunks** before LLM | Q2 wrong-section regression |
 | **R4-F** | **Optional model A/B** | Same retrieval as best of A–E; compare `llama3.1:8b` vs legal-tuned model on Q2 only | Q2 content pass? |
@@ -142,7 +142,7 @@ rag:
 
 ### Step 6 — R4-F: Optional model A/B (only if retrieval fixed)
 
-Only after **≥3/5** on-section sources on Q2:
+Only after **Q2 context is 100% on-section** and content **Pass** (R4-E complete):
 
 ```bash
 # Baseline
@@ -177,17 +177,20 @@ Document in Round 4 eval under **Infrastructure**, not content scores.
 
 **Optional Q4 (positive control):** *What is the governing law and venue?* — expects Section 7 / page 4; confirms section routing works for lookup, not only honesty.
 
-### Scoring (same as Round 3)
+### Scoring
 
 | Dimension | Pass (Round 4 bar) |
 |-----------|-------------------|
 | **Content** | Q1 partial→high partial; **Q2 lists four duties**; Q3 pass |
-| **Sources** | **≥3/5 on-section** for Q1 and Q2 |
+| **Context purity** (Q1, Q2) | **100% on-section** — every chunk in **Exact Context** and **Sources** is on-section (e.g. **2/2**, **1/1**). **Pass.** |
+| **Context substance** (Q1, Q2) | **≥1** content-valid section chunk; **≥2** when the doc has distinct passages (4-page NDA may only yield 1–2) |
 | **Format** | Pass (already stable) |
 | **Latency** | Record; reranker +8B acceptable if &lt;2m warm on CPU |
 | **Honesty** | Q3 **must pass** every experiment |
 
-Record: model, hybrid, reranker on/off, section filter on/off, wall times.
+**Bar history:** R4-A–C used **≥3/5 on-section in raw top-5** (retrieval ranking quality). After **R4-E** hard context filter, **Sources** shows post-filter chunks only — **2/2** or **1/1** is a **pass**, not a fail. Optional **dev-only** metric: raw pre-filter top-5 on-section count (for reranker tuning, not go/no-go).
+
+Record: model, hybrid, reranker on/off, section metadata on/off, hard filter on/off, wall times.
 
 ---
 
@@ -196,12 +199,12 @@ Record: model, hybrid, reranker on/off, section filter on/off, wall times.
 | # | Criterion |
 |---|-----------|
 | 1 | **Q2 content:** four obligations + material-breach line — **Pass / high partial** vs gold standard |
-| 2 | **Q1 + Q2 sources:** **≥3/5** on-section excerpts (manual checklist) |
+| 2 | **Q1 + Q2 context:** **100% on-section** in fed context (checklist Yes on every shown source) |
 | 3 | **Q3:** **Pass** — no invented penalty amounts |
 | 4 | Results written in **`docs/pilot-evaluation-round4.md`** |
 | 5 | **Go / no-go** paragraph: ready for **client redacted PDF pilot** Y/N |
 
-**No-go:** If Q2 still wrong after R4-A–E, document as **chunking / structure limit on sample NDA** and proceed to **client PDF** eval rather than more NDA tuning.
+**No-go:** If Q2 still wrong-section after R4-A–E, document as **chunking / structure limit on sample NDA** and proceed to **client PDF** eval rather than more NDA tuning.
 
 ---
 

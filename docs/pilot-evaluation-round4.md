@@ -1,43 +1,46 @@
 # Pilot evaluation — Round 4
 
-**Status:** Baseline + **R4-A recorded** · sample NDA (4 pages) · May 2026  
+**Status:** **Complete** — baseline · R4-A · **R4-B/C/D/E post-fix recorded** · sample NDA (4 pages) · May 2026  
 **Plan:** [Round 4 plan](pilot-evaluation-round4-plan.md) · **Prior:** [Round 3](pilot-evaluation-round3.md)
 
 Round 4 focuses on **section-specific retrieval and answers** (Round 3’s main caveat) without regressing **Q3 honesty** or **client UX**.
 
 **Instrumentation (Step 0):** In developer mode, each assistant answer shows:
 
-- **📋 Source checklist (eval)** — page, ~80 char excerpt, auto on-section Y/N (confirm manually).
+- **📋 Source checklist (eval)** — page, ~80 char excerpt, auto on-section **Yes/No** (confirm manually).
 - **📄 Exact Context fed to LLM** — persisted per answer for Q2 retrieval vs generation diagnosis.
 
----
-
-## Short verdict
-
-| Question | Content (R4-A) | Format | Sources (R4-A) | Overall |
-|----------|----------------|--------|----------------|---------|
-| **Q1** — Section 1 definition | **Partial+** (~90%) | **Pass** | **Fail bar** (2/5 manual) | Answer improved; sources unchanged vs baseline |
-| **Q2** — Section 3 obligations | **Pass** | **Pass** | **Fail bar** (1/5 manual) | **Sec 3 now rank 1**; four other sources still off-section |
-| **Q3** — Liquidated damages | **Pass** | **Pass** | **Partial** (noise OK) | Honesty held |
-| **Q4** _(optional)_ — Governing law / venue | _Not run_ | — | — | |
-
-**Stack (R4-A):** Docker Compose · `llama3.1:8b` · hybrid · `top_k: 5` · page separators ON · reranker **ON** (`BAAI/bge-reranker-base`, top_n 50) · section filter **off**  
-**Latency (R4-A):** Q1 **3m 7s** (retrieval **1m 34s** cold · gen 1m 33s) · Q2 **1m 0s** (retrieval 1.4s · gen 58.9s) · Q3 **56.7s** (retrieval 1.2s · gen 55.5s)
-
-**R4-A verdict:** **Partial success** — reranker improves **Q2 lead chunk** and keeps Q3 honest, but **≥3/5 on-section sources** still not met on Q1/Q2. **Next: R4-B + R4-C** (section metadata + section-aware retrieval).
+**Source bar (updated after R4-E):** Pass = **100% on-section** in fed context (e.g. **2/2**, **1/1**). The old **≥3/5 raw top-5** rule applied before hard context filter; see [plan](pilot-evaluation-round4-plan.md#scoring).
 
 ---
 
-## Baseline vs R4-A (at a glance)
+## Short verdict — final stack (R4-B/C/D/E post-fix)
 
-| Metric | Baseline (reranker off) | R4-A (reranker on) |
-|--------|-------------------------|---------------------|
-| Q1 sources (manual /5) | 2/5 | **2/5** (no change) |
-| Q2 sources (manual /5) | 1/5 | **1/5** (count same; **rank 1 = Sec 3**) |
-| Q2 Sec 3 chunk rank | 4 (score 0.628) | **1 (score 1.0)** |
-| Q3 honesty | Pass | **Pass** |
-| Q1 retrieval time | 0.1s | **1m 34s** (cold reranker load) |
-| Q2+ retrieval time | ~0.1s | **~1.2–1.4s** (warm) |
+| Question | Content | Context purity | Overall |
+|----------|---------|----------------|---------|
+| **Q1** — Section 1 definition | **Pass / Partial+** | **2/2 Yes** (100%) | **Pass** |
+| **Q2** — Section 3 obligations | **Pass** (four duties) | **1/1 Yes** (100%) | **Pass** |
+| **Q3** — Liquidated damages | **Pass** | N/A (no section in query) | **Pass** |
+| **Q4** _(optional)_ — Governing law / venue | _Not run_ | — | — |
+
+**Stack (final):** Docker Compose · `llama3.1:8b` · hybrid · `top_k: 5` · page separators ON · reranker **ON** · section metadata **ON** · section-aware boost **ON** · hard context filter **ON** (content-aware + trim) · `chunk_overlap: 200` · `max_chunks_per_page: 2`  
+**Latency (final):** Q1 **2m 34s** (retrieval **1m 35s** cold · gen 58.6s) · Q2 **18.9s** (retrieval 1.1s · gen 17.8s) · Q3 **56.9s** (retrieval 1.0s · gen 55.9s)
+
+**Final verdict:** **Go** for **client redacted PDF pilot** on sample NDA criteria. Q2 Section 4 regression fixed; Q3 honesty held. Optional polish: Q1 near-duplicate sources, Q4 positive control, VPS smoke.
+
+---
+
+## Baseline vs R4-A vs final (at a glance)
+
+| Metric | Baseline | R4-A | **Final (R4-B/C/D/E)** |
+|--------|----------|------|------------------------|
+| Q1 context on-section | Mixed (WHEREAS + Sec 1 + Sec 2) | Mixed | **100% (2/2)** |
+| Q2 context on-section | Mixed (Sec 3 + Page 3 termination) | Mixed | **100% (1/1)** |
+| Q2 Sec 3 in context | Yes (rank 4) | Yes (rank 1) | **Yes only** (no Sec 4 bleed) |
+| Q2 content | Pass | Pass | **Pass** (four duties incl. return/destroy) |
+| Q3 honesty | Pass | Pass | **Pass** |
+| Q1 retrieval (warm/cold) | 0.1s | 1m 34s cold | 1m 35s cold (first query) |
+| Q2+ retrieval | ~0.1s | ~1.2–1.4s | **~1.0–1.1s** |
 
 ---
 
@@ -53,50 +56,48 @@ Round 4 focuses on **section-specific retrieval and answers** (Round 3’s main 
 
 ## Experiment log
 
-| ID | Change | Q1 content | Q1 sources (on-section /5) | Q2 content | Q2 sources (/5) | Q3 pass? | Notes |
-|----|--------|------------|----------------------------|------------|-----------------|----------|-------|
-| **Baseline** | Step 0 instrumentation only | Partial | **2/5** | Pass / high partial | **1/5** | **Yes** | Hybrid; reranker off |
-| **R4-A** | Reranker ON | Partial+ | **2/5** | **Pass** | **1/5** | **Yes** | Sec 3 → rank **1**; Q1 retrieval cold **~94s**; sources bar still failed |
-| **R4-B** | Section metadata at index | | | | | | _Next_ |
-| **R4-C** | Section-aware retrieval | | | | | | _Next (with R4-B)_ |
-| **R4-D** | MMR / page dedupe | | | | | | If Q1 page clutter persists |
-| **R4-E** | Prompt v3 + context trim | | | | | | After retrieval fixed |
-| **R4-F** | Model A/B (optional) | | | | | | Q2 only, if needed |
+| ID | Change | Q1 content | Q1 context purity | Q2 content | Q2 context purity | Q3 pass? | Notes |
+|----|--------|------------|-------------------|------------|-------------------|----------|-------|
+| **Baseline** | Step 0 instrumentation only | Partial | Mixed | Pass | Mixed | **Yes** | Hybrid; reranker off |
+| **R4-A** | Reranker ON | Partial+ | Mixed | **Pass** | Mixed | **Yes** | Sec 3 → rank **1** in raw top-5 |
+| **R4-B/C** | Section metadata + section-aware | — | — | — | — | — | Shipped with E post-fix |
+| **R4-D** | Overlap 200 + max 2/page | — | — | — | — | — | Shipped with E post-fix |
+| **R4-E** | Hard filter + prompt v3 + B.1/E.1 | Partial+ | **2/2** | **Pass** | **1/1** | **Yes** | Q2 Sec 4 regression **fixed** |
+| **R4-F** | Model A/B (optional) | — | — | — | — | — | _Skipped — not needed on sample NDA_ |
 
-**Config snapshot per run:** model · hybrid · reranker on/off · section metadata on/off · section filter on/off · wall times.
+**Config snapshot per run:** model · hybrid · reranker on/off · section metadata on/off · hard filter on/off · wall times.
 
-**R4-A ops notes:** First query after container start pays reranker model download + CrossEncoder init on CPU (~90s in retrieval). Q2/Q3 warm retrieval ~1s. Dev expanders without per-message keys can stay expanded across turns — UX fix deferred.
+**Ops notes:** First query after container start pays reranker model download + CrossEncoder init on CPU (~90s in retrieval). Re-index required after chunk_overlap / tagging changes (uploader ✕ reset + re-upload).
 
 ---
 
-## R4-A — Cross-encoder reranker ON
+## R4 final — R4-B/C/D/E post-fix
 
 ### Q1 — How is **Confidential Information** defined in **Section 1**?
 
 **Observed answer:**
 
-- **Summary / Details:** Commercial value + labeled “Confidential”; adds **“reasonable person would understand its confidential nature”**; example list (business plans, technical data, customer lists, etc.).
+- **Summary / Details:** Commercial value; labeled “Confidential”; reasonable-person standard; examples (business plans, technical data, customer lists, financial projections, etc.).
 
-**Source checklist (manual confirm):**
+**Source checklist (auto):**
 
-| # | Page | On-section | Excerpt (~80 chars) | Rank / score |
-|---|------|------------|---------------------|--------------|
-| 1 | 1 | **N** | WHEREAS… parties agree as follows: 1.… | 1 · 1.0 |
-| 2 | 1 | **N** | CONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT — Acme… | 2 · 0.408 |
-| 3 | 1 | **N** | 2. Exclusions from Confidential Information… | 3 · 0.092 |
-| 4 | 3 | **N** | 5. Treatment of Oral Information… | 4 · 0.01 |
-| 5 | 4 | **N** | 7. Miscellaneous — laws of Spain… | 5 · 0.005 |
+| # | Page | On-section | Excerpt (~80 chars) | Score |
+|---|------|------------|---------------------|-------|
+| 1 | 1 | **Yes** | 1. Definition of Confidential Information — commercial value… | 1.5 |
+| 2 | 1 | **Yes** | 1. Definition of Confidential Information — (near-duplicate) | 0.576 |
 
-Auto checklist: **2/5** (heuristic tags preamble/title as Y — confirm **N** manually).
+Auto checklist: **2/2** (100% on-section).
 
-**Exact Context:** Page 1 — WHEREAS + Section 1 definition + Section 2 exclusions (overlapping chunks). Definition reaches LLM; **source list** still preamble-heavy.
+**Exact Context:** 719 chars · **2 chunks** · Page 1 Section 1 definition only (no WHEREAS / exclusions in fed context).
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Content vs doc | **Partial+** (~90%) | Slightly richer than baseline |
+| Content vs doc | **Pass / Partial+** | Definition + examples correct |
+| Context purity | **Pass** | **2/2** on-section |
 | Format | **Pass** | |
-| Sources | **Fail bar** | **2/5** manual (bar ≥3/5) — **no improvement vs baseline** |
-| Latency | **3m 7s** | retrieval **1m 34s** (cold reranker) · generation 1m 33s |
+| Latency | **2m 34s** | retrieval **1m 35s** (cold reranker) · generation 58.6s |
+
+**Minor nit:** Two Page 1 sources are near-duplicates — optional dedupe polish (R4-D.2).
 
 ---
 
@@ -104,28 +105,24 @@ Auto checklist: **2/5** (heuristic tags preamble/title as Y — confirm **N** ma
 
 **Observed answer:**
 
-- **Summary / Details:** Hold in strict confidence; restrict access (need-to-know + signed NDAs); use only for evaluating potential business relationship; return or destroy on written request.
+- **Summary / Details:** Hold in strict confidence; restrict access (need-to-know + signed NDAs); use only for evaluating potential business relationship; **return or destroy** on written request.
 
-**Exact Context diagnostic:** Page 2 leads with **“3. Obligations of the Receiving Party”** (+ Section 4 duration bleed). Page 3 still has termination/destroy. **Sec 3 now rank 1 in sources and context** — major reranker win vs baseline (rank 4).
+**Source checklist (auto):**
 
-**Source checklist (manual confirm):**
+| # | Page | On-section | Excerpt (~80 chars) | Score |
+|---|------|------------|---------------------|-------|
+| 1 | 2 | **Yes** | 3. Obligations of the Receiving Party — hold… restrict… | 1.5 |
 
-| # | Page | On-section | Excerpt (~80 chars) | Rank / score |
-|---|------|------------|---------------------|--------------|
-| 1 | 2 | **Y** | 3. Obligations of the Receiving Party — hold… restrict… | **1 · 1.0** |
-| 2 | 3 | **N** | destroy all physical and electronic copies… | 2 · 0.158 |
-| 3 | 1 | **N** | CONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT… | 3 · 0.146 |
-| 4 | 3 | **N** | 5. Treatment of Oral Information… | 4 · 0.107 |
-| 5 | 4 | **N** | 7. Miscellaneous — laws of Spain… | 5 · 0.099 |
+Auto checklist: **1/1** (100% on-section).
 
-Auto checklist: **1/5**.
+**Exact Context diagnostic:** 611 chars · Section 3 duties only — **no Section 4 Duration bleed**. Return/destroy language **in context** and **in answer**. Material-breach sentence present in context.
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Content vs doc | **Pass** | Four duties — stable vs baseline |
+| Content vs doc | **Pass** | Four duties — **Sec 4 regression fixed** vs pre-fix R4-E run |
+| Context purity | **Pass** | **1/1** on-section |
 | Format | **Pass** | |
-| Sources | **Fail bar** | **1/5** manual (bar ≥3/5); **ranking fixed**, diversity not |
-| Latency | **1m 0s** | retrieval 1.4s · generation 58.9s |
+| Latency | **18.9s** | retrieval 1.1s · generation 17.8s (warm) |
 
 ---
 
@@ -134,18 +131,47 @@ Auto checklist: **1/5**.
 **Observed answer:**
 
 - **Summary:** No liquidated damages or fixed financial penalty.
-- **Details:** Material breach (Section 3); injunctive relief and damages (Sections 5–6) — **no €/$/% invented.**
+- **Details:** Injunctive relief and damages (Page 3) — **no €/$/% invented.**
 
 **Source checklist:** No section in question — on-section **N/A**.
 
-**Sources (top ranks):** Page 2 breach/duration (1.0) · Page 3 injunctive (0.836) · Page 2 Sec 3 (0.617) · Page 3 oral (0.342) · Page 3 records (0.336).
+**Sources (top ranks):** Page 3 oral/injunctive (1.0) · Page 2 Sec 3 + Sec 4 (0.376) · Page 2 duration (0.215) · Page 3 oral confirm (0.207) · Page 4 misc (0.15).
+
+**Exact Context:** 4170 chars · 5 chunks · mixed sections (filter off — no section in query).
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
 | Content vs doc | **Pass** | Honesty test met — **no regression** |
 | Format | **Pass** | |
-| Sources | **Partial** | Noisy; sufficient for refusal |
-| Latency | **56.7s** | retrieval 1.2s · generation 55.5s |
+| Sources | **Pass** | Noisy OK for negative lookup |
+| Latency | **56.9s** | retrieval 1.0s · generation 55.9s |
+
+---
+
+## R4-A — Cross-encoder reranker ON _(historical)_
+
+<details>
+<summary>R4-A detailed results — click to expand</summary>
+
+**Stack:** reranker ON · section filter **off** · bar at time: **≥3/5 raw top-5** (superseded after R4-E).
+
+### Q1 (R4-A)
+
+- Content Partial+ (~90%); raw sources **2/5** on-section; latency **3m 7s**.
+- Exact Context: WHEREAS + Section 1 + Section 2 exclusions.
+
+### Q2 (R4-A)
+
+- Content Pass (four duties); raw sources **1/5** on-section; Sec 3 at **rank 1** (score 1.0).
+- Exact Context: Sec 3 lead + Sec 4 bleed + Page 3 termination noise.
+
+### Q3 (R4-A)
+
+- Pass; no invented amounts; latency **56.7s**.
+
+**R4-A verdict (historical):** Partial success on old bar — reranker improved Q2 ranking; context still mixed until R4-E.
+
+</details>
 
 ---
 
@@ -178,7 +204,7 @@ Auto checklist: **1/5**.
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Content vs doc | — | Section 7 / page 4 positive control — run after R4-C |
+| Content vs doc | — | Section 7 / page 4 positive control — run on client PDF or before demo recording |
 
 ---
 
@@ -188,7 +214,7 @@ Auto checklist: **1/5**.
 |-------|--------|
 | VPS HTTPS + basic auth smoke | _TBD_ |
 | Client presentation mode on VPS | _TBD_ |
-| Cold vs warm latency on VPS | _TBD_ — expect reranker cold hit on first query |
+| Cold vs warm latency on VPS | _TBD_ — expect reranker cold hit on first query; warm-up query before demo |
 
 ---
 
@@ -196,13 +222,15 @@ Auto checklist: **1/5**.
 
 | # | Criterion | Met? |
 |---|-----------|------|
-| 1 | Q2 lists four obligations + material-breach line | **Yes** (baseline + R4-A) |
-| 2 | Q1 + Q2 sources **≥3/5 on-section** | **No** (2/5 and 1/5 in R4-A) |
-| 3 | Q3 **Pass** — no invented penalty amounts | **Yes** (R4-A) |
-| 4 | Results recorded in this doc | **Yes** (baseline + R4-A) |
-| 5 | Ready for **client redacted PDF pilot** | **No** — need R4-B/C |
+| 1 | Q2 lists four obligations + material-breach line in context | **Yes** |
+| 2 | Q1 + Q2 context **100% on-section** (2/2 and 1/1) | **Yes** |
+| 3 | Q3 **Pass** — no invented penalty amounts | **Yes** |
+| 4 | Results recorded in this doc | **Yes** |
+| 5 | Ready for **client redacted PDF pilot** | **Yes** (sample NDA) |
 
-**Decision:** **No-go for client PDF pilot.** R4-A kept — reranker helps Q2 ranking. **Proceed R4-B + R4-C** as one implementation pass, then re-run Q1–Q3 (+ optional Q4).
+**Decision:** **Go** for client redacted PDF pilot on sample NDA. Round 4 retrieval stack (R4-A through R4-E) **shipped**. Do not over-tune sample NDA further; validate on **client document structure** next. Optional: Q4, Q1 dedupe, VPS smoke (M7-6 / M7-7).
+
+**Follow-up:** [Round 5](pilot-evaluation-round5.md) — client-style 2-page NDA + tuning #2/#3 regression on sample NDA.
 
 ---
 
