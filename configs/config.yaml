@@ -27,6 +27,8 @@ rag:
       enabled: true          # R4-C: boost/filter when query names "Section N"
       boost: 1.5
       min_chunks: 2
+      hard_context_filter: true   # R4-E: LLM context + Sources use section-matching chunks only
+      context_min_chunks: 2
   generation:
     model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
     max_new_tokens: 384      # room for bullet answers (Round 2)

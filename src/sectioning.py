@@ -165,6 +165,58 @@ def apply_section_aware_retrieval(
     return final[:top_k], warning
 
 
+def apply_hard_section_context_filter(
+    query: str,
+    ranked: list[tuple[Document, float]],
+    *,
+    all_chunks: list[Document] | None,
+    top_k: int,
+    enabled: bool = True,
+    min_chunks: int = 2,
+) -> tuple[list[tuple[Document, float]], str | None]:
+    """
+    R4-E: when the query names a section, feed the LLM only matching-section chunks.
+
+    Supplements from the full indexed chunk list when top-k has too few tagged matches.
+    Falls back to unfiltered top-k when no section-tagged chunks exist.
+    """
+    target = extract_target_section(query)
+    if not enabled or not target or not ranked:
+        return ranked[:top_k], None
+
+    matching = [
+        item
+        for item in ranked
+        if str(item[0].metadata.get("section") or "") == target
+    ]
+
+    if len(matching) < min_chunks and all_chunks:
+        seen = {_doc_key(doc) for doc, _score in matching}
+        for chunk in all_chunks:
+            if str(chunk.metadata.get("section") or "") != target:
+                continue
+            key = _doc_key(chunk)
+            if key in seen:
+                continue
+            seen.add(key)
+            matching.append((chunk, 0.0))
+            if len(matching) >= min_chunks:
+                break
+
+    if not matching:
+        return ranked[:top_k], (
+            f"Section {target}: no tagged chunks — using unfiltered top-{top_k} for context."
+        )
+
+    if len(matching) < min_chunks:
+        return matching[:top_k], (
+            f"Section {target}: only {len(matching)} tagged chunk(s) in context "
+            f"(wanted ≥{min_chunks})."
+        )
+
+    return matching[:top_k], None
+
+
 def chunk_on_section(doc: Document, target_section: str) -> bool:
     """Eval helper: use metadata.section when present, else text heuristics."""
     tagged = doc.metadata.get("section")

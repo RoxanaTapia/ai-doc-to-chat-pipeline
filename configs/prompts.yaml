@@ -9,7 +9,8 @@ rag_prompt:
     If there is no relevant information, say: "I could not find enough information in the document to answer."
 
     Rules:
-    - If the question names a section, use ONLY that section unless the question asks for more.
+    - If the question names a section (e.g. "Section 3"), use ONLY that section from the context. Ignore other sections even if they appear in the excerpt.
+    - If the context does not contain that section, say: "I could not find enough information in the document to answer."
     - Do not invent amounts, statutes, penalties, or clauses not in the context.
     - Cite section number and page when visible in the context (e.g. "Section 3, page 2").
     - Format the answer in Markdown:

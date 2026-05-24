@@ -106,3 +106,45 @@ def test_apply_section_aware_retrieval_unchanged_without_section_in_query() -> N
     )
     assert warning is None
     assert [doc.page_content for doc, _score in results] == ["a", "b"]
+
+
+def test_hard_context_filter_keeps_only_target_section() -> None:
+    from sectioning import apply_hard_section_context_filter
+
+    ranked = [
+        (Document(page_content="2. Exclusions", metadata={"section": "2"}), 1.0),
+        (Document(page_content="3. Obligations", metadata={"section": "3"}), 0.8),
+        (Document(page_content="WHEREAS preamble", metadata={}), 0.7),
+    ]
+    corpus = ranked[1:] + [
+        (Document(page_content="more sec 3 duties", metadata={"section": "3"}), 0.0),
+    ]
+    corpus_docs = [doc for doc, _ in corpus]
+
+    filtered, warning = apply_hard_section_context_filter(
+        "What does Section 3 require?",
+        ranked,
+        all_chunks=corpus_docs,
+        top_k=5,
+        min_chunks=2,
+    )
+    sections = {doc.metadata.get("section") for doc, _ in filtered}
+    assert sections == {"3"}
+    assert len(filtered) >= 2
+    assert warning is None
+
+
+def test_hard_context_filter_skipped_when_no_section_in_query() -> None:
+    from sectioning import apply_hard_section_context_filter
+
+    ranked = [
+        (Document(page_content="damages", metadata={"section": "6"}), 1.0),
+    ]
+    filtered, warning = apply_hard_section_context_filter(
+        "liquidated damages?",
+        ranked,
+        all_chunks=[],
+        top_k=5,
+    )
+    assert filtered == ranked
+    assert warning is None
