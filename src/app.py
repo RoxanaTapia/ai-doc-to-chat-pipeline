@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import fitz  # PyMuPDF (pymupdf package)
 import tempfile
 import threading
@@ -20,6 +21,7 @@ from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
 from sectioning import (
     annotate_chunk_sections,
+    apply_hard_section_context_filter,
     apply_section_aware_retrieval,
     chunk_on_section,
     extract_target_section,
@@ -50,15 +52,14 @@ _CLIENT_COPY = {
         "open **Sources** under each answer to verify the page."
     ),
     "doc_indexing": "Getting to know **{name}**…",
-    "doc_cleared": "Fresh start — upload another PDF whenever you're ready.",
-    "chat_cleared": "Chat cleared. Your indexed document is still here.",
+    "doc_cleared": "Document removed — upload another PDF whenever you're ready.",
     "session_fresh": (
         "Upload a PDF below — when you see the green **ready** message, "
         "you can ask your first question."
     ),
     "doc_stale": (
         "This PDF is not indexed yet — wait for the green **ready** message, "
-        "or click **Clear current document** and upload again."
+        "or use the **✕** on the file above and upload again."
     ),
 }
 
@@ -216,6 +217,8 @@ try:
     SECTION_AWARE_ENABLED = bool(section_cfg.get("enabled", True))
     SECTION_AWARE_BOOST = float(section_cfg.get("boost", 1.5))
     SECTION_AWARE_MIN_CHUNKS = int(section_cfg.get("min_chunks", 2))
+    SECTION_HARD_CONTEXT_FILTER = bool(section_cfg.get("hard_context_filter", True))
+    SECTION_CONTEXT_MIN_CHUNKS = int(section_cfg.get("context_min_chunks", 2))
 
     ui_cfg = rag_cfg.get("ui", {}) or {}
     SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 5))
@@ -280,6 +283,14 @@ def _build_sources_payload(
     return payload
 
 
+def _dev_panel_title(base: str, question_preview: str | None, *, fallback: str) -> str:
+    """Unique expander label per turn (Streamlit 1.54 has no expander key=)."""
+    preview = (question_preview or "").strip()
+    if preview:
+        return f"{base} — {_question_preview(preview, 40)}"
+    return f"{base} — {fallback}"
+
+
 def _render_sources_panel(
     sources: list[dict],
     *,
@@ -310,11 +321,12 @@ def _render_source_checklist(
     sources: list[dict],
     *,
     target_section: str | None = None,
+    title: str = "📋 Source checklist (eval)",
 ) -> None:
     """Dev-only Round 4 eval aid: page, ~80 char excerpt, on-section Y/N per source."""
     if not sources:
         return
-    with st.expander("📋 Source checklist (eval)", expanded=False):
+    with st.expander(title, expanded=False):
         if target_section:
             st.caption(
                 f"Target section: **{target_section}** · auto-tag is heuristic — "
@@ -342,9 +354,10 @@ def _render_eval_context_panel(
     *,
     target_section: str | None = None,
     chunk_count: int | None = None,
+    title: str = "📄 Exact Context fed to LLM",
 ) -> None:
     """Dev-only: persisted exact context for retrieval vs generation diagnosis."""
-    with st.expander("📄 Exact Context fed to LLM", expanded=False):
+    with st.expander(title, expanded=False):
         st.code(eval_context, language="text")
         chunk_note = f" • {chunk_count} chunks" if chunk_count else ""
         st.caption(f"• {len(eval_context)} chars{chunk_note} · top-k={TOP_K}")
@@ -355,6 +368,35 @@ def _render_eval_context_panel(
                 "if Section 3 duties are here but missing from the answer, "
                 "generation is likely at fault."
             )
+
+
+def _request_chat_scroll_to_bottom() -> None:
+    """After a new assistant turn, scroll main pane to the latest message."""
+    st.session_state._scroll_chat_to_bottom = True
+
+
+def _scroll_chat_to_bottom_if_requested() -> None:
+    if not st.session_state.pop("_scroll_chat_to_bottom", False):
+        return
+    components.html(
+        """
+        <script>
+        (function () {
+          const doc = window.parent.document;
+          const anchor = doc.getElementById("chat-scroll-anchor");
+          if (anchor) {
+            anchor.scrollIntoView({ behavior: "instant", block: "end" });
+            return;
+          }
+          const main = doc.querySelector("section.main");
+          if (main) {
+            main.scrollTop = main.scrollHeight;
+          }
+        })();
+        </script>
+        """,
+        height=0,
+    )
 
 
 def _assemble_context(raw_results: list[tuple[Document, float]], use_page_separators: bool) -> str:
@@ -701,6 +743,8 @@ def _append_chat_message(
     st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
+    if role == "assistant":
+        _request_chat_scroll_to_bottom()
 
 
 def _run_first_stage_retrieval(
@@ -895,7 +939,7 @@ def _chat_blocked_user_message(uploaded_file) -> str:
     if st.session_state.current_file or st.session_state.get("uploaded_pdf_name"):
         return (
             "The file box may still show a name after **Rerun**, but the upload buffer was cleared. "
-            "Re-select your PDF above, or click **Clear current document**."
+            "Use the **✕** on the PDF above, or upload again."
         )
     return "Upload a PDF and wait for indexing to finish before asking a question."
 
@@ -1095,6 +1139,8 @@ def _init_session_state() -> None:
         "indexed_doc_stats": None,
         "last_generation_error": None,
         "last_response_timing": None,
+        "_uploader_widget_had_file": False,
+        "_scroll_chat_to_bottom": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1206,20 +1252,15 @@ uploaded_file = st.file_uploader(
 if st.session_state.pop("_fresh_session_hint", False) and not _document_is_indexed():
     st.info(_CLIENT_COPY["session_fresh"])
 
-controls_col1, controls_col2 = st.columns(2)
-if controls_col1.button("🗑️ Clear current document", type="secondary"):
-    _reset_document_state(bump_uploader_key=True)
-    st.success(_CLIENT_COPY["doc_cleared"])
-    st.rerun()
-has_chat_history = bool(st.session_state.messages)
-if controls_col2.button(
-    "💬 Clear chat only",
-    disabled=not has_chat_history,
-    help="No chat history yet." if not has_chat_history else None,
-):
-    _reset_chat_state()
-    st.success(_CLIENT_COPY["chat_cleared"])
-    st.rerun()
+prev_uploader_had_file = st.session_state.get("_uploader_widget_had_file", False)
+curr_uploader_has_file = uploaded_file is not None
+if prev_uploader_had_file and not curr_uploader_has_file:
+    if _document_is_indexed() or st.session_state.get("uploaded_pdf_bytes"):
+        _reset_document_state(bump_uploader_key=True)
+        st.session_state._uploader_widget_had_file = False
+        st.info(_CLIENT_COPY["doc_cleared"])
+        st.rerun()
+st.session_state._uploader_widget_had_file = curr_uploader_has_file
 
 extracted_text = ""
 
@@ -1430,7 +1471,12 @@ _render_document_status(
 )
 
 # Chat history UI (persists across reruns)
-for message in st.session_state.messages:
+for msg_idx, message in enumerate(st.session_state.messages):
+    turn_label = f"turn {msg_idx // 2 + 1}"
+    question_preview = message.get("for_question") if message["role"] == "assistant" else None
+    if message["role"] == "user" and not question_preview:
+        question_preview = _question_preview(message.get("content", ""))
+
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if message["role"] == "assistant" and message.get("sources"):
@@ -1443,13 +1489,26 @@ for message in st.session_state.messages:
                 _render_source_checklist(
                     message["sources"],
                     target_section=message.get("target_section"),
+                    title=_dev_panel_title(
+                        "📋 Source checklist (eval)",
+                        message.get("for_question"),
+                        fallback=turn_label,
+                    ),
                 )
                 if message.get("eval_context"):
                     _render_eval_context_panel(
                         message["eval_context"],
                         target_section=message.get("target_section"),
                         chunk_count=message.get("eval_chunk_count"),
+                        title=_dev_panel_title(
+                            "📄 Exact Context fed to LLM",
+                            message.get("for_question"),
+                            fallback=turn_label,
+                        ),
                     )
+
+st.markdown('<div id="chat-scroll-anchor"></div>', unsafe_allow_html=True)
+_scroll_chat_to_bottom_if_requested()
 
 chat_ready = _document_is_indexed()
 query = st.chat_input(
@@ -1531,13 +1590,31 @@ if query and query.strip() and chat_ready:
 
                     for doc, score in raw_results:
                         doc.metadata["similarity"] = score
-                    retrieved_docs = [doc for doc, _score in raw_results]
-
-                    st.session_state.last_query = query
                     st.session_state.last_raw_results = raw_results
+
+                    context_results, hard_filter_warning = apply_hard_section_context_filter(
+                        query,
+                        raw_results,
+                        all_chunks=st.session_state.chunks,
+                        top_k=TOP_K,
+                        enabled=SECTION_HARD_CONTEXT_FILTER,
+                        min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
+                    )
+                    if hard_filter_warning:
+                        retrieval_warning = " · ".join(
+                            part
+                            for part in (retrieval_warning, hard_filter_warning)
+                            if part
+                        )
+                        st.session_state.last_retrieval_mode = (
+                            f"{st.session_state.last_retrieval_mode}_section_filtered"
+                        )
+
+                    retrieved_docs = [doc for doc, _score in context_results]
+                    st.session_state.last_query = query
                     st.session_state.last_retrieved_docs = retrieved_docs
                     context = _assemble_context(
-                        raw_results,
+                        context_results,
                         use_page_separators=st.session_state.use_page_separators,
                     )
                     st.session_state.last_context = context
@@ -1604,8 +1681,12 @@ if query and query.strip() and chat_ready:
         }
 
         if st.session_state.developer_mode:
+            query_preview = _question_preview(query)
             if st.session_state.last_retrieval_metrics:
-                with st.expander("📊 Retrieval metrics (last run)", expanded=False):
+                with st.expander(
+                    _dev_panel_title("📊 Retrieval metrics (last run)", query_preview, fallback="live"),
+                    expanded=False,
+                ):
                     metrics = st.session_state.last_retrieval_metrics
                     st.markdown(
                         f"- strategy: `{metrics['strategy']}`  \n"
@@ -1624,10 +1705,16 @@ if query and query.strip() and chat_ready:
                     )
                     if retrieval_warning:
                         st.caption(f"Retrieval warning: {retrieval_warning}")
-            with st.expander("📄 Exact Context fed to LLM", expanded=False):
+            with st.expander(
+                _dev_panel_title("📄 Exact Context fed to LLM", query_preview, fallback="live"),
+                expanded=False,
+            ):
                 st.code(context, language="text")
                 st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
-            with st.expander("🔍 Retrieved raw chunks + scores", expanded=False):
+            with st.expander(
+                _dev_panel_title("🔍 Retrieved raw chunks + scores", query_preview, fallback="live"),
+                expanded=False,
+            ):
                 for i, (doc, _raw_score) in enumerate(raw_results, start=1):
                     similarity = doc.metadata.get("similarity")
                     st.markdown(
