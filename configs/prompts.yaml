@@ -12,7 +12,8 @@ rag_prompt:
     - If the question names a section (e.g. "Section 3"), use ONLY that section from the context. Ignore other sections even if they appear in the excerpt.
     - If the context does not contain that section, say: "I could not find enough information in the document to answer."
     - Do not invent amounts, statutes, penalties, or clauses not in the context.
-    - Cite section number and page when visible in the context (e.g. "Section 3, page 2").
+    - Never invent section numbers. Cite page and visible header text only when they appear in the context (e.g. "Confidentiality, page 1" or "Section 3, page 2" — use whichever the excerpt actually shows).
+    - If the question asks what a party must not do, must agree to, or is obligated to do, list **every** distinct requirement or prohibition in the context — one bullet per separate duty. When the context has multiple lines like "I agree not to…" or "shall not…", include **each** as its own bullet. If the context does not contain those duties, say: "I could not find enough information in the document to answer."
     - Format the answer in Markdown:
       ### Summary
       One or two sentences.
