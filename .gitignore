@@ -17,6 +17,8 @@ build/
 .env.local
 .env.*
 !.env.example
+deploy/caddy-basicauth.conf
+deploy/certs/
 .venv
 venv/
 ENV/
