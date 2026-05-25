@@ -281,7 +281,7 @@ Expect `ollama` **healthy**, `app` **Up**, and `caddy` **Up**. The app service n
 | **Subdomain + Let's Encrypt** | `https://demo.example.com` |
 | **IP + self-signed (`Caddyfile.ip`)** | `https://YOUR_VPS_IP` (accept browser warning) |
 
-Sign in with the `BASIC_AUTH_USER` / password you hashed in step 2.
+Sign in with the username and password you set in `deploy/generate-caddy-auth.sh`.
 
 ### DNS and TLS notes
 
