@@ -1,0 +1,6 @@
+# Copy to caddy-basicauth.conf and replace with your bcrypt hash.
+# Easier: ./deploy/generate-caddy-auth.sh demo 'your-plain-password'
+
+basic_auth {
+	demo $2a$14$REPLACE_WITH_REST_OF_BCRYPT_HASH
+}

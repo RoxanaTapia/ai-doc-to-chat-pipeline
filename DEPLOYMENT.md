@@ -43,6 +43,100 @@ Model weights persist in the Docker volume `ollama_models` across restarts; pull
 
 Replace `YOUR_VPS_IP` with your server’s public address, or use a subdomain with the [HTTPS (Caddy)](#https-and-basic-auth-caddy) overlay for the recommended pilot setup.
 
+### What a client (or you) changes — and what stays in git
+
+| Layer | On the VPS | Edit application code? |
+|-------|------------|-------------------------|
+| **App + RAG** | `git clone` from GitHub | **No** — run the released branch as-is |
+| **Secrets + pilot tuning** | Copy `.env.example` → `.env` | **No** — only env vars (password hash, model, domain) |
+| **HTTPS URL** | Caddy overlay + `CADDYFILE` / `SITE_ADDRESS` | **No** — config files already in the repo |
+| **Firewall** | `ufw` (ports 22, 80, 443) | **No** |
+
+A buyer’s IT team follows the same steps: provision Ubuntu + Docker, clone, configure `.env`, start Compose. No Python or Streamlit edits on the server.
+
+---
+
+### Phase 3 walkthrough — HTTPS pilot (recommended)
+
+Assumes Phase 1–2 are done (SSH works, Docker installed, `ufw` allows 22/80/443).
+
+**1. Clone and check out the deployment branch**
+
+Until M7-6 merges to `main`, use the branch that includes Caddy:
+
+```bash
+git clone https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git
+cd ai-doc-to-chat-pipeline
+git checkout feat/m7-caddy-https
+```
+
+**2. Create `.env` (only file you edit on the server)**
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Minimum for a **CPX32 / 8 GB CPU** host with **client UI** and **IP + HTTPS** (no domain yet):
+
+```bash
+OLLAMA_MODEL=phi3:mini
+APP_PRESENTATION_MODE=client
+APP_ALLOW_DEV_TOGGLE=false
+CADDYFILE=./Caddyfile.ip
+```
+
+Save and exit (`Ctrl+O`, Enter, `Ctrl+X` in nano).
+
+Generate the basic-auth credentials file (one time):
+
+```bash
+chmod +x deploy/generate-caddy-auth.sh
+./deploy/generate-caddy-auth.sh demo 'YOUR_STRONG_PASSWORD'
+```
+
+This writes `deploy/caddy-basicauth.conf`. Do **not** commit it — it is gitignored.
+
+**3. Start Ollama and pull the model**
+
+```bash
+docker compose up -d ollama
+docker compose ps ollama   # wait until STATUS = healthy
+docker compose exec ollama ollama pull phi3:mini
+```
+
+**4. Build and start app + Caddy**
+
+First build downloads embedding weights and may take **15–30 minutes** on CPU.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml ps
+```
+
+Expect: `ollama` **healthy**, `app` **Up**, `caddy` **Up**. Port **8501** is **not** published publicly.
+
+**5. Open the pilot URL**
+
+```text
+https://YOUR_VPS_IP
+```
+
+Accept the browser certificate warning (self-signed IP mode). Sign in with the username and password you used in `generate-caddy-auth.sh`. Upload a PDF, wait for the green **ready** message, ask a question.
+
+**6. Verify (M7-6 checklist)**
+
+From your laptop:
+
+```bash
+curl -sk -o /dev/null -w "%{http_code}\n" https://YOUR_VPS_IP/_stcore/health                    # expect 401
+curl -sk -o /dev/null -w "%{http_code}\n" -u demo:YOUR_PASSWORD https://YOUR_VPS_IP/_stcore/health   # expect 200
+```
+
+**Later:** add a domain → set `SITE_ADDRESS` + `ACME_EMAIL` in `.env`, switch `CADDYFILE` back to `./Caddyfile` (or remove it — that's the default), restart the Caddy overlay.
+
+---
+
 ### 1. Prepare the server
 
 ```bash
@@ -136,7 +230,7 @@ Use the Caddy overlay so browsers reach Streamlit over **HTTPS** with optional *
 |------|--------|
 | **DNS (production)** | `A` or `AAAA` record pointing your subdomain (e.g. `demo.example.com`) to the VPS public IP |
 | **Firewall** | Allow **443** (and **80** for ACME); block public access to **8501** and **11434** |
-| **`.env`** | Copy [`.env.example`](.env.example) → `.env` and set `BASIC_AUTH_*` (required for demo URLs) |
+| **`.env`** | Copy [`.env.example`](.env.example) → `.env` and set `SITE_ADDRESS` / `ACME_EMAIL` |
 
 ### 1. Configure `.env`
 
@@ -149,26 +243,24 @@ cp .env.example .env
 ```bash
 SITE_ADDRESS=demo.example.com
 ACME_EMAIL=you@example.com
-BASIC_AUTH_USER=demo
-BASIC_AUTH_HASH=   # see step 2
 ```
 
 **Interim IP demo (no domain yet):** self-signed TLS on port 443 — browsers show a certificate warning; acceptable for internal sales calls until DNS is ready.
 
 ```bash
 CADDYFILE=./Caddyfile.ip
-BASIC_AUTH_USER=demo
-BASIC_AUTH_HASH=   # see step 2
-# SITE_ADDRESS not used with Caddyfile.ip
 ```
 
-### 2. Generate a basic-auth password hash
+(`SITE_ADDRESS` is not needed for `Caddyfile.ip` — Caddy listens on `:443` for all IPs.)
+
+### 2. Generate a basic-auth credentials file
 
 ```bash
-docker run --rm caddy:2.9.1-alpine caddy hash-password --plaintext 'CHOOSE_A_STRONG_PASSWORD'
+chmod +x deploy/generate-caddy-auth.sh
+./deploy/generate-caddy-auth.sh demo 'CHOOSE_A_STRONG_PASSWORD'
 ```
 
-Paste the bcrypt output into `BASIC_AUTH_HASH` in `.env`. Never commit `.env`.
+This writes `deploy/caddy-basicauth.conf` (gitignored). Never commit it. Re-run to change the password.
 
 ### 3. Start the stack with Caddy
 
@@ -335,7 +427,7 @@ Pilot-relevant settings are documented in [`.env.example`](.env.example).
 | `OLLAMA_HOST` | `http://ollama:11434` | Ollama API URL (Compose service name, not `localhost`) |
 | `USE_DUMMY_GENERATOR` | `false` | Must be `false` for real Ollama answers on Compose/VPS |
 | `OLLAMA_MODEL` | `llama3.1:8b` | Override; set `phi3:mini` in `.env` for CPU-only hosts |
-| `APP_ALLOW_DEV_TOGGLE` | `false` | `false` hides the developer-mode toggle (client-facing pilot URL) |
+| `APP_ALLOW_DEV_TOGGLE` | `false` | `false` hides the developer-mode toggle (default). Set `true` only for local retrieval tuning. |
 | `APP_PRESENTATION_MODE` | `client` | `client` = About + How to use only; `developer` = retrieval debug when toggle allowed |
 
 To override via file: `cp .env.example .env`, edit values, and add `env_file: .env` under the `app` service. Generation tuning (`temperature`, `num_ctx`, etc.) follows `configs/config.yaml` → `rag.generation` unless set as `OLLAMA_*` in `.env`.
@@ -353,7 +445,8 @@ See also [docs/architecture-pilot.md](docs/architecture-pilot.md#environment-var
 | `app` never starts / stays "Waiting" | Ollama not healthy yet | `docker compose logs ollama`; wait for `healthy` in `docker compose ps`. Slow disks may need more time within the healthcheck `start_period`. |
 | **Connection refused** to Ollama | Ollama down, wrong host, or app started before Ollama was ready | Use Compose (not `docker run` app alone). On VPS, app must use `OLLAMA_HOST=http://ollama:11434` — not `localhost`. Check `docker compose ps` shows `ollama` **healthy**. |
 | **Connection refused** on `YOUR_VPS_IP:8501` | Firewall, wrong IP, app not running, or Caddy overlay active | With Caddy, use `https://YOUR_VPS_IP` (not `:8501`). Without Caddy, `docker compose ps` and open 8501 only to trusted CIDRs; confirm `curl http://127.0.0.1:8501/_stcore/health` on the VPS returns 200. |
-| **401** on HTTPS URL | Missing/wrong basic auth | Check `BASIC_AUTH_USER` and `BASIC_AUTH_HASH` in `.env`; regenerate hash with `caddy hash-password`. |
+| **401** on HTTPS URL with correct password | Wrong hash in conf file | Regenerate: `./deploy/generate-caddy-auth.sh demo 'your-password'`, then restart Caddy. |
+| **`ERR_SSL_PROTOCOL_ERROR` / TLS internal error** | Stale Caddy TLS cache after config change | Stop Caddy, remove its volumes (`docker volume rm …_caddy_data …_caddy_config`), then recreate. Make sure `auto_https off` is present in `Caddyfile.ip`. |
 | **Certificate / TLS errors** | DNS not propagated, or IP demo self-signed cert | For subdomains, wait for DNS and ensure ports 80/443 reach Caddy. For `Caddyfile.ip`, accept the browser warning or switch to a real subdomain. |
 | **Model not found** / pull errors in chat | No model in the volume or name mismatch | `docker compose exec ollama ollama pull phi3:mini` (or `llama3.1:8b`). Set `OLLAMA_MODEL` to the same tag. Verify with `docker compose exec ollama ollama list`. |
 | **`/api/tags` empty or curl fails** | Model not pulled or wrong Docker network | Pull the model again; use the `docker run ... curlimages/curl` command under [Verify deployment → Ollama HTTP API](#verify-deployment) with the correct network name. |

@@ -3,6 +3,7 @@
 #
 # Streamlit stays on the internal Compose network; only Caddy publishes 80/443.
 # Copy .env.example → .env and set SITE_ADDRESS (or CADDYFILE=./Caddyfile.ip).
+# Generate auth first: ./deploy/generate-caddy-auth.sh demo 'your-password'
 
 services:
   app:
@@ -16,11 +17,10 @@ services:
       - "443:443"
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-}
-      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
-      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:-}
       ACME_EMAIL: ${ACME_EMAIL:-}
     volumes:
       - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy-basicauth.conf:/etc/caddy/caddy-basicauth.conf:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
