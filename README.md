@@ -2,20 +2,21 @@
 
 > **Privacy · Reproducibility · Honesty** — grounded answers on *your* infrastructure, not a black-box SaaS tab.
 
-[Live Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md)
+[Live Pilot](https://ai-doc-pilot.roxanatapia.dev) · [Public Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md)
 
 **Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
 
-**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** For a **private pilot** with real local AI, [hire on Upwork](https://www.upwork.com/freelancers/roxanadev) or [reach out on GitHub](https://github.com/RoxanaTapia).
+**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT.** Try the [live pilot](https://ai-doc-pilot.roxanatapia.dev) (password-protected, real local AI) or [hire on Upwork](https://www.upwork.com/freelancers/roxanadev) for a private deployment on your infrastructure.
 
 ---
 
-## Two ways to use this project
+## Three ways to use this project
 
 | Mode | Where | Generation | Best for |
 |------|--------|------------|----------|
-| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI + retrieval preview (no LLM on that host) | Try the experience, share a link |
-| **Private pilot** | Your infrastructure or mine | **Real Ollama** — answers grounded in your documents | Confidential PDFs, evaluations, rollouts |
+| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI + retrieval preview (no LLM on that host) | Try the experience, no login required |
+| **Reference pilot** | [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev) | **Real Ollama** on a dedicated VPS — HTTPS + basic auth | See a live private deployment; request access to evaluate |
+| **Your own deployment** | Your infrastructure | **Real Ollama** — answers grounded in your documents | Confidential PDFs on infrastructure you control |
 
 ---
 
@@ -76,7 +77,7 @@ Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Ollama** for private generation, or dummy mode for the public demo
 - Optional developer view: retrieval metrics and context transparency
 
-**Reference deployment** — Docker Compose stack (app + local Ollama) with **HTTPS and basic auth** via Caddy; see the [deployment guide](DEPLOYMENT.md).
+**Reference deployment** — Docker Compose stack (app + local Ollama) with **HTTPS and basic auth** via Caddy, live at [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev); see the [deployment guide](DEPLOYMENT.md).
 
 **Coming next:** demo video and architecture diagram for sales calls.
 
@@ -103,7 +104,7 @@ Honest expectations for the **evaluation pilot** — not a limitation of RAG in 
 
 For production depth (API, persistence, SSO, ops), see [Future work](#future-work). For setup, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
-**Evaluation example:** [Round 1 pilot test](docs/pilot-evaluation-round1.md) on a sample confidentiality agreement — what we measured, what worked, and current limits.
+**Evaluation example:** [Round 5 pilot test](docs/pilot-evaluation-round5.md) on a sample NDA and a client-style 2-page NDA — what was measured, what worked, and current limits.
 
 ---
 
