@@ -72,11 +72,22 @@ _CLIENT_COPY = {
 
 
 def _is_probably_streamlit_cloud() -> bool:
-    """Best-effort detection for hosted Streamlit runtimes."""
-    return any(
-        os.getenv(marker)
-        for marker in ("STREAMLIT_SHARING_MODE", "STREAMLIT_RUNTIME", "STREAMLIT_CLOUD")
-    )
+    """Best-effort detection for Streamlit Cloud hosted runtimes.
+
+    Streamlit Cloud does not set a single authoritative env var, so we check
+    a cascade of signals:
+    1. Explicit opt-in/opt-out via IS_STREAMLIT_CLOUD (operator sets in app secrets).
+    2. Legacy sharing-mode markers that older Streamlit versions occasionally set.
+    3. HOME=/home/appuser — Streamlit Cloud runs the app as the 'appuser' user;
+       this is the most reliable passive signal available.
+    """
+    explicit = os.getenv("IS_STREAMLIT_CLOUD")
+    if explicit is not None:
+        return explicit.lower() not in ("0", "false", "no")
+    legacy_markers = ("STREAMLIT_SHARING_MODE", "STREAMLIT_RUNTIME", "STREAMLIT_CLOUD")
+    if any(os.getenv(m) for m in legacy_markers):
+        return True
+    return os.getenv("HOME", "").rstrip("/") == "/home/appuser"
 
 
 def _presentation_mode() -> str:
@@ -178,10 +189,10 @@ def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | Non
 
 if _is_probably_streamlit_cloud():
     st.sidebar.info(
-        "**Public demo (Streamlit Cloud)** — uploads here are temporary. "
-        "**Answers use the dummy generator only** (no Ollama on this host). "
-        "For **real private generation** with your PDFs, run the app **locally** with Ollama, "
-        "or **request a live session** if you need a hosted setup with a real model."
+        "**UI demo only** — no LLM on this host. "
+        "Chat responses are placeholders. "
+        "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
+        "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
     )
 
 # Load configuration
@@ -1293,15 +1304,18 @@ if st.session_state.developer_mode:
         ),
     )
 
-if _is_probably_streamlit_cloud():
-    st.warning(
-        "**Demo mode:** this hosted app uses **dummy chat responses** only — no LLM runs here. "
-        "For **real answers on your documents**, try the "
-        "[live pilot](https://ai-doc-pilot.roxanatapia.dev) (request access via the README) "
-        "or run the stack locally with Ollama."
-    )
-
 _render_client_hero()
+
+if _is_probably_streamlit_cloud():
+    st.info(
+        "**UI demo only — no AI running here.** "
+        "This hosted app shows the interface and PDF upload flow; "
+        "chat responses are echoed placeholders, not real answers. \n\n"
+        "For **real private answers on your documents** (local LLM, no data leaves your server): "
+        "[request access to the live pilot](https://ai-doc-pilot.roxanatapia.dev) "
+        "or [deploy your own instance](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md).",
+        icon="ℹ️",
+    )
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = st.file_uploader(
