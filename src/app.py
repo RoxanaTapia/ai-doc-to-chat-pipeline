@@ -1295,10 +1295,10 @@ if st.session_state.developer_mode:
 
 if _is_probably_streamlit_cloud():
     st.warning(
-        "**Demo mode:** this hosted app uses **dummy chat responses** only. "
-        "There is no Ollama (or other LLM) on Streamlit Cloud. "
-        "For **real answers on your documents**, run **`streamlit run src/app.py` locally** with Ollama installed, "
-        "or **request a live session** for a private hosted demo."
+        "**Demo mode:** this hosted app uses **dummy chat responses** only — no LLM runs here. "
+        "For **real answers on your documents**, try the "
+        "[live pilot](https://ai-doc-pilot.roxanatapia.dev) (request access via the README) "
+        "or run the stack locally with Ollama."
     )
 
 _render_client_hero()
