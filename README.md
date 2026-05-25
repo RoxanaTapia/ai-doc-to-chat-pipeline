@@ -22,6 +22,8 @@
 
 A fictional sample NDA for testing is available as [`docs/sample-nda.pdf`](docs/sample-nda.pdf) (and [`docs/sample-nda.md`](docs/sample-nda.md) for reference).
 
+**Demo access:** The pilot is password-protected — credentials are not published here. [Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough.
+
 ---
 
 ## How it works
