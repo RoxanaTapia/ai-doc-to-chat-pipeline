@@ -3,6 +3,11 @@
 # that optionally import torchvision (not installed — not needed for embeddings).
 fileWatcherType = "none"
 
+[client]
+# Private pilot: no "Ask ChatGPT" / Google links on errors; keep messages user-safe.
+showErrorLinks = false
+showErrorDetails = "type"
+
 [theme]
 # Neutral primary avoids Streamlit's default red/coral tint on chat input chrome.
 primaryColor = "#2563eb"

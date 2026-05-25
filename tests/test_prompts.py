@@ -61,3 +61,12 @@ def test_rag_prompt_preserves_multiline_context() -> None:
     assert "3 years" in rendered
     assert "EU member states" in rendered
     assert "Summarize restrictions." in rendered
+
+
+def test_rag_prompt_includes_reliability_rules() -> None:
+    template = load_rag_prompt()
+
+    assert "Never invent section numbers" in template
+    assert "must not do" in template
+    assert "I agree not to" in template
+    assert "I could not find enough information in the document to answer." in template

@@ -7,7 +7,7 @@ Reference layout for a self-hosted demo or small-office pilot.
                         │
                         ▼
               ┌─────────────────┐
-              │  Caddy / nginx  │  HTTPS + basic auth (optional)
+              │     Caddy       │  HTTPS + basic auth (Let's Encrypt)
               └────────┬────────┘
                        │
          ┌─────────────┴─────────────┐

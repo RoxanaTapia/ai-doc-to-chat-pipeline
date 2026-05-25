@@ -40,6 +40,8 @@ self-hosted single-VM pilot with real Ollama, then production depth (API, persis
 **Definition of done:** Password-protected HTTPS URL on your VPS, real Ollama answers,
 README links to deployment guide. **Enables pilot sales.**
 
+**Status: shipped** — live pilot at [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev). M7-7 (demo video) pending.
+
 GitHub milestone: [M7](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1)
 
 ---
@@ -149,7 +151,7 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
                               └── LLM backend (Ollama | Anthropic)
 ```
 
-**Today (M7 in progress):** Streamlit app in Docker Compose with co-located Ollama, health-gated startup, in-memory FAISS per session. **M9+** adds Postgres/pgvector persistence.
+**Today (M7 shipped):** Streamlit app in Docker Compose with co-located Ollama, health-gated startup, HTTPS via Caddy, in-memory FAISS per session — live at [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev). **M9+** adds Postgres/pgvector persistence.
 
 ---
 

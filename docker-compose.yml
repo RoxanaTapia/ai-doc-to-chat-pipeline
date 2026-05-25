@@ -14,13 +14,20 @@ services:
 
   app:
     build: .
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "8501:8501"
     environment:
       OLLAMA_HOST: http://ollama:11434
-      OLLAMA_MODEL: phi3:mini
+      # Override in `.env` with OLLAMA_MODEL=phi3:mini on RAM-limited CPU hosts.
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
       USE_DUMMY_GENERATOR: "false"
       STREAMLIT_SERVER_FILE_WATCHER_TYPE: none
+      # Client-facing VPS: APP_ALLOW_DEV_TOGGLE=false APP_PRESENTATION_MODE=client
+      APP_ALLOW_DEV_TOGGLE: ${APP_ALLOW_DEV_TOGGLE:-false}
+      APP_PRESENTATION_MODE: ${APP_PRESENTATION_MODE:-client}
     depends_on:
       ollama:
         condition: service_healthy

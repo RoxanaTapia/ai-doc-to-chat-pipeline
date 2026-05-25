@@ -1,0 +1,19 @@
+# Interim IP demo (no domain): self-signed TLS for your VPS public IP.
+# In .env: CADDYFILE=./Caddyfile.ip
+# Generate cert: ./deploy/generate-ip-tls.sh YOUR_VPS_IP
+# Generate auth: ./deploy/generate-caddy-auth.sh demo 'your-password'
+
+{
+	auto_https off
+}
+
+:443 {
+	tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
+
+	import /etc/caddy/caddy-basicauth.conf
+
+	reverse_proxy app:8501 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}

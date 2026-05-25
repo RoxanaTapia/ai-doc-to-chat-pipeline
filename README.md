@@ -1,132 +1,76 @@
 # AI Doc to Chat
 
-> **Privacy · Reproducibility · Honesty** — grounded answers on *your* infrastructure, not a black-box SaaS tab.
+> Private, grounded answers from your PDFs — on infrastructure you control.
 
-[Live Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md)
+[Live Pilot](https://ai-doc-pilot.roxanatapia.dev) · [Public Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md)
 
-**Private RAG chat for your PDFs** — upload contracts, invoices, or scans, ask questions in plain language, and get **grounded answers with page-level sources**. Built for teams that need **control over data and infrastructure**, not another public chatbot tab.
-
-**Clients who care about privacy and control don't upload contracts or HR policies to ChatGPT — or a [public demo](https://ai-doc-to-chat-demo.streamlit.app).** For a **private pilot** with real local AI, [hire on Upwork](https://www.upwork.com/freelancers/roxanadev) or [reach out on GitHub](https://github.com/RoxanaTapia).
+Your team's contracts, policies, and reports stay on **your server**. Upload a PDF, ask questions in plain language, and get sourced answers with page-level citations — powered by a local LLM, no data sent to external APIs.
 
 ---
 
-## Two ways to use this project
+## Try it
 
-| Mode | Where | Generation | Best for |
-|------|--------|------------|----------|
-| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI + retrieval preview (no LLM on that host) | Try the experience, share a link |
-| **Private pilot** | Your infrastructure or mine | **Real Ollama** — answers grounded in your documents | Confidential PDFs, evaluations, rollouts |
+| | Where | What you get |
+|-|--------|--------------|
+| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI walkthrough — no login, no LLM |
+| **Live pilot** | [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev) | Real local AI, HTTPS, password-protected |
+| **Your deployment** | Your VPS or cloud | Full private stack under your control |
+
+The live pilot is password-protected — credentials are not published here.
+[Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or use the [sample NDA](docs/sample-nda.pdf) once you have access.
+
+> **Privacy note:** Uploaded files are processed in memory and never stored — each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
 
 ---
 
 ## How it works
 
-Each question flows through a **single private stack** — your documents never leave your environment:
-
 ```text
-Browser ──► Streamlit (upload + chat)
-              ├─► Extract text from PDF (digital + scanned/OCR)
-              ├─► Find relevant passages (local embeddings + search)
-              └─► Ollama (local LLM) → answer with page-level sources
+Browser → upload PDF → extract text → local embeddings → FAISS search → Ollama LLM → sourced answer
 ```
 
-| Layer | Role |
-|-------|------|
-| **Interface** | Upload PDFs, chat, inspect sources (page, score, excerpt) |
-| **Retrieval** | Semantic and hybrid search over your document — runs locally |
-| **Generation** | Local LLM produces answers from retrieved context only |
-| **Deployment** | Docker Compose packages app + Ollama for a one-VM pilot |
-
-Pilots use in-session indexing (ideal for evaluations). Longer-term deployments add persistent storage, API access, and enterprise auth — see [Future work](#future-work).
+Everything runs on one VM. Your documents never leave your environment.
 
 ---
 
-## Demo vs private pilot
+## What it does well
 
-1. **Public demo** — open the link, upload a sample PDF, explore the UX. Generation is intentionally limited on the hosted demo.
-2. **Private pilot** — real local AI on your or my infrastructure, suitable for confidential or redacted documents under NDA.
-3. **Production rollout** — persistence, SSO, runbooks, and your choice of cloud or on-prem — scoped per engagement.
+- **Contracts, NDAs, policies, reports** — find clauses, obligations, dates, parties
+- **Sourced answers** — every response cites the page and excerpt it used
+- **Private by design** — local embeddings, local LLM, no cloud API required
+- **Auditable** — Docker Compose stack your IT team can review and reproduce
 
----
+## Known limits (evaluation pilot)
 
-## Typical company pilot
-
-```text
-Team ──► HTTPS ──► Streamlit + Ollama (one VM or VPC)
-                      └── PDFs processed in your environment
-```
-
-| Phase | Outcome |
-|-------|---------|
-| **Pilot** | Single VM, real answers, access control on the URL |
-| **Hardening** | Backups, monitoring, model tuning |
-| **Production** | Client-owned cloud, persistent indexes, SSO, audit trail |
-
-Deployment and architecture: [DEPLOYMENT.md](DEPLOYMENT.md)
-
----
-
-## What works today
-
-**Document AI (stable baseline, `v0.6.0`)**
-
-- PDF upload with **PyMuPDF** and optional **Tesseract OCR** for scans
-- Local **embeddings** and **FAISS** retrieval — semantic and hybrid (BM25 + dense)
-- **Streamlit** chat with source previews (page, score, chunk text)
-- **Ollama** for private generation, or dummy mode for the public demo
-- Optional developer view: retrieval metrics and context transparency
-
-**Reference deployment** — Docker Compose stack (app + local Ollama) with a full [deployment guide](DEPLOYMENT.md) for VPS or laptop pilots.
-
-**Coming next:** HTTPS + access control on the pilot URL, demo video.
-
----
-
-## Future work
-
-The current pilot is a **session-based** app (indexes per upload). Typical production extensions on the same RAG core:
-
-- **API layer** — integrate beyond the Streamlit UI
-- **Persistent storage** — documents and vectors survive restarts
-- **Enterprise access** — SSO, security documentation, operational runbooks
-- **Flexible LLM backend** — local Ollama, or private cloud APIs where procurement requires it
-
----
-
-## Self-hosted pilot
-
-Follow the [Deployment Guide](DEPLOYMENT.md) for prerequisites, sizing, and step-by-step setup on a VPS or your laptop.
+- **Session-based** — re-upload after restart; no shared document library yet
+- **Read, don't calculate** — finds printed numbers; does not sum or verify math
+- **Single document per session** — not enterprise search across file stores
+- **Assistant, not agent** — answers questions; does not integrate with CRM, email, or ticketing
 
 ---
 
 ## For teams and consulting
 
-I deploy **private document AI** for organizations that cannot send contracts or policies to public chat tools — from single-VM pilots through production-shaped stacks on **your** cloud or dedicated infrastructure.
+> Organisations that can't send contracts to ChatGPT need a private stack they can evaluate, audit, and own. That's what this is.
 
-| | |
-|--|--|
-| **Privacy** | Documents and prompts stay in your environment; local or VPC-hosted LLM |
-| **Reproducibility** | Docker Compose reference deployment your IT can audit and reproduce |
-| **Honesty** | Public demo shows the UI; private pilot delivers real generation — clearly separated |
+I deploy private document AI from single-VM pilots to production-shaped stacks on your infrastructure — Docker Compose, HTTPS, basic auth, local Ollama. Evaluation usually takes a week; production hardening adds auth, persistence, and runbooks scoped to your environment.
 
-**Typical path:** evaluation on a [modest dedicated server](DEPLOYMENT.md) → hardening and persistence → production with auth and runbooks. Higher quality and scale mean more compute — either a larger VM you control or a scoped cloud API — chosen with your IT and legal team.
+**Typical path:** pilot on a modest VM → validate answers on real documents → harden for production with your IT and legal team.
 
-This reference pilot was built with **[Cursor](https://cursor.com)** — the same test-backed, reviewable workflow I use to ship client work without cutting corners. That is how the stack, deployment guide, and docs moved quickly while staying auditable in git. **Your PDFs and prompts are not part of that:** at runtime everything stays on **your** VM or VPC (local Ollama). My tooling builds the product; your data never leaves your environment.
-
-**Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) (private pilot, consulting, production scoping) · [GitHub](https://github.com/RoxanaTapia) (OSS and technical questions)
+**Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) · [GitHub](https://github.com/RoxanaTapia)
 
 ---
 
-## Contributing
+## Self-host
 
-Pull requests welcome. For how this repo is organized (agents, milestones, verify-before-merge), see [AGENTS.md](AGENTS.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+Follow the [Deployment Guide](DEPLOYMENT.md) — covers VPS sizing, HTTPS with Caddy, basic auth, and a step-by-step walkthrough. Evaluated on a sample NDA: [pilot evaluation](docs/pilot-evaluation.md).
+
+**Roadmap:** persistent indexes · API layer · SSO · flexible LLM backend (Ollama or private cloud API)
 
 ---
 
-## Core stack
+## Stack
 
 Streamlit · LangChain · FAISS · sentence-transformers · PyMuPDF · Tesseract · Ollama · Docker
 
-MIT licensed — free to use, modify, or build on commercially.
-
-Made with ❤️ by **[Roxana Tapia](https://github.com/RoxanaTapia)** — 2026
+MIT licensed · Made by [Roxana Tapia](https://github.com/RoxanaTapia) — 2026

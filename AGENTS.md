@@ -32,7 +32,7 @@ Invoke by role name: `deploy-engineer`, not persona names. Files live in `.curso
 | #35 M7-3 health gate | deploy-engineer | docs-writer | 1–2 |
 | #36 M7-4 env | config-guardian | docs-writer | 1 |
 | #37 M7-5 DEPLOYMENT.md | docs-writer | deploy-engineer (review) | 1–2 |
-| #38 M7-6 Caddy | deploy-engineer | blocker-reporter if no domain | 2–3 |
+| #38 M7-6 Caddy | deploy-engineer | — | 2–3 | **Done** — live at ai-doc-pilot.roxanatapia.dev |
 | #39 M7-7 demo assets | docs-writer | — | 1–2 |
 
 ---
@@ -77,9 +77,9 @@ Defaults when orchestrator would otherwise stall. **Update this table when you d
 
 | Decision | Current default | Notes |
 |----------|-----------------|-------|
-| VPS provider | Hetzner CX32 (~€15/mo) | Defer purchase until M7-6 |
-| Ollama model (demo CPU) | `phi3:mini` | `llama3.1:8b` when GPU available |
-| Domain / HTTPS | Defer #38 until domain exists | Interim: IP + basic auth |
+| VPS provider | Hetzner CPX32 (~€15/mo) | **Running** — `bougie-main-01`, Falkenstein |
+| Ollama model (demo CPU) | `phi3:mini` | `llama3.1:8b` when GPU available; `OLLAMA_NUM_CTX=1024` on 8 GB |
+| Domain / HTTPS | `ai-doc-pilot.roxanatapia.dev` | **Live** — Let's Encrypt via Caddy, M7-6 done |
 | Commit policy | Orchestrator proposes; human says `commit` | No push without explicit approval |
 | Private deploy repo | Deferred until M10 or first client | App code stays public |
 | LLM for pilots | Ollama default; Anthropic in M12 | Same RAG, swappable backend |

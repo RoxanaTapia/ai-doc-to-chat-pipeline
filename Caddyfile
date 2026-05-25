@@ -1,0 +1,17 @@
+# Production pilot: automatic HTTPS via Let's Encrypt.
+# Set SITE_ADDRESS to your subdomain (e.g. demo.example.com) and ACME_EMAIL in .env.
+# Generate auth: ./deploy/generate-caddy-auth.sh demo 'your-password'
+# See DEPLOYMENT.md § HTTPS (Caddy).
+
+{
+	email {$ACME_EMAIL:you@example.com}
+}
+
+{$SITE_ADDRESS} {
+	import /etc/caddy/caddy-basicauth.conf
+
+	reverse_proxy app:8501 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
