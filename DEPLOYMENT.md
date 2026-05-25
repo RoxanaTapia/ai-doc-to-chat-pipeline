@@ -88,14 +88,15 @@ CADDYFILE=./Caddyfile.ip
 
 Save and exit (`Ctrl+O`, Enter, `Ctrl+X` in nano).
 
-Generate the basic-auth credentials file (one time):
+Generate the TLS cert and basic-auth credentials (one time each):
 
 ```bash
-chmod +x deploy/generate-caddy-auth.sh
+chmod +x deploy/generate-ip-tls.sh deploy/generate-caddy-auth.sh
+./deploy/generate-ip-tls.sh YOUR_VPS_IP
 ./deploy/generate-caddy-auth.sh demo 'YOUR_STRONG_PASSWORD'
 ```
 
-This writes `deploy/caddy-basicauth.conf`. Do **not** commit it — it is gitignored.
+This writes `deploy/certs/cert.pem`, `deploy/certs/key.pem`, and `deploy/caddy-basicauth.conf`. None are committed — all are gitignored.
 
 **3. Start Ollama and pull the model**
 
@@ -446,7 +447,7 @@ See also [docs/architecture-pilot.md](docs/architecture-pilot.md#environment-var
 | **Connection refused** to Ollama | Ollama down, wrong host, or app started before Ollama was ready | Use Compose (not `docker run` app alone). On VPS, app must use `OLLAMA_HOST=http://ollama:11434` — not `localhost`. Check `docker compose ps` shows `ollama` **healthy**. |
 | **Connection refused** on `YOUR_VPS_IP:8501` | Firewall, wrong IP, app not running, or Caddy overlay active | With Caddy, use `https://YOUR_VPS_IP` (not `:8501`). Without Caddy, `docker compose ps` and open 8501 only to trusted CIDRs; confirm `curl http://127.0.0.1:8501/_stcore/health` on the VPS returns 200. |
 | **401** on HTTPS URL with correct password | Wrong hash in conf file | Regenerate: `./deploy/generate-caddy-auth.sh demo 'your-password'`, then restart Caddy. |
-| **`ERR_SSL_PROTOCOL_ERROR` / TLS internal error** | Stale Caddy TLS cache after config change | Stop Caddy, remove its volumes (`docker volume rm …_caddy_data …_caddy_config`), then recreate. Make sure `auto_https off` is present in `Caddyfile.ip`. |
+| **`ERR_SSL_PROTOCOL_ERROR` / TLS internal error (592)** | Missing cert files, wrong IP in SAN, or stale Caddy cache | Re-run `./deploy/generate-ip-tls.sh YOUR_VPS_IP`, then stop Caddy, remove its volumes (`docker volume rm …_caddy_data …_caddy_config`), and recreate. Note: `tls internal` does not work for bare IP addresses — explicit cert files are required. |
 | **Certificate / TLS errors** | DNS not propagated, or IP demo self-signed cert | For subdomains, wait for DNS and ensure ports 80/443 reach Caddy. For `Caddyfile.ip`, accept the browser warning or switch to a real subdomain. |
 | **Model not found** / pull errors in chat | No model in the volume or name mismatch | `docker compose exec ollama ollama pull phi3:mini` (or `llama3.1:8b`). Set `OLLAMA_MODEL` to the same tag. Verify with `docker compose exec ollama ollama list`. |
 | **`/api/tags` empty or curl fails** | Model not pulled or wrong Docker network | Pull the model again; use the `docker run ... curlimages/curl` command under [Verify deployment → Ollama HTTP API](#verify-deployment) with the correct network name. |

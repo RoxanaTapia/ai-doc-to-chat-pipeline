@@ -21,6 +21,7 @@ services:
     volumes:
       - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - ./deploy/caddy-basicauth.conf:/etc/caddy/caddy-basicauth.conf:ro
+      - ./deploy/certs:/etc/caddy/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
