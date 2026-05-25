@@ -63,7 +63,7 @@ I deploy private document AI from single-VM pilots to production-shaped stacks o
 
 ## Self-host
 
-Follow the [Deployment Guide](DEPLOYMENT.md) — covers VPS sizing, HTTPS with Caddy, basic auth, and a step-by-step walkthrough. Evaluated on a sample NDA: [Round 5 results](docs/pilot-evaluation-round5.md).
+Follow the [Deployment Guide](DEPLOYMENT.md) — covers VPS sizing, HTTPS with Caddy, basic auth, and a step-by-step walkthrough. Evaluated on a sample NDA: [pilot evaluation](docs/pilot-evaluation.md).
 
 **Roadmap:** persistent indexes · API layer · SSO · flexible LLM backend (Ollama or private cloud API)
 
