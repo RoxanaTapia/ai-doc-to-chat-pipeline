@@ -19,6 +19,8 @@ Your team's contracts, policies, and reports stay on **your server**. Upload a P
 The live pilot is password-protected — credentials are not published here.
 [Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or use the [sample NDA](docs/sample-nda.pdf) once you have access.
 
+**Demo video:** Walkthrough recording in progress — [5-minute storyboard](docs/demo-script.md). Link will appear here when published.
+
 > **Privacy note:** Uploaded files are processed in memory and never stored — each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
 
 ---
