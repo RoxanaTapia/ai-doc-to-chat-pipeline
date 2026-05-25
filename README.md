@@ -18,6 +18,10 @@
 | **Reference pilot** | [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev) | **Real Ollama** on a dedicated VPS — HTTPS + basic auth | See a live private deployment; request access to evaluate |
 | **Your own deployment** | Your infrastructure | **Real Ollama** — answers grounded in your documents | Confidential PDFs on infrastructure you control |
 
+**Reference pilot disclaimer:** The pilot at `ai-doc-pilot.roxanatapia.dev` is provided for evaluation and demonstration purposes only. Use only sample or non-confidential documents. **Uploaded files are processed in memory and never written to disk or retained between sessions** — each browser reload starts fresh with no stored data. The pilot operator accepts no liability for content submitted by visitors. For confidential documents, [deploy your own instance](DEPLOYMENT.md) on infrastructure you control.
+
+A fictional sample NDA for testing is available at [`docs/sample-nda.md`](docs/sample-nda.md).
+
 ---
 
 ## How it works
