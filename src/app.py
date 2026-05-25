@@ -92,11 +92,8 @@ def _presentation_mode() -> str:
 
 
 def _dev_toggle_allowed() -> bool:
-    """Whether the sidebar shows the developer-mode toggle."""
-    return _env_bool(
-        "APP_ALLOW_DEV_TOGGLE",
-        not _is_probably_streamlit_cloud(),
-    )
+    """Whether the sidebar shows the developer-mode toggle (opt-in only)."""
+    return _env_bool("APP_ALLOW_DEV_TOGGLE", False)
 
 
 def _inject_demo_styles() -> None:
@@ -162,11 +159,12 @@ def _on_new_browser_session() -> None:
 
 def _apply_presentation_mode_lock() -> None:
     """
-    When the dev toggle is hidden, pin UI mode from APP_PRESENTATION_MODE.
+    Pin UI mode from APP_PRESENTATION_MODE when the dev toggle is hidden.
     Prevents clients on VPS from seeing or enabling developer controls.
     """
-    if not _dev_toggle_allowed():
-        st.session_state.developer_mode = _presentation_mode() == "developer"
+    if _dev_toggle_allowed():
+        return
+    st.session_state.developer_mode = _presentation_mode() == "developer"
 
 
 def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | None) -> bool:
