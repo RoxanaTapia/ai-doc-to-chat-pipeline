@@ -188,14 +188,6 @@ def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | Non
     )
 
 
-if _is_probably_streamlit_cloud():
-    st.sidebar.info(
-        "**UI demo only** — no LLM on this host. "
-        "Chat responses are placeholders. "
-        "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
-        "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
-    )
-
 # Load configuration
 CONFIG_PATH = APP_ROOT / "configs" / "config.yaml"
 
@@ -1235,6 +1227,14 @@ with st.sidebar.expander("How to use", expanded=False):
         """
     )
 
+if _is_probably_streamlit_cloud():
+    st.sidebar.info(
+        "**UI demo only** — no LLM on this host. "
+        "Chat responses are placeholders.\n\n"
+        "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
+        "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
+    )
+
 if st.session_state.developer_mode:
     with st.sidebar.expander("Advanced options", expanded=False):
         st.session_state.enable_ocr = st.toggle(
@@ -1280,17 +1280,6 @@ if st.session_state.developer_mode:
     )
 
 _render_client_hero()
-
-if _is_probably_streamlit_cloud():
-    st.info(
-        "**UI demo only — no AI running here.** "
-        "This hosted app shows the interface and PDF upload flow; "
-        "chat responses are echoed placeholders, not real answers. \n\n"
-        "For **real private answers on your documents** (local LLM, no data leaves your server): "
-        "[request access to the live pilot](https://ai-doc-pilot.roxanatapia.dev) "
-        "or [deploy your own instance](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md).",
-        icon="ℹ️",
-    )
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = st.file_uploader(
