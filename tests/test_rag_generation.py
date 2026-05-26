@@ -11,15 +11,14 @@ if str(SRC_DIR) not in sys.path:
 import rag  # noqa: E402
 
 
-def test_generate_answer_dummy_mode_returns_echo() -> None:
+def test_generate_answer_dummy_mode_returns_placeholder() -> None:
     answer = rag.generate_answer(
         context="Section A says notice period is 30 days.",
         query="What is the notice period?",
         dummy_mode=True,
     )
-    assert "Dummy answer:" in answer
-    assert "What is the notice period?" in answer
-    assert "Section A says notice period is 30 days." in answer
+    assert "no AI model is running here" in answer
+    assert "live pilot" in answer
 
 
 def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
@@ -144,7 +143,7 @@ def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
     )
 
     assert "Ollama unavailable, falling back to dummy mode." in answer
-    assert "Dummy answer:" in answer
+    assert "no AI model is running here" in answer
 
 
 def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypatch) -> None:

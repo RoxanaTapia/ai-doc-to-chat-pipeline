@@ -159,13 +159,11 @@ def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
         return "I could not find relevant information in the document to answer this question."
 
     def _dummy_response() -> str:
-        context_preview = safe_context[:400]
-        truncation_suffix = "..." if len(safe_context) > 400 else ""
         return (
-            "Dummy answer:\n"
-            f"{safe_query}\n\n"
-            "Based on the document:\n"
-            f"{context_preview}{truncation_suffix}"
+            "This is a UI demo — no AI model is running here.\n\n"
+            "Upload and search work, but answers are not generated on this host.\n\n"
+            "For real grounded answers on your documents, request access to the "
+            "[live pilot](https://ai-doc-pilot.roxanatapia.dev)."
         )
 
     if dummy_mode:
