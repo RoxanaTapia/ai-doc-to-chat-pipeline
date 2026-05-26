@@ -151,7 +151,7 @@ def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypa
     monkeypatch.setattr(
         rag,
         "_generate_with_ollama",
-        lambda context, query: (_ for _ in ()).throw(RuntimeError("model not found")),
+        lambda context, query, settings=None: (_ for _ in ()).throw(RuntimeError("model not found")),
     )
     monkeypatch.setattr(
         rag,

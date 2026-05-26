@@ -19,6 +19,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from rag import generate_answer, load_generation_config
+from ocr import is_likely_scanned_page as _is_likely_scanned_page, ocr_page_text as _ocr_page_text
 from retrieval_quality import (
     INSUFFICIENT_CONTEXT_ANSWER,
     context_sufficient_for_query,
@@ -1065,32 +1066,6 @@ def _stream_text_chunks(text: str, chunk_size: int = 40):
     for i in range(0, len(safe_text), chunk_size):
         yield safe_text[i:i + chunk_size]
 
-
-def _is_likely_scanned_page(text: str) -> bool:
-    """Heuristic: very short extracted text suggests an image-only page."""
-    return len((text or "").strip()) < 50
-
-
-def _ocr_page_text(page) -> tuple[str, str | None]:
-    """
-    Try OCR on a page image.
-    Returns (ocr_text, error_message). Error message is None on success.
-    """
-    try:
-        import pytesseract
-        from PIL import Image
-    except ImportError:
-        return "", "OCR dependencies not installed (requires pytesseract + pillow + system tesseract)."
-
-    try:
-        pix = page.get_pixmap(dpi=300)
-        image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
-        # Minimal preprocessing: simple thresholding helps many scanned contracts.
-        image = image.point(lambda x: 0 if x < 180 else 255, mode="1")
-        ocr_text = pytesseract.image_to_string(image, lang="eng", config="--psm 6").strip()
-        return ocr_text, None
-    except (OSError, RuntimeError, ValueError) as exc:
-        return "", f"OCR failed on page: {exc}"
 
 
 def _render_ocr_status(

@@ -11,6 +11,7 @@ streamlit>=1.54.0,<1.55.0                  # Modern file uploader, fragments, st
 # Document processing & OCR
 pymupdf>=1.27.1                            # Fast PDF text + metadata extraction
 pytesseract>=0.3.13                        # Tesseract OCR wrapper (requires Tesseract binary installed)
+pillow>=10.4.0                             # Image processing for OCR page rendering (required by pytesseract path)
 
 # RAG & LangChain core (stable 1.x series)
 langchain>=1.2.10,<2.0.0
