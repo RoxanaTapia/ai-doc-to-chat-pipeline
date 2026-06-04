@@ -15,3 +15,9 @@
 		header_up X-Real-IP {remote_host}
 	}
 }
+
+# Root domain marketing redirects (optional; set A/AAAA for apex to VPS).
+roxanatapia.dev, www.roxanatapia.dev {
+	redir /upwork https://www.upwork.com/freelancers/roxanadev 301
+	redir / https://ai-doc-pilot.roxanatapia.dev 302
+}
