@@ -30,6 +30,7 @@ from retrieval_quality import (
     INSUFFICIENT_CONTEXT_ANSWER,
     context_sufficient_for_query,
     dedupe_similar_chunks,
+    filter_docs_overlapping_answer,
     sort_source_docs,
 )
 from sectioning import (
@@ -300,10 +301,13 @@ def _build_sources_payload(
     retrieved_docs: list[Document],
     *,
     query: str | None = None,
+    answer: str | None = None,
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     target_section = extract_target_section(query) if query else None
     ordered = sort_source_docs(retrieved_docs, target_section=target_section)
+    if answer:
+        ordered = filter_docs_overlapping_answer(ordered, answer)
     payload = []
     for chunk in ordered[:SOURCES_DISPLAY_MAX]:
         similarity = chunk.metadata.get("similarity")
@@ -1928,7 +1932,11 @@ if query and query.strip() and chat_ready:
             or "I could not generate an answer at this time. Please try again."
         )
         target_section = extract_target_section(query)
-        source_payload = _build_sources_payload(retrieved_docs, query=query)
+        source_payload = _build_sources_payload(
+            retrieved_docs,
+            query=query,
+            answer=assistant_message,
+        )
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",

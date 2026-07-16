@@ -9,11 +9,14 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from retrieval_quality import (  # noqa: E402
+    DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
     context_has_obligation_markers,
     context_sufficient_for_query,
     dedupe_similar_chunks,
+    filter_docs_overlapping_answer,
     query_expects_obligations,
     sort_source_docs,
+    token_overlap_score,
 )
 
 
@@ -125,3 +128,58 @@ def test_sort_source_docs_missing_similarity_sorts_last() -> None:
 
 def test_sort_source_docs_empty_input() -> None:
     assert sort_source_docs([], target_section="1") == []
+
+
+def test_token_overlap_score_jaccard_on_content_tokens() -> None:
+    answer = "The Receiving Party must hold Confidential Information in confidence."
+    match = "3. Obligations\nHold Confidential Information in strict confidence."
+    unrelated = "7. Miscellaneous — governing law of Spain and venue."
+    assert token_overlap_score(answer, match) > token_overlap_score(answer, unrelated)
+    assert token_overlap_score(answer, match) >= DEFAULT_ANSWER_OVERLAP_MIN_SCORE
+    assert token_overlap_score("", match) == 0.0
+    assert token_overlap_score(answer, "") == 0.0
+
+
+def test_filter_docs_overlapping_answer_keeps_matching_chunks() -> None:
+    answer = (
+        "The Receiving Party must hold Confidential Information in strict confidence "
+        "and not disclose trade secrets."
+    )
+    matching = Document(
+        page_content=(
+            "3. Obligations of the Receiving Party\n"
+            "Hold Confidential Information in strict confidence and protect trade secrets."
+        ),
+        metadata={"page": 2, "similarity": 0.9},
+    )
+    unrelated = Document(
+        page_content="7. Miscellaneous — governing law of Spain and exclusive venue.",
+        metadata={"page": 4, "similarity": 0.85},
+    )
+    filtered = filter_docs_overlapping_answer([matching, unrelated], answer)
+    assert filtered == [matching]
+
+
+def test_filter_docs_overlapping_answer_empty_filter_falls_back() -> None:
+    answer = "Liquidated damages equal ten thousand euros upon breach."
+    ranked = [
+        Document(
+            page_content="1. Definition of Confidential Information\nTrade secrets.",
+            metadata={"page": 1, "similarity": 0.9},
+        ),
+        Document(
+            page_content="4. Duration of Confidentiality\nFive years from disclosure.",
+            metadata={"page": 3, "similarity": 0.7},
+        ),
+    ]
+    filtered = filter_docs_overlapping_answer(ranked, answer)
+    assert filtered is ranked
+    assert filtered == ranked
+
+
+def test_filter_docs_overlapping_answer_empty_answer_returns_original() -> None:
+    docs = [
+        Document(page_content="3. Obligations\nHold in confidence.", metadata={"page": 2}),
+    ]
+    assert filter_docs_overlapping_answer(docs, "") is docs
+    assert filter_docs_overlapping_answer(docs, "   ") is docs

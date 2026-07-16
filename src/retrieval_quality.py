@@ -10,6 +10,39 @@ INSUFFICIENT_CONTEXT_ANSWER = (
     "I could not find enough information in the document to answer."
 )
 
+# Light English stopwords for answer↔chunk overlap (keep the set tiny).
+_OVERLAP_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "to",
+        "was",
+        "were",
+        "with",
+    }
+)
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# Default Jaccard floor for Sources answer-overlap (#82). Modest because
+# answers are short relative to chunks; tune upward if citations stay noisy.
+DEFAULT_ANSWER_OVERLAP_MIN_SCORE = 0.08
+
 OBLIGATION_QUERY_RE = re.compile(
     r"(?i)\b("
     r"must not|must agree|agree not|obligat|prohibit|prohibition|"
@@ -137,3 +170,51 @@ def sort_source_docs(
         key=lambda doc: (chunk_on_section(doc, target_section), _similarity_score(doc)),
         reverse=True,
     )
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Lowercase alnum tokens minus a light stopword list."""
+    return {
+        tok
+        for tok in _TOKEN_RE.findall((text or "").lower())
+        if tok not in _OVERLAP_STOPWORDS
+    }
+
+
+def token_overlap_score(answer: str, chunk_text: str) -> float:
+    """
+    Deterministic token Jaccard between answer and chunk (0.0–1.0).
+
+    Empty answer or empty chunk → 0.0. No LLM calls.
+    """
+    answer_tokens = _content_tokens(answer)
+    chunk_tokens = _content_tokens(chunk_text)
+    if not answer_tokens or not chunk_tokens:
+        return 0.0
+
+    intersection = answer_tokens & chunk_tokens
+    union = answer_tokens | chunk_tokens
+    return len(intersection) / len(union)
+
+
+def filter_docs_overlapping_answer(
+    docs: list[Document],
+    answer: str,
+    *,
+    min_score: float = DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
+) -> list[Document]:
+    """
+    Keep Sources chunks whose token overlap with ``answer`` is >= ``min_score``.
+
+    Safe fallback: if the answer is blank, or no doc clears the threshold,
+    return the original ``docs`` list unchanged (same order / identity).
+    """
+    if not docs or not (answer or "").strip():
+        return docs
+
+    kept = [
+        doc
+        for doc in docs
+        if token_overlap_score(answer, doc.page_content or "") >= min_score
+    ]
+    return kept if kept else docs
