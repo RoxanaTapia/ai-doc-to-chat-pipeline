@@ -39,6 +39,8 @@ rag:
     #   1. Non-empty env LLM_PROVIDER wins (ollama|anthropic|openai|dummy)
     #   2. Else dummy_mode / USE_DUMMY_GENERATOR → dummy vs ollama
     # YAML alone does not select the backend when LLM_PROVIDER is unset.
+    # anthropic: needs ANTHROPIC_API_KEY; model via ANTHROPIC_MODEL
+    #   (default claude-haiku-4-5-20251001). openai: not implemented yet.
     provider: ollama
     model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
     max_new_tokens: 384      # room for bullet answers (Round 2)

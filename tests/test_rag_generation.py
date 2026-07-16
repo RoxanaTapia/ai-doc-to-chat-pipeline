@@ -16,6 +16,8 @@ import rag  # noqa: E402
 def _clear_llm_provider_env(monkeypatch) -> None:
     """Keep legacy dummy_mode mapping tests independent of the host env."""
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
     rag.load_generation_config.cache_clear()
 
 
@@ -221,14 +223,13 @@ def test_resolve_llm_provider_name_maps_dummy_mode_when_env_unset() -> None:
     assert rag.resolve_llm_provider_name(dummy_mode=False) == "ollama"
 
 
-def test_get_llm_provider_dummy_and_ollama() -> None:
+def test_get_llm_provider_dummy_ollama_and_anthropic() -> None:
     assert isinstance(rag.get_llm_provider("dummy"), rag.DummyLLMProvider)
     assert isinstance(rag.get_llm_provider("OLLAMA"), rag.OllamaLLMProvider)
+    assert isinstance(rag.get_llm_provider("anthropic"), rag.AnthropicLLMProvider)
 
 
-def test_get_llm_provider_anthropic_and_openai_not_implemented() -> None:
-    with pytest.raises(NotImplementedError, match="anthropic"):
-        rag.get_llm_provider("anthropic")
+def test_get_llm_provider_openai_not_implemented() -> None:
     with pytest.raises(NotImplementedError, match="openai"):
         rag.get_llm_provider("openai")
 
@@ -263,11 +264,105 @@ def test_generate_answer_llm_provider_ollama_env(monkeypatch) -> None:
     assert answer == "via env"
 
 
-def test_generate_answer_llm_provider_anthropic_raises(monkeypatch) -> None:
+def test_generate_answer_llm_provider_anthropic_env(monkeypatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
-    with pytest.raises(NotImplementedError, match="anthropic"):
-        rag.generate_answer(
-            context="Clause text",
-            query="What applies?",
-            dummy_mode=False,
-        )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(
+        rag,
+        "_generate_with_anthropic",
+        lambda context, query, settings=None: "via anthropic",
+    )
+    answer = rag.generate_answer(
+        context="Clause text",
+        query="What applies?",
+        dummy_mode=True,
+    )
+    assert answer == "via anthropic"
+
+
+def test_generate_with_anthropic_respects_config_and_prompt(monkeypatch) -> None:
+    created = {}
+
+    class FakeChatAnthropic:
+        def __init__(self, **kwargs):
+            created["kwargs"] = kwargs
+
+        def invoke(self, prompt):
+            created["prompt"] = prompt
+            return SimpleNamespace(content=" Cited answer. ")
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(rag, "ChatAnthropic", FakeChatAnthropic)
+    monkeypatch.setattr(
+        rag,
+        "load_generation_config",
+        lambda: {
+            "anthropic_model": "claude-haiku-4-5-20251001",
+            "temperature": 0.55,
+            "top_p": 0.9,
+            "max_new_tokens": 128,
+            "do_sample": False,
+            "timeout_seconds": 30,
+        },
+    )
+    monkeypatch.setattr(
+        rag,
+        "load_rag_prompt",
+        lambda: "CTX={context}\nQ={question}\nA=",
+    )
+
+    output = rag._generate_with_anthropic("Context text", "Question text")
+
+    assert output == "Cited answer."
+    assert created["kwargs"]["model"] == "claude-haiku-4-5-20251001"
+    assert created["kwargs"]["api_key"] == "test-key-not-real"
+    assert created["kwargs"]["max_tokens"] == 128
+    assert created["kwargs"]["timeout"] == 30.0
+    assert created["kwargs"]["top_p"] == 0.9
+    assert created["kwargs"]["temperature"] == 0.0
+    assert "CTX=Context text" in created["prompt"]
+    assert "Q=Question text" in created["prompt"]
+
+
+def test_generate_with_anthropic_missing_api_key_raises(monkeypatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        rag._generate_with_anthropic("context", "query")
+
+
+def test_anthropic_provider_generate_routes_and_invokes(monkeypatch) -> None:
+    captured = {}
+
+    def _fake_generate(context: str, query: str, settings=None) -> str:
+        captured["context"] = context
+        captured["query"] = query
+        captured["settings"] = settings
+        return "anthropic answer"
+
+    monkeypatch.setattr(rag, "_generate_with_anthropic", _fake_generate)
+    provider = rag.AnthropicLLMProvider(
+        settings={
+            "anthropic_model": "claude-haiku-4-5-20251001",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "max_new_tokens": 64,
+            "do_sample": False,
+            "timeout_seconds": 30,
+        }
+    )
+    answer = provider.generate("Section A: 30 days notice.", "Notice period?")
+    assert answer == "anthropic answer"
+    assert captured["query"] == "Notice period?"
+    assert "30 days" in captured["context"]
+
+
+def test_load_generation_config_anthropic_model_default_and_env(monkeypatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    rag.load_generation_config.cache_clear()
+    cfg = rag.load_generation_config()
+    assert cfg["anthropic_model"] == rag.DEFAULT_ANTHROPIC_MODEL
+
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    rag.load_generation_config.cache_clear()
+    cfg = rag.load_generation_config()
+    assert cfg["anthropic_model"] == "claude-haiku-4-5"

@@ -41,7 +41,7 @@ python-dotenv>=1.2.1                       # .env support for API keys
 # Optional LLM providers (uncomment when needed for faster inference)
 # langchain-openai>=0.3.0                  # OpenAI GPT
 # langchain-groq>=0.2.0                    # Groq (fast & cheap)
-# langchain-anthropic>=0.3.0               # Claude models
+langchain-anthropic>=0.3.0                 # Claude models (M7.8 demo / video tier)
 langchain-ollama                           # Local Ollama integration (safest local start)
 ollama                                     # Ollama Python client
 
