@@ -14,4 +14,4 @@ Older evaluation write-ups and plans. Useful if you need the full history of ret
 |------|------------|
 | [`eval-history/`](eval-history/) | Rounds 1–5 of NDA pilot evaluation (results + some plans) |
 
-Round-by-round files link to each other inside that folder. Paths elsewhere in the repo should point at `docs/archive/eval-history/`, not the old `docs/eval-history/` location.
+Round-by-round files link to each other inside that folder. Historical rounds live only under `docs/archive/eval-history/`.
