@@ -130,6 +130,8 @@ GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 
 Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
 
+**Where the URL goes:** after you publish, paste the public link into the **Walkthrough video** section of [`README.md`](../../README.md) (replace the TODO placeholder). That is the only required doc change to close #57.
+
 ### Learnings
 
 - The video should show **retrieval + citations + deploy path**, not raw local inference speed.

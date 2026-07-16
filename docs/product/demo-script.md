@@ -1,8 +1,8 @@
-# Demo video: 5-minute storyboard
+# Demo video: 3–5 minute storyboard
 
 ## Background
 
-Public outline for a short walkthrough of the live pilot. A fuller recording script (pre-flight checks, operator notes, extended Q&A) lives in local **`docs-private/demo-script.md`** (gitignored, not in this repo).
+Public outline for a short walkthrough of the live pilot. Aim for **3–5 minutes** on camera; cut a question if you run long. A fuller recording script (pre-flight checks, operator notes, extended Q&A) lives in local **`docs-private/demo-script.md`** (gitignored, not in this repo).
 
 > **Takeaway:** Show privacy, upload, cited answers, and honest limits. Record on the Anthropic demo tier for pace; close with the Ollama self-host architecture so buyers know both paths.
 
@@ -27,7 +27,7 @@ A technical buyer or evaluator who saw the [public Streamlit demo](https://ai-do
 
 ---
 
-## 🎬 Storyboard (~5 min)
+## 🎬 Storyboard (3–5 min)
 
 ```mermaid
 flowchart LR
@@ -40,12 +40,12 @@ flowchart LR
 
 | Time | Scene | Show | Say (gist) |
 |------|-------|------|------------|
-| 0:00–0:30 | Hook | Public demo dummy banner → live pilot login | “The free demo is UI-only. Here is the same app with a real model on a private VM.” |
-| 0:30–1:00 | Trust | HTTPS lock, basic-auth login, privacy note | “Documents stay in memory for the session. Nothing is stored on the shared pilot.” |
-| 1:00–2:00 | Upload | Upload sample NDA or retention policy; expand extracted text | “Upload a PDF. Policies, SOPs, reports, contracts. The app extracts text, chunks it, and builds a searchable index in-process.” |
-| 2:00–3:30 | Q&A | Two or three grounded questions with sources | Ask about retention, parties, or a clause; point to page citations. Fast answers because this recording uses the Anthropic demo tier. |
-| 3:30–4:20 | Limits | One question the model should refuse or hedge | Show “not in document” or session scope. Contrast with generic chatbots that invent answers. |
-| 4:20–5:00 | Close + tiers | [Architecture](architecture.md) (Ollama box) + [DEPLOYMENT](../../DEPLOYMENT.md) | “What you saw used a fast demo-tier LLM for recording. For air-gap and full privacy, the same Compose stack runs Ollama on your VPS. Next step is evaluation on your documents.” |
+| 0:00–0:25 | Hook | Public demo dummy banner → live pilot login | “The free demo is UI-only. Here is the same app with a real model on a private VM.” |
+| 0:25–0:50 | Trust | HTTPS lock, basic-auth login, privacy note | “Documents stay in memory for the session. Nothing is stored on the shared pilot.” |
+| 0:50–1:40 | Upload | Upload sample NDA or retention policy; expand extracted text | “Upload a PDF. Policies, SOPs, reports, contracts. The app extracts text, chunks it, and builds a searchable index in-process.” |
+| 1:40–3:20 | Q&A | **Two** grounded questions with sources (third only if under time) | Ask about retention, parties, or a clause; point to page citations. Fast answers because this recording uses the Anthropic demo tier. |
+| 3:20–4:00 | Limits | One question the model should refuse or hedge | Show “not in document” or session scope. Contrast with generic chatbots that invent answers. |
+| 4:00–5:00 | Close + tiers | [Architecture](architecture.md) (Ollama box) + [DEPLOYMENT](../../DEPLOYMENT.md) | “What you saw used a fast demo-tier LLM for recording. For air-gap and full privacy, the same Compose stack runs Ollama on your VPS. Next step is evaluation on your documents.” |
 
 ---
 
@@ -82,4 +82,8 @@ Embeddings stay local either way. Switching tiers is an env change, not a rewrit
 
 ## 📤 After recording
 
-When the walkthrough is published (Loom, YouTube unlisted, etc.), add the URL to the **Demo video** line in [README.md](../../README.md). No other code change is required until the link exists.
+1. Publish (Loom, YouTube unlisted, or similar). Share the **public** URL with the conductor chat (see blocker card for #57).
+2. Paste that URL into the **Walkthrough video** section of [README.md](../../README.md) (replace the TODO placeholder). Remove the “Status: TODO” line.
+3. No other code change is required for #57.
+
+Operator note: URL destination is **only** `README.md` → Walkthrough video. Storyboard stays here; packaging may later add a thumbnail.

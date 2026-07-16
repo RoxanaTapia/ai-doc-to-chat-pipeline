@@ -19,7 +19,15 @@ Upload a confidential PDF (policies, SOPs, reports, contracts, or internal handb
 The live pilot is password-protected. Credentials are not published here.
 [Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or once you have access use the [sample NDA](docs/product/sample-nda.pdf) or the [sample retention policy](docs/product/sample-policy.md) (export the markdown to PDF).
 
-**Demo video:** Coming after the demo-ready recording pass. Storyboard: [docs/product/demo-script.md](docs/product/demo-script.md).
+### Walkthrough video
+
+**Status:** TODO — public URL pending (recording hard gate).
+
+Once published (Loom or YouTube unlisted is fine), replace the placeholder below with the real link:
+
+> **Demo video:** *[URL pending]* · Storyboard: [docs/product/demo-script.md](docs/product/demo-script.md)
+
+Until then, use the [storyboard](docs/product/demo-script.md) for a live walkthrough, or [request access](https://www.upwork.com/freelancers/roxanadev) for a guided pilot session.
 
 > **Privacy note:** Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
 
@@ -73,7 +81,7 @@ Follow the [Deployment Guide](DEPLOYMENT.md). It covers VPS sizing, HTTPS with C
 
 Eval corpus: [sample NDA](docs/product/sample-nda.pdf) · [sample retention policy](docs/product/sample-policy.md) · [pilot evaluation](docs/product/pilot-evaluation.md).
 
-**What's next on this product:** demo-ready recording and a calm walkthrough video. Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+**What's next on this product:** publish the walkthrough video (URL into the section above), then calm packaging. Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ---
 
