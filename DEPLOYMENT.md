@@ -35,7 +35,7 @@ Architecture diagram: [docs/product/architecture.md](docs/product/architecture.m
 
 Model weights persist in the `ollama_models` Docker volume across restarts.
 
-> **Deploy ≠ demo.** CPU Ollama is fine for private evaluation. For a polished walkthrough video, prefer a faster demo-tier model when available (see operator notes). Do not expect YouTube-smooth latency from `phi3:mini` on a small VPS.
+> **Deploy ≠ demo.** CPU Ollama is fine for private evaluation. For a polished walkthrough video, use the [Anthropic demo tier](#anthropic-demo-tier). Do not expect YouTube-smooth latency from `phi3:mini` on a small VPS.
 
 ---
 
@@ -171,8 +171,28 @@ Settings cascade: `.env` overrides → `configs/config.yaml` → built-in defaul
 | `SITE_ADDRESS` | *(empty)* | Subdomain for Let's Encrypt (e.g. `demo.example.com`) |
 | `ACME_EMAIL` | *(empty)* | Let's Encrypt registration email |
 | `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` for bare-IP mode |
+| `LLM_PROVIDER` | *(empty → ollama)* | Set to `anthropic` for the fast demo tier |
+| `ANTHROPIC_API_KEY` | *(empty)* | Required when `LLM_PROVIDER=anthropic`; `.env` only, never git |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Optional Haiku override |
 
 Full list: [`.env.example`](.env.example)
+
+---
+
+## ⚡ Anthropic demo tier
+
+Use Anthropic when you need low-latency answers for demos or walkthrough recording. Ollama remains the self-host / air-gap path for private pilots.
+
+In `.env` only (never commit keys):
+
+```bash
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-key-here
+# Optional; default is Claude Haiku
+# ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+```
+
+Restart the app container after changing provider or key. Leave `LLM_PROVIDER` unset (or `ollama`) for the Compose + Ollama flow above.
 
 ---
 
