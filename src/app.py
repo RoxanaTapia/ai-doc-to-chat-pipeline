@@ -18,7 +18,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from rag import generate_answer, generate_answer_stream, load_generation_config
+from rag import (
+    generate_answer,
+    generate_answer_stream,
+    load_generation_config,
+    resolve_llm_provider_name,
+)
 from ocr import is_likely_scanned_page as _is_likely_scanned_page, ocr_page_text as _ocr_page_text
 from retrieval_quality import (
     INSUFFICIENT_CONTEXT_ANSWER,
@@ -106,6 +111,21 @@ def _presentation_mode() -> str:
 def _dev_toggle_allowed() -> bool:
     """Whether the sidebar shows the developer-mode toggle (opt-in only)."""
     return _env_bool("APP_ALLOW_DEV_TOGGLE", False)
+
+
+def _active_generator_label(dummy_mode: bool) -> str:
+    """Calm caption for the active generation backend (no secrets)."""
+    provider = resolve_llm_provider_name(dummy_mode=dummy_mode)
+    if provider == "dummy":
+        return "Dummy · UI placeholder (no LLM)"
+    settings = load_generation_config()
+    if provider == "anthropic":
+        model = settings.get("anthropic_model") or ""
+        return f"Anthropic · {model}" if model else "Anthropic"
+    if provider == "ollama":
+        model = settings.get("model") or ""
+        return f"Ollama · {model}" if model else "Ollama"
+    return provider
 
 
 def _inject_demo_styles() -> None:
@@ -1194,6 +1214,10 @@ if _dev_toggle_allowed():
     st.sidebar.caption(
         f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
     )
+
+st.sidebar.markdown("**Generator**")
+st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
+
 with st.sidebar.expander("About", expanded=False):
     st.markdown(
         """
@@ -1250,7 +1274,11 @@ if st.session_state.developer_mode:
         st.session_state.dummy_generator_only = st.checkbox(
             "Use dummy generator only (for testing)",
             value=st.session_state.dummy_generator_only,
-            help="ON: echo mode answer. OFF: try local Ollama and fallback if unavailable.",
+            help=(
+                "Used only when LLM_PROVIDER is unset. ON: placeholder answers. "
+                "OFF: Ollama. Non-empty LLM_PROVIDER (e.g. anthropic) always wins — "
+                "see Generator in the sidebar."
+            ),
         )
         st.caption(
             f"**Chunking:** header split **{'ON' if SPLIT_ON_LEGAL_HEADERS else 'OFF'}** "
