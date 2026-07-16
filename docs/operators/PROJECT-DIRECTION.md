@@ -2,7 +2,7 @@
 
 ## Background
 
-How to finish the pipeline for a freelance portfolio hero: Cursor discipline, code you understand, and a private document Q&A demo you’d show without apologizing for latency.
+How to finish this pipeline with Cursor discipline, code you understand, and a private document Q&A demo you can show without apologizing for latency.
 
 Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](../../AGENTS.md) · Docs index: [docs/README.md](../README.md)
 
@@ -10,11 +10,23 @@ Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](.
 
 ---
 
-## 🎯 Portfolio strategy (read first)
+## 🗺️ Milestone recap
+
+| Milestone | Goal | Status |
+|-----------|------|--------|
+| **M7** | Reference deployment | ✅ Shipped |
+| **M7.8** | Demo-ready LLM tier + streaming | 🚧 Next (#53–#57) |
+| **Video + packaging** | Walkthrough + calm README framing | After M7.8 |
+| **M8** | Thin `/health` + `/chat` API | After packaging (#58–#60) |
+| **M8.5 / M9–M12** | Eval export; persist; SSO; ops; light pack | Optional / client-triggered |
+
+---
+
+## 🎯 Product scope (read first)
 
 | Piece | Where | Role |
 |-------|-------|------|
-| **Hero** | **This repo** | Private RAG / document Q&A with sourced answers |
+| **This product** | **This repo** | Private RAG / document Q&A with sourced answers |
 | **Sibling** | receipt-intelligence-n8n | n8n + AI document→data workflows (separate repo) |
 | **Later** | Support MVP (new project) | Website chat + escalate + n8n → CRM |
 
@@ -24,23 +36,23 @@ This repo’s north star is **not** a website support assistant. Escalate/CRM be
 
 ## ⭐ North star
 
-> Upload a confidential PDF, ask a question, get a **fast** answer with **page citations** on **your** infrastructure. Optionally expose a **thin** `/health` + `/chat` API for proposals; keep eval export and persistence for when a buyer asks.
+> Upload a confidential PDF, ask a question, get a **fast** answer with **page citations** on **your** infrastructure. Optionally expose a **thin** `/health` + `/chat` API for integrations; keep eval export and persistence for when a buyer asks.
 
-If that sentence feels true after **demo + video + packaging**, you’re hire-me ready. Thin M8 is optional (job-post driven). Then pause this repo and start the Support MVP sibling unless a paid client needs more depth here.
+If that sentence feels true after **demo + video + packaging + thin M8**, this phase of the repo is complete. Then pause here and start the Support MVP sibling unless a paid client needs more depth.
 
 ---
 
 ## 🧭 Three objectives
 
-### 1. Cursor best practices (one chat per issue)
+### 1. Cursor best practices
 
 | Rule | Why |
 |------|-----|
-| **One GitHub issue → one Agent chat → one branch → one PR** | Clean history; you can explain each merge |
-| **Orchestrator commits; specialists don’t** | You approve `commit` / `push` |
-| **Use `/ship-issue #NN`** in a **new** chat per issue | Context stays small |
+| **One GitHub issue → one branch → one PR** | Clean history; each merge is explainable |
+| **Orchestrator commits; specialists don’t** | Train mode: orchestrator also pushes/merges when green (see AGENTS.md) |
+| **Use `/ship-issue #NN`** | Prefer one conductor chat for the delivery train; split if context grows |
 | **`/verify` before PR** | pytest; skip full `docker build` unless infra changed |
-| **PR starts with `## Main contribution`** | Outcome for buyer/you, not file list |
+| **PR starts with `## Main contribution`** | Outcome first, not a file list |
 
 **Branch names**
 
@@ -52,7 +64,7 @@ feat/m8-fastapi-chat       → closes #59
 
 **When stuck:** invoke `blocker-reporter` format in AGENTS.md; update Human decisions log; STOP.
 
-**Do not:** one mega-chat for M7.8; parallel edits on `src/rag.py` + `src/app.py` across two issues.
+**Do not:** one mega-PR for multiple issues; parallel edits on `src/rag.py` + `src/app.py` across two issues.
 
 ---
 
@@ -67,7 +79,7 @@ After each issue, you should answer **without opening Cursor**:
 | **Config** | `configs/config.yaml`, `.env` | What knob changes retrieval vs generation? |
 | **Deploy** | `docker-compose*.yml`, `DEPLOYMENT.md` | How does a request reach Ollama or API LLM? |
 
-**Per-issue learning habit (15 min after merge)**
+**Per-issue learning habit (15 min after merge, optional)**
 
 1. Read the diff yourself.
 2. Run the app locally: one upload, one question, dev sidebar on.
@@ -78,14 +90,14 @@ After each issue, you should answer **without opening Cursor**:
 
 ---
 
-### 3. Finish line (portfolio-ready hero)
+### 3. Finish line (demo-ready + thin API)
 
 | Phase | Milestones | “I’d use it / I’d show it” test |
 |-------|------------|----------------------------------|
 | **0** | M7 ✅ | You trust deploy; you don’t trust speed on VPS Ollama |
 | **1** | M7.8 → video → packaging | You’d show a colleague the video; README looks calm |
 | **2** | Thin M8 | You’d call `/chat` from curl in a proposal |
-| **2b** | M8.5 (optional) | You’d send an eval report for a RAG-audit gig |
+| **2b** | M8.5 (optional) | You’d send an eval report for a retrieval audit |
 | **3** | M9–M11 | Client-triggered |
 | **4** | M12 light | Short tiers/services one-pager |
 
@@ -99,7 +111,7 @@ After each issue, you should answer **without opening Cursor**:
 
 **Shipped:** Docker, Compose, Caddy, live pilot, DEPLOYMENT, architecture, demo storyboard.
 
-**Learnings:** Retrieval + citations are the core IP. CPU Ollama is an option, not the hero.
+**Learnings:** Retrieval + citations are the core IP. CPU Ollama is an option, not the walkthrough default.
 
 **Your action:** Close M7 on the board. Start Phase 1.
 
@@ -115,7 +127,7 @@ After each issue, you should answer **without opening Cursor**:
 | 54 | Anthropic adapter | rag-core-engineer, config-guardian | API keys, Haiku vs Sonnet |
 | 55 | Streamlit streaming | streamlit-engineer | UX; generators |
 | 56 | Docs + non-legal sample | docs-writer | Positioning; eval ≠ vertical |
-| 57 | Record video + README link | docs-writer (you record) | Sales asset |
+| 57 | Record video + README link | docs-writer (you record) | Walkthrough asset |
 
 ```mermaid
 flowchart LR
@@ -124,11 +136,12 @@ flowchart LR
   B --> D["#56 parallel"]
   C --> E["#57 record"]
   D --> E
-  E --> F[Packaging checklist]
-  F --> G[Pause for Support MVP]
+  E --> F[Packaging]
+  F --> G[Thin M8]
+  G --> H[Phase pause]
 ```
 
-After packaging: **pause** for Support MVP. Only continue to thin M8 if FastAPI keeps showing up in jobs you want.
+After packaging + thin M8: **pause** for Support MVP unless a paid engagement needs more here.
 
 **Env for recording (local, never commit)**
 
@@ -140,11 +153,11 @@ ANTHROPIC_API_KEY=sk-...
 
 ---
 
-### Phase 2: Thin market contract (optional)
+### Phase 2: Thin API contract
 
 **Milestones:** M8 ([#58–#60](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2))
 
-Serial #58 → #59 → #60. Only if job posts keep asking for FastAPI. Not required before Support MVP.
+Serial #58 → #59 → #60. Included in the default delivery train after packaging.
 
 ---
 
@@ -158,11 +171,11 @@ Serial #58 → #59 → #60. Only if job posts keep asking for FastAPI. Not requi
 
 **Milestones:** M9, M10, M11 (issues TBD via `/ship-milestone M9`)
 
-Not required for portfolio readiness.
+Not required for the demo-ready pause.
 
 ---
 
-### Phase 4: Light commercial pack
+### Phase 4: Light services pack
 
 **Milestone:** M12. Short services/tiers one-pager.
 
@@ -173,9 +186,9 @@ Not required for portfolio readiness.
 | Day | Activity |
 |-----|----------|
 | **Mon** | Pick one issue; move to In progress |
-| **Tue–Wed** | `/ship-issue` chat; understand diff; `commit` |
-| **Thu** | `/verify`; open PR; self-review |
-| **Fri** | Merge; 15 min learning notes; update board |
+| **Tue–Wed** | `/ship-issue` (or continue delivery train); understand diff |
+| **Thu** | `/verify`; PR; self-review |
+| **Fri** | Merge (or confirm train merge); optional learning notes; update board |
 
 **One issue per week** is enough for M7.8 in about 5 weeks including video.
 
@@ -196,7 +209,7 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 | Command | When |
 |---------|------|
 | `/ship-issue #53` | Implement one issue end-to-end |
-| `/ship-milestone M7.8` | Plan or status for a phase |
+| `/ship-milestone M7.8` | Run or plan a phase / delivery train |
 | `/verify` | Before every PR |
 
 ---
@@ -211,11 +224,12 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 | OpenAI | Optional after Anthropic works |
 | Pitch vertical | Confidential **documents**, not legal-only |
 | Support MVP / n8n CRM bot | Separate later project |
+| Commit / merge | Train mode in AGENTS.md (orchestrator merges when green) |
 
 ---
 
-## ✨ Success check (after Phase 1, + thin M8 if done)
+## ✨ Success check (after Phase 1 + thin M8)
 
-“I built private document Q&A with cited answers. Demo uses a fast API model; clients can run local Ollama on the same Docker stack. There’s a live pilot and a walkthrough video. When needed I can expose `/health` and `/chat`. I’d deploy this for a team with sensitive PDFs.”
+“I built private document Q&A with cited answers. The demo uses a fast API model; clients can run local Ollama on the same Docker stack. There’s a live pilot and a walkthrough video. When needed I can expose `/health` and `/chat`. I’d deploy this for a team with sensitive PDFs.”
 
-If that’s true, you’re ready for **first gig** conversations with proof, not promises.
+If that’s true, you’re ready for client conversations with proof, not promises.

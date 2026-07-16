@@ -10,18 +10,34 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 
 ---
 
+## 🗺️ Milestone recap
+
+| Milestone | Goal | Status |
+|-----------|------|--------|
+| **M7** | Reference deployment (Docker, Compose, Caddy, live pilot) | ✅ Shipped |
+| **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | 🚧 Next (#53–#57) |
+| **Video / packaging** | Walkthrough linked from README; calm product framing | After M7.8 |
+| **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | After packaging (#58–#60) |
+| **M8.5** | Eval report export | Optional (#61) |
+| **M9–M11** | Persist, access control, ops runbook | Client-triggered |
+| **M12** | Light services / tiers one-pager | Light |
+
+**North star:** private document Q&A with cited answers. Support MVP / n8n CRM is a **separate** later project.
+
+Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+
+---
+
 ## 🎯 Current focus
 
-- **Ship first:** M7.8 (#53–#57) → demo video → portfolio packaging (see ROADMAP).
-- **Then:** optional thin M8 (#58–#60), then **pause** for Support MVP (sibling project).
-- **Client-triggered later:** M8.5, M9–M11.
-- **North star:** private document Q&A (this repo). n8n CRM / website Support MVP = **separate later project**, not M8+ here.
+- **Ship next:** M7.8 (#53–#57) → demo video → packaging → thin M8 (#58–#60).
+- **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
+- **Later / on demand:** M8.5, M9–M11.
 
-### Hire-me train (default queue)
+### Delivery train (default queue)
 
 ```text
-#53 → #54 → (#55 ∥ #56) → #57 → packaging → [pause] → #58 → #59 → #60
-                                                      ↘ Support MVP (sibling repo)
+#53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60 → [pause]
 ```
 
 | Wave | Work | Agents | Human? |
@@ -31,8 +47,8 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 | 3a ∥ 3b | **#55** streaming · **#56** docs | streamlit (+ rag review) ∥ docs-writer | None if files stay split |
 | 4 | **#57** demo video + README | docs-writer prepares; **human records** | **Hard gate:** video URL |
 | 5 | **Packaging** | docs-writer | Soft: thumbnail / links OK |
-| — | **Pause** | orchestrator “hire-me ready” pulse | Support MVP elsewhere |
 | 6–8 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
+| — | **Pause** | orchestrator “phase complete” pulse | Support MVP elsewhere |
 
 ---
 
@@ -51,7 +67,7 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 
 Invoke by role name. Files live in `.cursor/agents/`.
 
-**Train roster cheat sheet:** orchestrator always on; rag-core on #53/#54/#58/#59; config on #53/#54/#59; streamlit on #55/#60; docs-writer on #56/#57/packaging + pulses/blockers; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
+**Train roster:** orchestrator always on; rag-core on #53/#54/#58/#59; config on #53/#54/#59; streamlit on #55/#60; docs-writer on #56/#57/packaging + pulses/blockers; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
 
 ---
 
@@ -73,7 +89,7 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #56 M7.8-4 docs + sample doc | docs-writer | - | 1–2 | parallel #55 |
 | #57 M7.8-5 demo video + README | docs-writer | human records | 1 | after #54–#56 |
 
-### M8: Thin FastAPI market contract (after video + packaging)
+### M8: Thin FastAPI contract (after video + packaging)
 
 | Issue | Primary | Secondary | Est. commits | Serial |
 |-------|---------|-----------|--------------|--------|
@@ -103,7 +119,7 @@ Only **milestone-orchestrator** runs `git commit`, push, and merge.
 
 ## 🚂 Train mode (low-touch orchestration)
 
-Default for the hire-me train: one conductor chat can run the full queue. Still **one issue = one branch = one PR**. Learning pass is optional and does **not** gate the next issue.
+Default for the delivery train: one conductor chat can run the full queue. Still **one issue = one branch = one PR**. Learning pass is optional and does **not** gate the next issue.
 
 ```mermaid
 flowchart TB
@@ -165,7 +181,7 @@ Keep it short. Operator supervises via these, not via “say commit.”
 2. **Secrets** — API keys and real hostnames stay in `.env` / VPS only; never in git.
 3. **CI still red** after one focused fix attempt — emit a Blocker card; do not loop forever.
 
-Soft gate: packaging thumbnail / marketing copy preference (default: continue with calm README hero; human can tweak later).
+Soft gate: packaging thumbnail / README emphasis (default: calm product framing; human can tweak later).
 
 ---
 
@@ -212,15 +228,15 @@ For the full queue, prefer `/ship-milestone M7.8` then continue into packaging +
 |----------|-----------------|-------|
 | VPS provider | Hetzner CPX32 (~€15/mo) | Falkenstein |
 | Demo / video LLM | **Anthropic Haiku** (`LLM_PROVIDER=anthropic`) | Fast recording; API key in `.env` only |
-| Self-host / air-gap LLM | Ollama (`phi3:mini` CPU; `llama3.1:8b` if RAM allows) | Not for YouTube hero |
+| Self-host / air-gap LLM | Ollama (`phi3:mini` CPU; `llama3.1:8b` if RAM allows) | Not for walkthrough video |
 | Domain / HTTPS | ai-doc-pilot.roxanatapia.dev | M7-6 done |
 | Pitch vertical | **Confidential documents** (not legal-only) | NDA = eval corpus |
 | Commit / merge policy | **Train mode:** orchestrator commits, pushes, merges when verifier + CI green | Operator may say `hold merges` for propose-only |
 | Private deploy repo | Deferred until M10 or first client | App stays public |
 | OpenAI provider | After Anthropic (#54) | Optional third backend |
 | Support MVP / n8n CRM bot | Separate later project | Not this repo’s M8+ north star |
-| M9–M11 depth | Client-triggered | Not required for portfolio readiness |
-| Thin M8 in hire-me train | **Include** (#58–#60 after packaging) | Then pause for Support MVP |
+| M9–M11 depth | Client-triggered | Not required for demo-ready pause |
+| Thin M8 in delivery train | **Include** (#58–#60 after packaging) | Then pause for Support MVP |
 
 ---
 
@@ -255,23 +271,25 @@ When stuck, invoke **blocker-reporter**, then ask **docs-writer** to polish into
 | **Blocker cards** | `blocker-reporter` + `docs-writer` polish | Human gates |
 | **AGENTS.md** | Human + orchestrator | Train policy, issues, decision log |
 
+Tone for operator docs and GitHub issues: calm and confident. Avoid “hire-me,” “Upwork niche,” or salesy framing. Client contact links in README are fine; milestone prose is not a pitch deck.
+
 After each phase slice: dispatch `docs-writer` to sync README + ROADMAP. Before opening a PR, docs-writer may polish the PR body (and issue text when needed).
 
 ---
 
 ## 📋 Operator prompts
 
-### Full hire-me train (preferred)
+### Full delivery train (preferred)
 
 ```text
-Act as milestone-orchestrator. Run the hire-me train:
+Act as milestone-orchestrator. Run the delivery train:
 #53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60.
 
 - Follow docs/operators/PROJECT-DIRECTION.md, docs/operators/ROADMAP.md, and AGENTS.md
 - Specialists must NOT commit; you commit, push, and merge when verifier + CI are green
 - After each merge, send a short Status pulse
 - On hard gates (#57 video URL, secrets, CI still red): Blocker card (docs-writer polish) and STOP
-- Do not start Support MVP in this repo; end with a hire-me-ready pulse
+- Do not start Support MVP in this repo; end with a phase-complete pulse
 ```
 
 ### Single issue (propose-only / hold merges)

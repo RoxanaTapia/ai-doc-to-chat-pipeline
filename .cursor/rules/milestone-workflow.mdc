@@ -7,8 +7,9 @@ alwaysApply: true
 
 ## Background
 
-Portfolio order: M7.8 → video → packaging → thin M8 → optional M8.5; M9–M11 client-triggered.
+Delivery order: M7.8 → video → packaging → thin M8 → optional M8.5; M9–M11 client-triggered.
 See `docs/operators/ROADMAP.md`. Do not treat Support MVP / n8n CRM as this repo’s core path.
+Keep operator and GitHub prose calm and confident; avoid “hire-me” / salesy framing.
 
 ## Issue → PR discipline
 

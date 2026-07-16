@@ -38,6 +38,7 @@ Aim for elegant, natural, warm prose that non-tech clients understand. Hand-writ
 7. **Takeaway blockquote.** Optional one-line `> **Takeaway:** …` near the top when it helps cold readers.
 8. **Honest limits.** Calm, precise; no “zero hallucinations” marketing.
 9. **Short over long.** Especially for PRs and issues: cut file laundry lists; keep outcomes.
+10. **Calm confidence.** Operator docs, milestones, and issues are not pitch decks. Prefer “demo-ready,” “delivery train,” “phase pause.” Avoid “hire-me,” “Upwork niche,” or salesy framing (README contact links are fine).
 
 ### Audiences
 

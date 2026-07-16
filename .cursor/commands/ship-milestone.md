@@ -1,8 +1,8 @@
 # Ship or plan a milestone train (M7.8–M12)
 
-Act as **milestone-orchestrator** for milestone: **$ARGUMENTS** (e.g. M7.8, M8, hire-me).
+Act as **milestone-orchestrator** for milestone: **$ARGUMENTS** (e.g. M7.8, M8, delivery).
 
-Follow **train mode** in `AGENTS.md` unless the operator said `hold merges`.
+Follow **train mode** in `AGENTS.md` unless the operator said `hold merges`. Keep prose calm; avoid salesy framing.
 
 ## If planning only (no code)
 
@@ -21,13 +21,13 @@ Follow **train mode** in `AGENTS.md` unless the operator said `hold merges`.
 - On hard gates (#57 video URL, secrets, CI still red): Blocker card (`docs-writer` polish) and **STOP**.
 - Do not start Support MVP / n8n CRM as this repo’s next work.
 
-### Default hire-me train
+### Default delivery train
 
 ```text
 #53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60
 ```
 
-End with a hire-me-ready pulse after packaging + thin M8 (or after packaging if M8 is deferred).
+End with a phase-complete pulse after packaging + thin M8 (or after packaging if M8 is deferred).
 
 ## Milestone definitions of done
 

@@ -1,25 +1,42 @@
-# Production roadmap (portfolio-aligned)
+# Production roadmap
 
 ## Background
 
-For contributors and operators. Evolves the pipeline from a **reference deployment** into a **hire-me hero demo**: fast cited answers on a walkthrough, then a thin API for proposals. Deep production (persist / SSO / ops) is client-triggered, not the default climb after M7.
+For contributors and operators. Moves the pipeline from a **reference deployment** to a **demo-ready** private document Q&A product: fast cited answers on a walkthrough, then a thin API for integrations. Deeper production work (persist / SSO / ops) is client-triggered, not the default climb after M7.
 
-> **Takeaway:** Ship M7.8 → video → packaging first. Thin M8 next. Support MVP / n8n CRM is a separate later project.
+> **Takeaway:** Ship M7.8 → video → packaging → thin M8. Support MVP / n8n CRM is a separate later project.
 
-**Positioning:** private **document Q&A** for confidential PDFs (contracts, policies, SOPs, reports, internal KB exports), not legal-only. LLM backend is swappable: local Ollama (air-gap) or Anthropic/OpenAI (speed for demo and SaaS-style pilots).
+**Positioning:** private **document Q&A** for confidential PDFs (contracts, policies, SOPs, reports, internal KB exports), not legal-only. LLM backend is swappable: local Ollama (air-gap) or Anthropic/OpenAI (speed for demos and pilots).
 
-**Streamlit Cloud** = UI-only marketing demo (dummy generation). **Live pilot** = real RAG on your VPS. **M7.8** = demo-quality generation so the video is recordable.
+**Streamlit Cloud** = UI-only marketing demo (dummy generation). **Live pilot** = real RAG on your VPS. **M7.8** = demo-quality generation so the walkthrough is recordable.
 
 ---
 
-## 🎯 Portfolio strategy
+## 🗺️ Milestone recap
 
-Three-piece Upwork niche (only the first is this repo’s north star):
+| Milestone | Goal | Proof of done | Priority |
+|-----------|------|---------------|----------|
+| **M7** | Reference deployment | Live HTTPS pilot + `DEPLOYMENT.md` | ✅ Done |
+| **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | **Ship next** |
+| **Video (#57)** | Published walkthrough | Link in README | After M7.8 |
+| **Packaging** | Calm product framing | Clear pilot + Cloud + video links | After video |
+| **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | After packaging |
+| **M8.5** | Eval harness export | Before/after retrieval report | Optional |
+| **M9** | Persistent ingestion | PDFs + vectors survive restart | Client-triggered |
+| **M10** | Access control | SSO / auth proxy + `SECURITY.md` | Client-triggered |
+| **M11** | Ops & runbook | Backup, monitoring, `RUNBOOK.md` | Client-triggered |
+| **M12** | Light services pack | Pilot tiers, `SERVICES.md` one-pager | Light |
+
+**React UI:** optional, only if a client or RFP requires it.
+
+---
+
+## 🎯 Product scope
 
 | Piece | Repo / project | Role |
 |-------|----------------|------|
-| **Hero** | **This repo (ai-doc)** | Private RAG / document Q&A with sourced answers; pilot already live |
-| **Sibling story** | [receipt-intelligence-n8n](https://github.com/RoxanaTapia/receipt-intelligence-n8n) | n8n + AI workflow automation |
+| **This product** | **ai-doc (this repo)** | Private RAG / document Q&A with sourced answers; pilot already live |
+| **Sibling** | [receipt-intelligence-n8n](https://github.com/RoxanaTapia/receipt-intelligence-n8n) | n8n + AI workflow automation |
 | **Later** | Support MVP (separate project) | Website chat + RAG + escalate + n8n → CRM |
 
 **Out of scope for this repo’s north star**
@@ -32,47 +49,28 @@ Three-piece Upwork niche (only the first is this repo’s north star):
 
 ## 🗺️ Phase map
 
-| Phase | Milestones | You can say to clients / Upwork |
-|-------|------------|----------------------------------|
-| **0. Shipped** | M7 ✅ | “Reproducible private pilot on one VM; live URL; deployment guide.” |
-| **1. Demo & trust** | **M7.8** → video → **portfolio packaging** | “Fast, cited answers on a walkthrough; calm README; clear pilot + Cloud links.” |
-| **2. Thin market contract** | **M8** (optional) | “Not Streamlit-only: `/health`, `/chat`, OpenAPI” when jobs ask for it. |
-| **2b. Optional next** | **M8.5** eval | “Before/after retrieval report for buyers / RAG audit gigs.” |
-| **3. Client-triggered** | M9 → M11 | “Docs survive restart; SSO; runbooks” when a pilot/RFP needs them |
-| **4. Light commercial** | M12 | “Pilot tiers / services one-pager” |
+| Phase | Milestones | Outcome you can stand behind |
+|-------|------------|------------------------------|
+| **0. Shipped** | M7 ✅ | Reproducible private pilot on one VM; live URL; deployment guide |
+| **1. Demo & trust** | **M7.8** → video → **packaging** | Fast, cited answers on a walkthrough; calm README; clear pilot + Cloud links |
+| **2. Thin API** | **M8** | Not Streamlit-only: `/health`, `/chat`, OpenAPI |
+| **2b. Optional** | **M8.5** eval | Reproducible retrieval report for audits |
+| **3. Client-triggered** | M9 → M11 | Docs survive restart; SSO; runbooks when a pilot/RFP needs them |
+| **4. Light pack** | M12 | Pilot tiers / services one-pager |
 
 ```mermaid
 flowchart TD
   M7[M7 shipped] --> M78[M7.8 demo tier]
   M78 --> V[Demo video]
-  V --> P[Portfolio packaging]
-  P --> Pause[Hire-me ready pause]
+  V --> P[Packaging]
+  P --> M8[Thin M8 API]
+  M8 --> Pause[Phase pause]
   Pause --> Support[Support MVP sibling project]
-  Pause -.->|optional if jobs ask| M8[Thin M8 API]
   M8 -.-> M85[M8.5 eval optional]
   Pause -.->|client-triggered| M9[M9–M11]
 ```
 
-**Hire-me ready** after Phase 1 (video + packaging). Thin M8 only if FastAPI keeps showing up in job posts. Then **pause this repo** and start the Support MVP sibling unless a paid client needs more depth here. M8.5 and M9–M12 do not unlock Support MVP.
-
----
-
-## 📋 Milestone overview
-
-| Milestone | Goal | Hire-me proof | Priority |
-|-----------|------|---------------|----------|
-| **M7** | Reference deployment | Live HTTPS pilot + `DEPLOYMENT.md` | ✅ Done |
-| **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | **Ship first** |
-| **M7-7 / #57** | Demo video | YouTube/Loom linked from README | After M7.8 |
-| **Portfolio packaging** | Upwork-ready framing | 16:9 thumbnail, calm README hero, clear links | After video |
-| **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | Optional after packaging |
-| **M8.5** | Eval harness export | Before/after retrieval report | Optional / secondary |
-| **M9** | Persistent ingestion | PDFs + vectors survive restart | Client-triggered |
-| **M10** | Access control | SSO / auth proxy + `SECURITY.md` | Client-triggered |
-| **M11** | Ops & runbook | Backup, monitoring, `RUNBOOK.md` | Client-triggered |
-| **M12** | Light commercial pack | Pilot tiers, `SERVICES.md` one-pager | Light |
-
-**React UI:** optional, only if a client or RFP requires it.
+**Phase pause** after packaging + thin M8: this repo is demo-ready and integration-ready. Then focus the Support MVP sibling unless a paid client needs more depth here. M8.5 and M9–M12 do not unlock Support MVP.
 
 ---
 
@@ -92,9 +90,9 @@ flowchart TD
 
 ### Learnings (M7)
 
-- **Deploy ≠ demo.** HTTPS + Compose proves you ship; CPU Ollama (~30–40s/answer) does not sell on video.
-- **One issue → one PR** kept infra reviewable for IT buyers.
-- **Honest limits** in README build more trust than “zero hallucinations.”
+- **Deploy ≠ demo.** HTTPS + Compose proves the stack; CPU Ollama (~30–40s/answer) is too slow for a walkthrough video.
+- **One issue → one PR** kept infra reviewable for technical buyers.
+- **Honest limits** in README build more trust than overstated claims.
 
 ---
 
@@ -120,7 +118,7 @@ flowchart TD
 | M7.8-2 | How API keys stay in `.env`, never git; same RAG context, different backend |
 | M7.8-3 | Streamlit `st.write_stream` or generator pattern |
 | M7.8-4 | Product narrative ≠ code; eval corpus (NDA) ≠ market vertical |
-| M7.8-5 | Marketing asset; no new Python required |
+| M7.8-5 | Walkthrough asset; no new Python required |
 
 **Serial order:** #53 → #54 → #55; #56 parallel with #55; #57 after #54–#56.
 
@@ -134,27 +132,27 @@ Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record u
 
 ### Learnings
 
-- Video sells **retrieval + citations + deploy path**, not raw local inference speed.
+- The video should show **retrieval + citations + deploy path**, not raw local inference speed.
 - Pre-warm the model; run storyboard questions once before Record.
 
 ---
 
-## Portfolio packaging (after video)
+## Packaging (after video)
 
 | Item | Outcome |
 |------|---------|
 | Thumbnail story | Calm 16:9 still (upload → cited answer) |
-| README hero | Private document Q&A framing; pilot + Cloud links obvious |
+| README framing | Private document Q&A; pilot + Cloud links obvious |
 | Video link | README Demo video line points at published walkthrough |
 | Honest tiers | Demo (API LLM) vs self-host (Ollama) stated once |
 
-**Definition of done:** A cold visitor understands what you sell and where to click in under a minute.
+**Definition of done:** A first-time reader understands the product and where to go next in under a minute.
 
 ---
 
-## M8: Thin market contract (FastAPI)
+## M8: Thin FastAPI contract
 
-Thin integration surface after video + packaging. Enough for proposals. Not a large API rewrite gate.
+Thin integration surface after video + packaging. Enough for proposals and integrations. Not a large API rewrite gate.
 
 | Issue | Outcome | GitHub |
 |-------|---------|--------|
@@ -208,7 +206,7 @@ GitHub milestone: [M8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/mi
 
 ---
 
-## M12: Light commercial pack
+## M12: Light services pack
 
 - Short `docs/SERVICES.md` / pilot tiers one-pager
 - Video link maintained in README
@@ -218,15 +216,15 @@ GitHub milestone: [M8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/mi
 
 ---
 
-## 💼 When to sell
+## ✅ Engagement readiness
 
-| Stage | You can… |
-|-------|----------|
-| **Now (M7)** | RAG retrieval audit; private pilot deploy; Upwork with live URL |
-| **After M7.8 + video + packaging** | Confident walkthrough; portfolio-ready hero |
-| **After thin M8** | Proposals that mention `/health` + `/chat` / OpenAPI |
-| **After M8.5** | RAG audit / eval-harness gigs with reproducible reports |
-| **After M9–M11 (client-scoped)** | Serious production contracts |
+| Stage | You can confidently offer |
+|-------|---------------------------|
+| **Now (M7)** | RAG retrieval review; private pilot deploy; live URL |
+| **After M7.8 + video + packaging** | Walkthrough with cited answers; clear demo vs self-host story |
+| **After thin M8** | Integrations via `/health` + `/chat` / OpenAPI |
+| **After M8.5** | Reproducible retrieval reports for audits |
+| **After M9–M11 (client-scoped)** | Deeper production contracts |
 
 ---
 
@@ -256,6 +254,6 @@ Client-readable diagram: [product/architecture.md](../product/architecture.md).
 | Commands | `/ship-issue`, `/ship-milestone`, `/verify` |
 | Rules | `.cursor/rules/milestone-workflow.mdc` |
 
-**Loop:** pick GitHub issue → **new Agent chat** → `/ship-issue #NN` → review code yourself → `commit` → merge → next issue.
+**Loop (train mode):** pick GitHub issue → conductor chat → `/ship-issue #NN` → verifier → orchestrator commit/PR/merge → status pulse → next issue. See [AGENTS.md](../../AGENTS.md).
 
 Issue map: M7.8 [#53–#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/7) · M8 [#58–#60](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2) · M8.5 [#61](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2)
