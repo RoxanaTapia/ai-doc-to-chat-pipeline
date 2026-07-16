@@ -101,3 +101,39 @@ def context_sufficient_for_query(query: str, context: str) -> tuple[bool, str | 
         return False, "obligation_markers_missing"
 
     return True, None
+
+
+def _similarity_score(doc: Document) -> float:
+    """UI similarity from metadata; missing/non-numeric → lowest."""
+    score = doc.metadata.get("similarity")
+    if isinstance(score, (int, float)):
+        return float(score)
+    return float("-inf")
+
+
+def sort_source_docs(
+    docs: list[Document],
+    *,
+    target_section: str | None,
+) -> list[Document]:
+    """
+    Order Sources for display: on-section first, then similarity descending.
+
+    When ``target_section`` is set, section-matched chunks rank above off-section
+    ones; within each group, higher ``metadata["similarity"]`` wins. With no
+    target section, order by similarity only. Missing scores sort last.
+    """
+    if not docs:
+        return []
+
+    if not target_section:
+        return sorted(docs, key=_similarity_score, reverse=True)
+
+    # Local import keeps retrieval_quality free of a hard sectioning cycle.
+    from sectioning import chunk_on_section
+
+    return sorted(
+        docs,
+        key=lambda doc: (chunk_on_section(doc, target_section), _similarity_score(doc)),
+        reverse=True,
+    )
