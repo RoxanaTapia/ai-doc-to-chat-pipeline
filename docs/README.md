@@ -14,7 +14,7 @@ Start here when you want to understand the product, deploy it, or contribute. Do
 |-------------|------------|------|
 | **Evaluating the product** | [How it works](product/architecture.md) | [Demo storyboard](product/demo-script.md), [Pilot evaluation](product/pilot-evaluation.md) |
 | **Deploying on a VPS** | [DEPLOYMENT.md](../DEPLOYMENT.md) | [Architecture](product/architecture.md) |
-| **Browsing as a buyer** | [README](../README.md) | Live pilot + [sample NDA](product/sample-nda.pdf) |
+| **Browsing as a buyer** | [README](../README.md) | Live pilot + [sample NDA](product/sample-nda.pdf) / [sample policy](product/sample-policy.md) |
 | **Shipping milestones** | [PROJECT-DIRECTION](operators/PROJECT-DIRECTION.md) | [ROADMAP](operators/ROADMAP.md), [AGENTS.md](../AGENTS.md) |
 | **Testing OCR** | [Testing OCR](operators/testing-ocr.md) | Local Docker steps |
 
@@ -35,14 +35,14 @@ flowchart LR
 ```text
 docs/
   README.md          ← you are here
-  product/           ← how it works, demo, evaluation, sample NDA
+  product/           ← how it works, demo, evaluation, sample docs
   operators/         ← roadmap, direction, OCR testing
   archive/           ← older eval rounds (not primary reading)
 ```
 
 | Folder | Role |
 |--------|------|
-| [`product/`](product/) | Client-readable: architecture, demo script, evaluation summary, sample NDA |
+| [`product/`](product/) | Client-readable: architecture, demo script, evaluation, sample NDA + policy |
 | [`operators/`](operators/) | Roadmap, project direction, contributor how-tos |
 | [`archive/`](archive/) | Historical eval rounds; keep for reference, not day-one reading |
 
@@ -54,4 +54,4 @@ docs/
 - **Live pilot:** [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev)
 - **Public UI demo:** [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app)
 - **Self-host:** [DEPLOYMENT.md](../DEPLOYMENT.md)
-- **Sample upload:** [product/sample-nda.pdf](product/sample-nda.pdf)
+- **Sample uploads:** [product/sample-nda.pdf](product/sample-nda.pdf) · [product/sample-policy.md](product/sample-policy.md) (export to PDF)

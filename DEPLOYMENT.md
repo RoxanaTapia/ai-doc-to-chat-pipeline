@@ -6,7 +6,7 @@ For IT buyers and operators standing up a single-VM pilot: Docker Compose + Olla
 
 Architecture diagram: [docs/product/architecture.md](docs/product/architecture.md)
 
-> **Takeaway:** Start Ollama first, pull a small model on CPU hosts, then bring up the app (and Caddy for HTTPS). Verify with curl before you invite evaluators.
+> **Takeaway:** Two LLM tiers, one Compose app: **self-host** (Ollama, private / air-gap) and **demo** (Anthropic Haiku, low latency for recording). Start Ollama first for the default path, then bring up the app (and Caddy for HTTPS).
 
 ---
 
@@ -179,9 +179,18 @@ Full list: [`.env.example`](.env.example)
 
 ---
 
-## ⚡ Anthropic demo tier
+## ⚡ Demo tier vs self-host tier
 
-Use Anthropic when you need low-latency answers for demos or walkthrough recording. Ollama remains the self-host / air-gap path for private pilots.
+Same app and embeddings; only the answer-generation backend changes.
+
+| Tier | Env | Best for | Honest limit |
+|------|-----|----------|--------------|
+| **Self-host** | `LLM_PROVIDER` unset or `ollama` | Private pilots, air-gap, documents stay on your VM | CPU Ollama can take tens of seconds per answer |
+| **Demo** | `LLM_PROVIDER=anthropic` + API key in `.env` | Walkthrough recording, snappy demos | Generation uses Anthropic; do not treat this as air-gap |
+
+Walkthrough storyboard: [docs/product/demo-script.md](docs/product/demo-script.md). Record with the demo tier; show the Ollama architecture for self-host.
+
+### Anthropic demo tier
 
 In `.env` only (never commit keys):
 
