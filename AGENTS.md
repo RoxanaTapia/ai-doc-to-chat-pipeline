@@ -15,8 +15,10 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 | Milestone | Goal | Status |
 |-----------|------|--------|
 | **M7** | Reference deployment (Docker, Compose, Caddy, live pilot) | ✅ Shipped |
-| **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | 🚧 Next (#53–#57) |
-| **Video / packaging** | Walkthrough linked from README; calm product framing | After M7.8 |
+| **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | ✅ Shipped (#53–#56; #57 video open) |
+| **M7.9** | Interface polish | ✅ Shipped (#70–#73) |
+| **M7.95** | Sources trust | 🚧 Next (#80–#83) |
+| **Video / packaging** | Walkthrough linked from README; calm product framing | After M7.95 (#57) |
 | **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | After packaging (#58–#60) |
 | **M8.5** | Eval report export | Optional (#61) |
 | **M9–M11** | Persist, access control, ops runbook | Client-triggered |
@@ -30,21 +32,22 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ## 🎯 Current focus
 
-- **Ship next:** M7.8 (#53–#57) → demo video → packaging → thin M8 (#58–#60).
+- **Ship next:** M7.95 Sources trust (#80–#83) → demo video (#57) → packaging → thin M8 (#58–#60).
 - **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
 - **Later / on demand:** M8.5, M9–M11.
 
 ### Delivery train (default queue)
 
 ```text
-#53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60 → [pause]
+M7.8 ✅ → M7.9 ✅ → (#80 ∥ #83) → #81 → #82 → #57 → packaging → #58 → #59 → #60 → [pause]
 ```
 
 | Wave | Work | Agents | Human? |
 |------|------|--------|--------|
-| 1 | **#53** LLMProvider + env | rag-core → config-guardian → verifier | Only if design ambiguous |
-| 2 | **#54** Anthropic adapter | rag-core → config-guardian → verifier | Secrets on VPS/local only |
-| 3a ∥ 3b | **#55** streaming · **#56** docs | streamlit (+ rag review) ∥ docs-writer | None if files stay split |
+| — | M7.8 + M7.9 | shipped | — |
+| 1a ∥ 1b | **#80** Sources cap · **#83** header chunking | config + streamlit ∥ rag-core → verifier | None |
+| 2 | **#81** sort Sources | rag-core → streamlit → verifier | None |
+| 3 | **#82** answer-overlap filter | rag-core → streamlit → verifier | None |
 | 4 | **#57** demo video + README | docs-writer prepares; **human records** | **Hard gate:** video URL |
 | 5 | **Packaging** | docs-writer | Soft: thumbnail / links OK |
 | 6–8 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
@@ -59,8 +62,8 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 | `milestone-orchestrator` | All | Queue, branches, commits, PRs, **merges**, pulses | Direct app code edits |
 | `deploy-engineer` | M7, M11 | `Dockerfile`, `docker-compose*.yml`, `Caddyfile`, `deploy/` | `src/app.py`, `src/rag.py` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
-| `rag-core-engineer` | M7.8, M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
-| `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload wiring | Docker, FastAPI internals, visual redesigns |
+| `rag-core-engineer` | M7.8, M7.95, M8, M9, M12 | `src/rag.py`, `src/sectioning.py`, `src/retrieval_quality.py`, `src/rag/**`, `src/api/**` | Streamlit layout polish, Docker |
+| `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload/Sources payload wiring | Docker, FastAPI internals, visual redesigns |
 | `streamlit-ux-designer` | M7.9 UI polish | Layout, IA, microcopy, chat/sources readability | Docker, FastAPI, RAG providers |
 | `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose, **blocker card polish** | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
@@ -68,7 +71,7 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 Invoke by role name. Files live in `.cursor/agents/`.
 
-**Train roster:** orchestrator always on; rag-core on #53/#54/#58/#59; config on #53/#54/#59; streamlit on #55/#60; **streamlit-ux-designer on M7.9**; docs-writer on #56/#57/packaging + pulses/blockers; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
+**Train roster:** orchestrator always on; **rag-core + config + streamlit on M7.95 (#80–#83)**; streamlit-ux only if Sources captions need polish; docs-writer on #57/packaging + pulses; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
 
 ---
 
@@ -98,6 +101,15 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #71 M7.9-2 copy + empty/ready states | streamlit-ux-designer | docs-writer (tone) | 1 | after #70 |
 | #72 M7.9-3 sidebar IA | streamlit-ux-designer | - | 1 | after #71 |
 | #73 M7.9-4 chat + Sources readability | streamlit-ux-designer | streamlit-engineer (edge) | 1–2 | after #72 |
+
+### M7.95: Sources trust (before video)
+
+| Issue | Primary | Secondary | Est. commits | Serial |
+|-------|---------|-----------|--------------|--------|
+| #80 M7.95-1 Sources display cap | config-guardian | streamlit-engineer | 1 | ∥ #83 |
+| #81 M7.95-2 sort on-section → score | rag-core-engineer | streamlit-engineer | 1–2 | after #80; prefer after #83 |
+| #82 M7.95-3 answer-overlap filter | rag-core-engineer | streamlit-engineer | 2 | after #81 |
+| #83 M7.95-4 tighter header chunking | rag-core-engineer | config-guardian | 1–2 | ∥ #80 |
 
 ### M8: Thin FastAPI contract (after video + packaging)
 
