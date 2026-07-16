@@ -1,12 +1,16 @@
 # Deployment Guide
 
-Single-VM pilot: Docker Compose + Ollama on a VPS or your laptop. No source-code changes required.
+## Background
 
-Architecture: [docs/architecture-pilot.md](docs/architecture-pilot.md)
+For IT buyers and operators standing up a single-VM pilot: Docker Compose + Ollama on a VPS or your laptop. No source-code changes required.
+
+Architecture diagram: [docs/product/architecture.md](docs/product/architecture.md)
+
+> **Takeaway:** Start Ollama first, pull a small model on CPU hosts, then bring up the app (and Caddy for HTTPS). Verify with curl before you invite evaluators.
 
 ---
 
-## Prerequisites
+## ✅ Prerequisites
 
 | Requirement | Notes |
 |-------------|-------|
@@ -19,21 +23,32 @@ Architecture: [docs/architecture-pilot.md](docs/architecture-pilot.md)
 
 ---
 
-## VPS sizing
+## 💻 VPS sizing
 
 | Profile | Hardware | Model | Use | Cost |
 |---------|----------|-------|-----|------|
 | **CPU pilot** | 4 vCPU / 8 GB RAM (e.g. Hetzner CPX32) | `phi3:mini` | Evaluations, demos | ~€15/mo |
 | **GPU** | 8 GB+ VRAM | `llama3.1:8b` | Better quality, faster inference | ~$50–200+/mo |
 
-- **`phi3:mini`** — fits comfortably on 8 GB; first answer cold-starts in 30–60 s. Set `OLLAMA_NUM_CTX=1024` or `2048` in `.env` to avoid OOM.
-- **`llama3.1:8b`** — noticeably better answers; needs GPU or large-RAM host. On CPU-only 8 GB you will likely hit OOM.
+- **`phi3:mini`:** fits comfortably on 8 GB; first answer cold-starts in 30–60 s. Set `OLLAMA_NUM_CTX=1024` or `2048` in `.env` to avoid OOM.
+- **`llama3.1:8b`:** noticeably better answers; needs GPU or large-RAM host. On CPU-only 8 GB you will likely hit OOM.
 
 Model weights persist in the `ollama_models` Docker volume across restarts.
 
+> **Deploy ≠ demo.** CPU Ollama is fine for private evaluation. For a polished walkthrough video, prefer a faster demo-tier model when available (see operator notes). Do not expect YouTube-smooth latency from `phi3:mini` on a small VPS.
+
 ---
 
-## Deploy on a VPS (recommended path)
+## 🚀 Deploy on a VPS (recommended path)
+
+```mermaid
+flowchart TD
+  A[Prepare server + firewall] --> B[Clone and configure .env]
+  B --> C[Generate basic auth]
+  C --> D[Start Ollama + pull model]
+  D --> E[Start stack with Caddy]
+  E --> F[Verify HTTPS + login]
+```
 
 ### 1. Prepare the server
 
@@ -43,7 +58,7 @@ sudo apt-get update && sudo apt-get install -y git ca-certificates curl
 sudo usermod -aG docker "$USER"   # log out and back in after this
 ```
 
-**Firewall** — open only what Caddy needs; keep Streamlit and Ollama internal:
+**Firewall:** open only what Caddy needs; keep Streamlit and Ollama internal:
 
 ```bash
 sudo ufw allow OpenSSH
@@ -117,11 +132,11 @@ curl -sk -o /dev/null -w "%{http_code}\n" -u demo:YOUR_PASSWORD https://YOUR_DOM
 
 Open `https://YOUR_DOMAIN` in a browser. Sign in, upload a PDF, ask a question.
 
-**Later — switch from IP to domain:** set `SITE_ADDRESS=your.domain.com` + `ACME_EMAIL`, remove `CADDYFILE=./Caddyfile.ip`, recreate Caddy. Let's Encrypt issues the cert automatically.
+**Later, switch from IP to domain:** set `SITE_ADDRESS=your.domain.com` + `ACME_EMAIL`, remove `CADDYFILE=./Caddyfile.ip`, recreate Caddy. Let's Encrypt issues the cert automatically.
 
 ---
 
-## Local development
+## 🖥️ Local development
 
 ```bash
 # Start Ollama
@@ -141,7 +156,7 @@ For Caddy locally: same `docker compose -f docker-compose.yml -f docker-compose.
 
 ---
 
-## Environment variables
+## ⚙️ Environment variables
 
 Settings cascade: `.env` overrides → `configs/config.yaml` → built-in defaults.
 
@@ -153,26 +168,26 @@ Settings cascade: `.env` overrides → `configs/config.yaml` → built-in defaul
 | `USE_DUMMY_GENERATOR` | `false` | Must be `false` for real answers |
 | `APP_PRESENTATION_MODE` | `client` | `client` hides dev debug panels |
 | `APP_ALLOW_DEV_TOGGLE` | `false` | `true` only for local retrieval tuning |
-| `SITE_ADDRESS` | — | Subdomain for Let's Encrypt (e.g. `demo.example.com`) |
-| `ACME_EMAIL` | — | Let's Encrypt registration email |
+| `SITE_ADDRESS` | *(empty)* | Subdomain for Let's Encrypt (e.g. `demo.example.com`) |
+| `ACME_EMAIL` | *(empty)* | Let's Encrypt registration email |
 | `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` for bare-IP mode |
 
 Full list: [`.env.example`](.env.example)
 
 ---
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| `app` never starts | Ollama not healthy yet | `docker compose logs ollama` — wait for `healthy` |
-| Connection refused on Ollama | Wrong host or app started before Ollama ready | Use Compose; `OLLAMA_HOST` must be `http://ollama:11434` not `localhost` |
-| `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f docker-compose.caddy.yml`; check `docker compose ps` shows `caddy` Up |
+| `app` never starts | Ollama not healthy yet | `docker compose logs ollama` (wait for `healthy`) |
+| Connection refused on Ollama | Wrong host or app started too early | Use Compose; `OLLAMA_HOST` must be `http://ollama:11434`, not `localhost` |
+| `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f docker-compose.caddy.yml`; confirm `caddy` is Up |
 | **401** with correct password | Wrong hash in conf file | Re-run `./deploy/generate-caddy-auth.sh`, restart Caddy |
-| **ERR_SSL_PROTOCOL_ERROR** / TLS error (592) | Stale cert or mismatched cert/key | Re-run `./deploy/generate-ip-tls.sh YOUR_IP`, wipe Caddy volumes, recreate |
+| **ERR_SSL_PROTOCOL_ERROR** / TLS error | Stale or mismatched cert/key | Re-run `./deploy/generate-ip-tls.sh YOUR_IP`, wipe Caddy volumes, recreate |
 | **Model not found** in chat | Model not pulled or name mismatch | `docker compose exec ollama ollama pull phi3:mini`; set `OLLAMA_MODEL` to same tag |
 | OOM / very slow on CPU | Model too large for RAM | Use `phi3:mini`; set `OLLAMA_NUM_CTX=1024` in `.env` |
-| Slow first answer | Cold model start | Normal on first query; subsequent answers faster |
+| Slow first answer | Cold model start | Normal on first query; later answers are faster |
 | Disk full during pull | ~4 GB needed | `docker system df`; prune unused images |
 
 Quick diagnostics:

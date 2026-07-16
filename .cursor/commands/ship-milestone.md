@@ -1,29 +1,32 @@
-# Ship or plan a milestone (M7–M12)
+# Ship or plan a milestone (M7.8–M12)
 
-Act as **milestone-orchestrator** for milestone: **$ARGUMENTS** (e.g. M7, M8).
+Act as **milestone-orchestrator** for milestone: **$ARGUMENTS** (e.g. M7.8, M8, M9).
 
 ## If planning only (no code)
 
-- Read `docs/ROADMAP.md` for that milestone.
-- List GitHub issues (create draft issue bodies if none exist for M8+).
-- Produce: issue order, dependencies, agent assignments, parallel windows, human blockers, expected PR count, 2-week schedule.
+- Read `docs/operators/ROADMAP.md` and `docs/operators/PROJECT-DIRECTION.md` for that milestone.
+- List GitHub issues; draft bodies for any missing work.
+- Produce: issue order, dependencies, agent assignments, parallel windows, human blockers, expected PR count.
 - Invoke **blocker-reporter** for undecided items without AGENTS.md defaults.
 - **Do not write code.**
 
 ## If implementing
 
-- Work **one issue at a time** unless I explicitly request `/parallel-m7-bootstrap`.
-- Follow `/ship-m7-issue` workflow per issue for M7 (#33–#39).
+- Work **one issue at a time** in a **new Agent chat** per issue.
+- Use `/ship-issue #NN` workflow.
 - PR bodies must start with **`## Main contribution`** (see milestone-workflow rule).
-- For M8+: dispatch **rag-core-engineer**, **config-guardian**, **deploy-engineer** as ROADMAP specifies.
 
 ## Milestone definitions of done
 
-- **M7:** HTTPS demo, DEPLOYMENT.md, 7 PRs, real Ollama
-- **M8:** FastAPI `/health`, `/chat`, OpenAPI
-- **M9:** Postgres/pgvector persistence survives reboot
-- **M10:** SSO + SECURITY.md
-- **M11:** RUNBOOK.md + monitoring
-- **M12:** Anthropic provider + SERVICES.md + demo video link
+- **M7:** ✅ HTTPS pilot, DEPLOYMENT.md, Compose (shipped)
+- **M7.8:** Swappable LLM, Anthropic demo tier, streaming, recordable walkthrough
+- **Video (#57):** Link in README after M7.8
+- **Portfolio packaging:** Calm README hero, pilot + Cloud links, 16:9 thumbnail story (after video)
+- **M8 (thin):** `/health`, `/chat`, OpenAPI; modest `src/rag/` extract (not a large rewrite gate)
+- **M8.5:** Eval export (optional / secondary after thin M8)
+- **M9–M11:** Client-triggered (persist, SSO, runbook); not default portfolio path
+- **M12:** Light services/tiers one-pager (providers ship in M7.8)
+
+Follow portfolio order in `docs/operators/ROADMAP.md`. Do not plan Support MVP / n8n CRM as this repo’s M8+.
 
 Report: schedule, blockers, recommended next issue for human to approve.

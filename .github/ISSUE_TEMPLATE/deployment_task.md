@@ -9,7 +9,7 @@ labels:
 
 ## Milestone
 
-<!-- e.g. M7 — Reference deployment (single-VM pilot) -->
+<!-- e.g. M7: Reference deployment (single-VM pilot) -->
 
 ## Outcome
 
@@ -19,7 +19,7 @@ labels:
 
 - [ ] 
 - [ ] 
-- [ ] Update `DEPLOYMENT.md` or `docs/ROADMAP.md` if needed
+- [ ] Update `DEPLOYMENT.md` or `docs/operators/ROADMAP.md` if needed
 
 ## Definition of done
 

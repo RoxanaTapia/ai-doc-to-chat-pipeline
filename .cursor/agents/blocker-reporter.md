@@ -2,7 +2,7 @@
 name: blocker-reporter
 description: >-
   Escalation specialist for human decisions only. VPS, domain, SSO, model sizing,
-  pricing, client infra. Writes blocker summaries — never edits code. Use when
+  pricing, client infra. Writes blocker summaries, never edits code. Use when
   orchestrator or specialists lack a default from AGENTS.md.
 ---
 
@@ -37,6 +37,6 @@ You are the **blocker-reporter** for ai-doc-to-chat-pipeline.
 | Model | phi3:mini vs llama3.1:8b |
 | HTTPS | Wait for domain vs IP + basic auth |
 | SSO (M10) | Entra ID vs Cloudflare Access |
-| Engine (M12) | Ollama vs Anthropic API |
+| Engine (M7.8) | Ollama vs Anthropic API (demo tier) |
 
 Stop the pipeline after reporting; orchestrator waits for human.

@@ -1,156 +1,175 @@
 # Agent orchestration playbook
 
-How this repo uses Cursor **rules**, **subagents**, and **slash commands** to deliver milestones M7–M12 with clean one-issue-one-PR history.
+## Background
 
-Full roadmap: [docs/ROADMAP.md](docs/ROADMAP.md) · M7 GitHub milestone: [#1](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/1)
+How this repo uses Cursor **rules**, **subagents**, and **slash commands** to deliver milestones with clean one-issue-one-PR history.
+
+**Operator guide:** [docs/operators/PROJECT-DIRECTION.md](docs/operators/PROJECT-DIRECTION.md) · **Roadmap:** [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md) · **Docs index:** [docs/README.md](docs/README.md)
+
+> **Takeaway:** One issue, one chat, one PR. Specialists edit; only the orchestrator commits.
 
 ---
 
-## Agent roster
+## 🎯 Current focus
+
+- **Ship first:** M7.8 (#53–#57) → demo video → portfolio packaging (see ROADMAP).
+- **Then pause** for Support MVP (sibling project). **Optional:** thin M8 if jobs ask for FastAPI. **Client-triggered later:** M8.5, M9–M11.
+- **North star:** private document Q&A (this repo). n8n CRM / website Support MVP = **separate later project**, not M8+ here.
+
+---
+
+## 👥 Agent roster
 
 | Role (`name`) | Milestones | Owns | Must NOT touch |
 |---------------|------------|------|----------------|
 | `milestone-orchestrator` | All | Reads issues, branches, PR plan | Direct code edits |
 | `deploy-engineer` | M7, M11 | `Dockerfile`, `docker-compose*.yml`, `Caddyfile`, `deploy/` | `src/app.py`, `src/rag.py` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
-| `rag-core-engineer` | M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
+| `rag-core-engineer` | M7.8, M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
 | `streamlit-engineer` | All UI | `src/app.py` | Docker, FastAPI internals |
-| `docs-writer` | M7, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README** (status, deploy pointers, production vision — not app code) | Python except docstrings |
+| `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
 | `blocker-reporter` | All | Blocker summaries | Code changes |
 
-Invoke by role name: `deploy-engineer`, not persona names. Files live in `.cursor/agents/`.
+Invoke by role name. Files live in `.cursor/agents/`.
 
 ---
 
-## M7 issue → agent mapping
+## 🗺️ Issue → agent mapping
 
-| Issue | Primary | Secondary (parallel) | Est. commits |
-|-------|---------|----------------------|--------------|
-| #33 M7-1 Dockerfile | deploy-engineer | — | 1–2 |
-| #34 M7-2 compose | deploy-engineer | config-guardian | 1–2 |
-| #35 M7-3 health gate | deploy-engineer | docs-writer | 1–2 |
-| #36 M7-4 env | config-guardian | docs-writer | 1 |
-| #37 M7-5 DEPLOYMENT.md | docs-writer | deploy-engineer (review) | 1–2 |
-| #38 M7-6 Caddy | deploy-engineer | — | 2–3 | **Done** — live at ai-doc-pilot.roxanatapia.dev |
-| #39 M7-7 demo assets | docs-writer | — | 1–2 |
+### M7 ✅ shipped (#33–#39)
 
----
+| Issue | Primary | Status |
+|-------|---------|--------|
+| #33–#39 | see git history | Done. Live at ai-doc-pilot.roxanatapia.dev |
 
-## Parallel vs serial
+### M7.8: Demo-ready tier (ship first)
 
-**Safe in parallel:** M7-1 Dockerfile + M7-4 `.env.example`; docs-writer + config-guardian on different files.
+| Issue | Primary | Secondary | Est. commits | Serial |
+|-------|---------|-----------|--------------|--------|
+| #53 M7.8-1 LLMProvider + env | rag-core-engineer | config-guardian | 2–3 | - |
+| #54 M7.8-2 Anthropic adapter | rag-core-engineer | config-guardian | 2 | after #53 |
+| #55 M7.8-3 Streamlit streaming | streamlit-engineer | rag-core-engineer (review) | 1–2 | after #54 |
+| #56 M7.8-4 docs + sample doc | docs-writer | - | 1–2 | parallel #55 |
+| #57 M7.8-5 demo video + README | docs-writer | human records | 1 | after #54–#56 |
 
-**Must be serial:** M7-2 after M7-1 merges; same-file edits (`docker-compose.yml`, `src/app.py`); verifier last before PR.
+### M8: Thin FastAPI market contract (after video + packaging)
 
-**Do not parallelize** two agents on `docker-compose.yml`, `src/app.py`, or `README.md` in one issue.
+| Issue | Primary | Secondary | Est. commits | Serial |
+|-------|---------|-----------|--------------|--------|
+| #58 M8-1 extract `src/rag/` | rag-core-engineer | verifier | 2–4 | - |
+| #59 M8-2 FastAPI `/health` `/chat` | rag-core-engineer | config-guardian | 2–3 | after #58 |
+| #60 M8-3 Streamlit → API | streamlit-engineer | rag-core-engineer | 2 | after #59 |
 
-Only **milestone-orchestrator** runs `git commit` after parallel subagents return.
+### M8.5: Eval export (optional / next)
 
----
-
-## GitHub workflow
-
-1. Pick issue → move to **In progress** on Project board.
-2. Run `/ship-m7-issue` or orchestrator prompt with issue `#NN`.
-3. Branch: `feat/m7-<short-name>` (one branch per issue).
-4. Specialists edit; orchestrator splits **1–2 granular commits** (see ROADMAP).
-5. `verifier` runs before PR.
-6. PR body: **`## Main contribution`** paragraph first (outcome, why it matters), then Summary, Test plan, and `Closes #NN`. Push/merge only when human approves.
+| Issue | Primary | Secondary | Est. commits |
+|-------|---------|-----------|--------------|
+| #61 M8.5-1 eval report export | rag-core-engineer | verifier | 2 |
 
 ---
 
-## Slash commands
+## 🔀 Parallel vs serial
+
+**Safe in parallel:** #56 docs-writer while #55 streamlit (different files).
+
+**Must be serial:** #53 → #54 → #55 (`src/rag.py`, `src/app.py`); #58 → #59 → #60; verifier last before PR.
+
+**Do not parallelize** two agents on `src/rag.py`, `src/app.py`, or `README.md` in one issue.
+
+Only **milestone-orchestrator** runs `git commit`.
+
+---
+
+## 🐙 GitHub workflow
+
+```mermaid
+flowchart LR
+  A[Pick issue] --> B[New Agent chat]
+  B --> C["/ship-issue #NN"]
+  C --> D[Specialists edit]
+  D --> E[Verifier]
+  E --> F[Orchestrator commits]
+  F --> G[PR with Main contribution]
+```
+
+1. Pick issue → **In progress** on Project board.
+2. **New Agent chat** → `/ship-issue #NN`.
+3. Branch: `feat/m7-8-<short-name>` (or `feat/m8-<short-name>`).
+4. Specialists edit; orchestrator splits **1–2 granular commits**.
+5. `verifier` before PR.
+6. PR: **`## Main contribution`** first, `Closes #NN`. Push/merge when human approves.
+7. **15 min learning pass** (see PROJECT-DIRECTION).
+
+---
+
+## ⌨️ Slash commands
 
 | Command | Purpose |
 |---------|---------|
-| `/ship-m7-issue` | Ship one M7 GitHub issue end-to-end |
-| `/ship-milestone` | Plan or batch a milestone (M7–M12) |
+| `/ship-issue` | Ship one GitHub issue end-to-end (**use this**) |
+| `/ship-m7-issue` | Alias → same as `/ship-issue` |
+| `/ship-milestone` | Plan or status for M7.8–M12 |
 | `/verify` | pytest + ruff; report gaps |
-| `/parallel-m7-bootstrap` | One-time parallel M7-1 + M7-4 + DEPLOYMENT skeleton |
 
 ---
 
-## Human decisions log
-
-Defaults when orchestrator would otherwise stall. **Update this table when you decide.**
+## 🧾 Human decisions log
 
 | Decision | Current default | Notes |
 |----------|-----------------|-------|
-| VPS provider | Hetzner CPX32 (~€15/mo) | **Running** — `bougie-main-01`, Falkenstein |
-| Ollama model (demo CPU) | `phi3:mini` | `llama3.1:8b` when GPU available; `OLLAMA_NUM_CTX=1024` on 8 GB |
-| Domain / HTTPS | `ai-doc-pilot.roxanatapia.dev` | **Live** — Let's Encrypt via Caddy, M7-6 done |
-| Commit policy | Orchestrator proposes; human says `commit` | No push without explicit approval |
-| Private deploy repo | Deferred until M10 or first client | App code stays public |
-| LLM for pilots | Ollama default; Anthropic in M12 | Same RAG, swappable backend |
+| VPS provider | Hetzner CPX32 (~€15/mo) | Falkenstein |
+| Demo / video LLM | **Anthropic Haiku** (`LLM_PROVIDER=anthropic`) | Fast recording; API key in `.env` only |
+| Self-host / air-gap LLM | Ollama (`phi3:mini` CPU; `llama3.1:8b` if RAM allows) | Not for YouTube hero |
+| Domain / HTTPS | ai-doc-pilot.roxanatapia.dev | M7-6 done |
+| Pitch vertical | **Confidential documents** (not legal-only) | NDA = eval corpus |
+| Commit policy | Orchestrator proposes; human says `commit` | No push without approval |
+| Private deploy repo | Deferred until M10 or first client | App stays public |
+| OpenAI provider | After Anthropic (#54) | Optional third backend |
+| Support MVP / n8n CRM bot | Separate later project | Not this repo’s M8+ north star |
+| M9–M11 depth | Client-triggered | Not required for portfolio readiness |
 
 ---
 
-## Blocker template
-
-Specialists and `blocker-reporter` use this format:
+## 🚧 Blocker template
 
 ```markdown
 ## Blocker
-- **Issue:** #NN or M7-x
-- **Decision needed:** (e.g. VPS provider, domain, model size)
-- **Options:** A / B with cost tradeoff
-- **Default if no reply:** (from Human decisions log above)
+- **Issue:** #NN
+- **Decision needed:** (e.g. Anthropic model id, streaming UX)
+- **Options:** A / B with tradeoff
+- **Default if no reply:** (from Human decisions log)
 - **Blocks:** list of files/issues
 ```
 
 ---
 
-## Documentation maintenance
-
-Keep user-facing docs aligned when milestones ship or deployment behavior changes.
+## 📚 Documentation maintenance
 
 | File | Owner | Update when |
 |------|-------|-------------|
-| **README.md** | `docs-writer` | Milestone status changes, new deploy paths — **client-facing only** |
-| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` review | Compose, env, VPS, HTTPS, troubleshooting (technical buyers + IT) |
-| **docs/ROADMAP.md** | `docs-writer` | M7–M12 scope or definition-of-done changes (contributors) |
-| **docs/architecture-pilot.md** | `docs-writer` | Architecture target changes (client/IT summary) |
-| **docs/demo-script.md** | `docs-writer` | Public stub only — link placeholder until video ships |
-| **`docs-private/`** | Human + `docs-writer` | **Local only (gitignored)** — sales playbook, env switches, full roadmap detail, demo recording script, infra notes |
-| **AGENTS.md** | Human + orchestrator | New agents, decision log, issue→agent map |
+| **README.md** | `docs-writer` | Phase changes; video link (client-facing) |
+| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` | LLM provider setup, Compose |
+| **docs/operators/ROADMAP.md** | `docs-writer` | Milestone scope changes |
+| **docs/operators/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
+| **docs/README.md** | `docs-writer` | Docs structure / index |
+| **PR / issue prose** | `docs-writer` | Short warm Main contribution; issue Outcome + DoD |
+| **AGENTS.md** | Human + orchestrator | New issues, decision log |
 
-**Audience split**
-
-| Audience | Read | Do not put here |
-|----------|------|-----------------|
-| **Clients / buyers** | README | Issue numbers, agent names, env priority chains, sales scripts |
-| **Client IT** | DEPLOYMENT.md, architecture-pilot | Internal pricing, VPS provider picks, funnel scripts |
-| **You / operators** | `docs-private/` | Real hostnames, secrets, client names |
-| **Contributors** | AGENTS.md, ROADMAP | Sales playbook |
-
-**Bootstrap `docs-private/`** on a new machine: copy or recreate the folder locally (see index in your existing `docs-private/README.md`). It is never committed.
-
-**After merging a GitHub milestone slice** (e.g. M7 complete, M8 started):
-
-1. Orchestrator or human opens a **docs issue** or adds sub-task: “Sync README + ROADMAP status.”
-2. Dispatch **`docs-writer` only** — do not parallelize with code issues on the same PR unless docs-only.
-3. **README** stays **short and client-facing** — no operator jargon, env implementation detail, milestone issue numbers, or duplicate deploy commands. Link to `DEPLOYMENT.md` for setup ([`docs-commercial` rule](.cursor/rules/docs-commercial.mdc)).
-4. **Operator / sales detail** (funnel scripts, VPS provider picks, “the switches”, clone-vs-URL hosting, demo recording checklist) lives in **`docs-private/`** on your machine — never committed. After shipping public docs, sync the matching `docs-private/` file if one exists.
-
-There is **no separate README agent** — use **`docs-writer`** for README status, deploy sections, and production narrative.
+After each phase slice: dispatch `docs-writer` to sync README + ROADMAP. Before opening a PR, docs-writer may polish the PR body (and issue text when needed).
 
 ---
 
-- **Public repo:** app code, generic Compose, `DEPLOYMENT.md`, agents/rules (this file).
-- **Private deploy repo (later):** client hostnames, SSO configs, production secrets — not duplicated app logic.
-
----
-
-## Operator prompt (copy per issue)
+## 📋 Operator prompt (copy per issue)
 
 ```text
 Act as milestone-orchestrator. Ship GitHub issue #NN.
 
-- Branch: feat/m7-<short-name>
-- Follow docs/ROADMAP.md and milestone-workflow rules
+- New branch from main: feat/<phase>-<short-name>
+- Follow docs/operators/PROJECT-DIRECTION.md and docs/operators/ROADMAP.md
 - Specialists must NOT commit; you split 1–2 granular commits
 - Run verifier before PR
+- After merge I will read the diff myself (learning pass)
 - If blocker: invoke blocker-reporter and STOP
 - Do not push unless I say push
 ```

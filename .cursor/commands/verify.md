@@ -1,4 +1,4 @@
-# Verify — tests and quality gate
+# Verify: tests and quality gate
 
 Act as **verifier**. Run quality checks before a PR.
 
@@ -19,6 +19,6 @@ Use the verifier report format from `.cursor/agents/verifier.md`:
 - Test gaps
 - Required fixes before PR
 
-**Do not** implement feature fixes in `src/` — report which specialist should fix failures.
+**Do not** implement feature fixes in `src/`, report which specialist should fix failures.
 
 Optional scope: $ARGUMENTS

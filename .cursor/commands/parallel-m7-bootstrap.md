@@ -4,7 +4,7 @@ Act as **milestone-orchestrator**. Run the **one-time** parallel bootstrap for M
 
 **Prerequisite:** Confirm with me that no VPS/domain is required yet (placeholders OK).
 
-## Parallel batch (Task tool — 3 subagents at once)
+## Parallel batch (Task tool, 3 subagents at once)
 
 | Agent | Scope ONLY | Files |
 |-------|------------|-------|
@@ -19,7 +19,7 @@ Act as **milestone-orchestrator**. Run the **one-time** parallel bootstrap for M
 1. List file conflicts (if any).
 2. List blockers via **blocker-reporter** if needed.
 3. Recommend **separate PRs** merge order: M7-1 → M7-4 → M7-5 (issues #33, #36, #37).
-4. **Do NOT** implement docker-compose.yml (#34) — blocked until M7-1 merges.
+4. **Do NOT** implement docker-compose.yml (#34), blocked until M7-1 merges.
 
 ## Commits
 

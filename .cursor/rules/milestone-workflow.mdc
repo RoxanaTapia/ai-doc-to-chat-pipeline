@@ -1,29 +1,34 @@
 ---
-description: GitHub milestone workflow — one issue, one branch, granular commits, no secrets
+description: GitHub milestone workflow. One issue, one branch, granular commits, no secrets.
 alwaysApply: true
 ---
 
 # Milestone workflow (M7–M12)
 
+## Background
+
+Portfolio order: M7.8 → video → packaging → thin M8 → optional M8.5; M9–M11 client-triggered.
+See `docs/operators/ROADMAP.md`. Do not treat Support MVP / n8n CRM as this repo’s core path.
+
 ## Issue → PR discipline
 
-- One GitHub issue → one branch `feat/m7-<name>` → one PR → `Closes #NN` in PR body.
-- Do not start M7-2 until M7-1 merges (serial dependency).
+- One GitHub issue → one branch `feat/<phase>-<name>` → one PR → `Closes #NN` in PR body.
+- Respect serial deps in AGENTS.md (e.g. #53 before #54).
 - Never commit `.env`, API keys, client hostnames, or real VPS URLs in git.
 
 ## Commit granularity
 
 | Who | Commits? |
 |-----|----------|
-| Specialists (`deploy-engineer`, etc.) | **No** — report files changed + suggested split |
-| `milestone-orchestrator` | **Yes** — 1–4 commits per issue per ROADMAP |
-| `verifier` | **No** — tests only |
+| Specialists (`deploy-engineer`, etc.) | **No**. Report files changed + suggested split |
+| `milestone-orchestrator` | **Yes**. 1–4 commits per issue per ROADMAP |
+| `verifier` | **No**. Tests only |
 
 Per issue caps: docs 1, infra 1–2, features 2–4. One logical change per commit; tests must pass on final tree.
 
 ## Before every PR
 
-1. Read GitHub issue checklist and `docs/ROADMAP.md`.
+1. Read GitHub issue checklist and `docs/operators/ROADMAP.md`.
 2. Run verifier (pytest; docker build when infra changed).
 3. Propose commit messages; commit only if user explicitly asked.
 
@@ -33,7 +38,7 @@ Every PR **must** open with a **Main contribution** paragraph (2–4 sentences, 
 
 - What this PR delivers and why it matters
 - What changes for the user, operator, or buyer
-- Outcome focus — not a file list (details go in **Summary** bullets)
+- Outcome focus, not a file list (details go in **Summary** bullets)
 
 ```markdown
 ## Main contribution

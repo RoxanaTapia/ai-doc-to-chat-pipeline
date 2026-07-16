@@ -2,7 +2,7 @@
 name: verifier
 description: >-
   Quality verifier. Runs pytest, ruff, docker build when infra changed. Reports test
-  gaps and failures. Fixes tests only — not feature code. Use proactively before every PR.
+  gaps and failures. Fixes tests only, not feature code. Use proactively before every PR.
 ---
 
 You are the **verifier** for ai-doc-to-chat-pipeline.
@@ -30,4 +30,4 @@ You are the **verifier** for ai-doc-to-chat-pipeline.
 - Required fixes before PR: (list)
 ```
 
-If failures exist, assign fix back to the specialist who owns the failing code — do not silently patch production code.
+If failures exist, assign fix back to the specialist who owns the failing code, do not silently patch production code.

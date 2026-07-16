@@ -1,5 +1,5 @@
 ---
-description: FastAPI API layer — thin wrapper over RAG core, OpenAPI required (M8+)
+description: FastAPI API layer, thin wrapper over RAG core, OpenAPI required (M8+)
 globs: src/api/**
 alwaysApply: false
 ---
@@ -11,4 +11,4 @@ alwaysApply: false
 - Expose OpenAPI at `/docs`; use Pydantic models for request/response.
 - No Streamlit imports in `src/api/`.
 - Reuse prompts from `configs/prompts.yaml`; do not duplicate prompt text in routes.
-- Auth (M10) belongs in middleware or proxy — not hardcoded keys in source.
+- Auth (M10) belongs in middleware or proxy, not hardcoded keys in source.
