@@ -4,7 +4,7 @@
 
 This document records an **honest evaluation** of the reference stack on a realistic document type — not a marketing scorecard. It shows what the pilot does well today, where answers need human review, and how we test before a client engagement.
 
-Architecture and deployment: [architecture-pilot.md](architecture-pilot.md) · [DEPLOYMENT.md](../DEPLOYMENT.md)
+Architecture and deployment: [architecture.md](../../product/architecture.md) · [DEPLOYMENT.md](../../../DEPLOYMENT.md)
 
 ---
 
