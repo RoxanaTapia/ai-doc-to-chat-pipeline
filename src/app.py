@@ -1199,19 +1199,7 @@ _init_session_state()
 _on_new_browser_session()
 _apply_presentation_mode_lock()
 
-if _dev_toggle_allowed():
-    st.session_state.developer_mode = st.sidebar.toggle(
-        "Developer mode (show retrieval debug)",
-        value=st.session_state.developer_mode,
-        help=(
-            "ON: show retrieval ranking and chunk diagnostics. "
-            "OFF: cleaner client-facing presentation."
-        ),
-    )
-    st.sidebar.caption(
-        f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
-    )
-
+# Sidebar IA: Generator → About → How to use → Cloud → developer controls
 st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
 
@@ -1254,6 +1242,23 @@ if _is_probably_streamlit_cloud():
         "Chat responses are placeholders.\n\n"
         "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
         "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
+    )
+
+# Developer controls stay below client-facing sections
+if _dev_toggle_allowed() or st.session_state.developer_mode:
+    st.sidebar.divider()
+
+if _dev_toggle_allowed():
+    st.session_state.developer_mode = st.sidebar.toggle(
+        "Developer mode (show retrieval debug)",
+        value=st.session_state.developer_mode,
+        help=(
+            "ON: show retrieval ranking and chunk diagnostics. "
+            "OFF: cleaner client-facing presentation."
+        ),
+    )
+    st.sidebar.caption(
+        f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
     )
 
 if st.session_state.developer_mode:
