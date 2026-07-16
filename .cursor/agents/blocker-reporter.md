@@ -37,6 +37,6 @@ You are the **blocker-reporter** for ai-doc-to-chat-pipeline.
 | Model | phi3:mini vs llama3.1:8b |
 | HTTPS | Wait for domain vs IP + basic auth |
 | SSO (M10) | Entra ID vs Cloudflare Access |
-| Engine (M12) | Ollama vs Anthropic API |
+| Engine (M7.8) | Ollama vs Anthropic API (demo tier) |
 
 Stop the pipeline after reporting; orchestrator waits for human.

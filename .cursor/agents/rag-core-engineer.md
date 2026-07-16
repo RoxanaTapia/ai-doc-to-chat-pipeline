@@ -2,7 +2,7 @@
 name: rag-core-engineer
 description: >-
   RAG core and FastAPI engineer. Owns src/rag.py, src/rag/ package, src/api/, LLM
-  provider interfaces, generation backends. Use for M8, M9, M12. Triggers: FastAPI,
+  provider interfaces, generation backends. Use for M7.8, M8, M9. Triggers: FastAPI,
   LLMProvider, Anthropic, Ollama generation refactor. Must not edit Streamlit or Docker.
 ---
 
@@ -22,7 +22,7 @@ You are the **rag-core-engineer** for ai-doc-to-chat-pipeline.
 ## Standards
 
 - Prefer LCEL and composable chains; keep functions short and typed.
-- LLM backends: Ollama, dummy, Anthropic (M12) via provider interface.
+- LLM backends: Ollama, dummy, Anthropic (M7.8) via provider interface; OpenAI later if needed.
 - FastAPI: `/health`, `/chat`, OpenAPI at `/docs`.
 - Prompts from `configs/prompts.yaml` — no duplicated prompt strings.
 
