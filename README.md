@@ -19,7 +19,7 @@ Your team's contracts, policies, and reports stay on **your server**. Upload a P
 The live pilot is password-protected — credentials are not published here.
 [Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or use the [sample NDA](docs/sample-nda.pdf) once you have access.
 
-**Demo video:** Walkthrough recording in progress — [5-minute storyboard](docs/demo-script.md). Link will appear here when published.
+**Demo video:** Record after **M7.8** (Anthropic demo tier) — storyboard in [docs/demo-script.md](docs/demo-script.md). Track: [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
 
 > **Privacy note:** Uploaded files are processed in memory and never stored — each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
 
@@ -37,7 +37,7 @@ Everything runs on one VM. Your documents never leave your environment.
 
 ## What it does well
 
-- **Contracts, NDAs, policies, reports** — find clauses, obligations, dates, parties
+- **Contracts, NDAs, policies, SOPs, reports** — find clauses, obligations, dates, definitions
 - **Sourced answers** — every response cites the page and excerpt it used
 - **Private by design** — local embeddings, local LLM, no cloud API required
 - **Auditable** — Docker Compose stack your IT team can review and reproduce
@@ -67,7 +67,7 @@ I deploy private document AI from single-VM pilots to production-shaped stacks o
 
 Follow the [Deployment Guide](DEPLOYMENT.md) — covers VPS sizing, HTTPS with Caddy, basic auth, and a step-by-step walkthrough. Evaluated on a sample NDA: [pilot evaluation](docs/pilot-evaluation.md).
 
-**Roadmap:** persistent indexes · API layer · SSO · flexible LLM backend (Ollama or private cloud API)
+**Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md) · **Next:** M7.8 demo tier ([#53–#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/7)) → video + packaging → thin FastAPI `/health` + `/chat`
 
 ---
 
