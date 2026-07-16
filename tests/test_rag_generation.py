@@ -366,3 +366,185 @@ def test_load_generation_config_anthropic_model_default_and_env(monkeypatch) -> 
     rag.load_generation_config.cache_clear()
     cfg = rag.load_generation_config()
     assert cfg["anthropic_model"] == "claude-haiku-4-5"
+
+
+def test_generate_answer_stream_dummy_yields_placeholder() -> None:
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Section A says notice period is 30 days.",
+            query="What is the notice period?",
+            dummy_mode=True,
+        )
+    )
+    assert len(chunks) == 1
+    assert "no AI model is running here" in chunks[0]
+    assert "live pilot" in chunks[0]
+
+
+def test_generate_answer_stream_empty_query_yields_error() -> None:
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Some context",
+            query="   ",
+            dummy_mode=True,
+        )
+    )
+    assert chunks == ["Please enter a non-empty question."]
+
+
+def test_dummy_provider_stream_yields_one_chunk() -> None:
+    provider = rag.DummyLLMProvider()
+    chunks = list(provider.stream("ctx", "q"))
+    assert chunks == [rag.DUMMY_UI_RESPONSE]
+
+
+def test_stream_with_anthropic_uses_langchain_stream(monkeypatch) -> None:
+    created = {}
+
+    class FakeChatAnthropic:
+        def __init__(self, **kwargs):
+            created["kwargs"] = kwargs
+
+        def stream(self, prompt):
+            created["prompt"] = prompt
+            yield SimpleNamespace(content="Cited ")
+            yield SimpleNamespace(content="answer.")
+
+        def invoke(self, prompt):
+            raise AssertionError("invoke should not be used for streaming path")
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(rag, "ChatAnthropic", FakeChatAnthropic)
+    monkeypatch.setattr(
+        rag,
+        "load_generation_config",
+        lambda: {
+            "anthropic_model": "claude-haiku-4-5-20251001",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "max_new_tokens": 64,
+            "do_sample": False,
+            "timeout_seconds": 30,
+        },
+    )
+    monkeypatch.setattr(rag, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
+
+    chunks = list(rag._stream_with_anthropic("Context text", "Question text"))
+
+    assert chunks == ["Cited ", "answer."]
+    assert created["kwargs"]["model"] == "claude-haiku-4-5-20251001"
+    assert created["kwargs"]["api_key"] == "test-key-not-real"
+    assert "CTX=Context text" in created["prompt"]
+    assert "Q=Question text" in created["prompt"]
+
+
+def test_generate_answer_stream_anthropic_env(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    def _fake_stream(context: str, query: str, settings=None):
+        yield "chunk-a"
+        yield "chunk-b"
+
+    monkeypatch.setattr(rag, "_stream_with_anthropic", _fake_stream)
+
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Clause text",
+            query="What applies?",
+            dummy_mode=True,
+        )
+    )
+    assert chunks == ["chunk-a", "chunk-b"]
+
+
+def test_anthropic_provider_stream_falls_back_to_generate(monkeypatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    def _failing_stream(context: str, query: str, settings=None):
+        raise ConnectionError("stream broken")
+        yield  # pragma: no cover — make this a generator
+
+    monkeypatch.setattr(rag, "_stream_with_anthropic", _failing_stream)
+    monkeypatch.setattr(
+        rag,
+        "_generate_with_anthropic",
+        lambda context, query, settings=None: "fallback full answer",
+    )
+
+    provider = rag.AnthropicLLMProvider(
+        settings={
+            "anthropic_model": "claude-haiku-4-5-20251001",
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "max_new_tokens": 64,
+            "do_sample": False,
+            "timeout_seconds": 30,
+        }
+    )
+    chunks = list(provider.stream("Section A: 30 days.", "Notice?"))
+    assert chunks == ["fallback full answer"]
+
+
+def test_stream_with_ollama_uses_langchain_stream(monkeypatch) -> None:
+    created = {}
+
+    class FakeChatOllama:
+        def __init__(self, **kwargs):
+            created["kwargs"] = kwargs
+
+        def stream(self, prompt):
+            created["prompt"] = prompt
+            yield SimpleNamespace(content="Hello ")
+            yield SimpleNamespace(content="world")
+
+        def invoke(self, prompt):
+            raise AssertionError("invoke should not be used for streaming path")
+
+    monkeypatch.setattr(rag, "ChatOllama", FakeChatOllama)
+    monkeypatch.setattr(
+        rag,
+        "load_generation_config",
+        lambda: {
+            "model": "phi3:mini",
+            "temperature": 0.55,
+            "top_p": 0.9,
+            "max_new_tokens": 128,
+            "do_sample": False,
+            "fallback_to_dummy_on_error": False,
+            "num_ctx": 2048,
+            "timeout_seconds": 30,
+        },
+    )
+    monkeypatch.setattr(rag, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
+
+    chunks = list(rag._stream_with_ollama("Context text", "Question text"))
+
+    assert chunks == ["Hello ", "world"]
+    assert created["kwargs"]["model"] == "phi3:mini"
+    assert created["kwargs"]["temperature"] == 0.0
+    assert "CTX=Context text" in created["prompt"]
+
+
+def test_generate_answer_stream_ollama_falls_back_to_generate(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+
+    def _failing_stream(context: str, query: str, settings=None):
+        raise TimeoutError("stream timed out")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(rag, "_stream_with_ollama", _failing_stream)
+    monkeypatch.setattr(
+        rag,
+        "_generate_with_ollama",
+        lambda context, query, settings=None: "non-stream answer",
+    )
+
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Clause text",
+            query="What applies?",
+            dummy_mode=False,
+        )
+    )
+    assert chunks == ["non-stream answer"]

@@ -18,7 +18,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from rag import generate_answer, load_generation_config
+from rag import generate_answer, generate_answer_stream, load_generation_config
 from ocr import is_likely_scanned_page as _is_likely_scanned_page, ocr_page_text as _ocr_page_text
 from retrieval_quality import (
     INSUFFICIENT_CONTEXT_ANSWER,
@@ -1597,6 +1597,8 @@ if query and query.strip() and chat_ready:
         timer_placeholder = st.empty()
         stop_timer = threading.Event()
         script_ctx = get_script_run_ctx()
+        need_stream_generation = False
+        total_start = time.perf_counter()
 
         def _thinking_timer_loop() -> None:
             if script_ctx is not None:
@@ -1616,7 +1618,6 @@ if query and query.strip() and chat_ready:
                 )
                 timer_thread.start()
             try:
-                total_start = time.perf_counter()
                 retrieval_start = time.perf_counter()
                 try:
                     candidate_limit = (
@@ -1683,23 +1684,7 @@ if query and query.strip() and chat_ready:
                         )
                         generation_elapsed_ms = 0.0
                     else:
-                        try:
-                            generation_start = time.perf_counter()
-                            st.session_state.last_answer = generate_answer(
-                                context=context,
-                                query=query,
-                                dummy_mode=st.session_state.dummy_generator_only,
-                            )
-                            generation_elapsed_ms = (
-                                time.perf_counter() - generation_start
-                            ) * 1000.0
-                            st.session_state.last_generation_error = None
-                        except Exception as e:
-                            generation_error = e
-                            generation_elapsed_ms = (
-                                time.perf_counter() - generation_start
-                            ) * 1000.0
-                            st.session_state.last_answer = None
+                        need_stream_generation = True
                 except (
                     AttributeError,
                     KeyError,
@@ -1720,13 +1705,45 @@ if query and query.strip() and chat_ready:
                     st.session_state.last_retrieved_docs = []
                     st.session_state.last_context = ""
                     st.session_state.last_answer = None
-
-                total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
             finally:
                 if timer_thread is not None:
                     stop_timer.set()
                     timer_thread.join(timeout=5.0)
         timer_placeholder.empty()
+
+        # Stream tokens after retrieval so the UI feels responsive; fall back if needed.
+        if need_stream_generation:
+            generation_start = time.perf_counter()
+            dummy_mode = st.session_state.dummy_generator_only
+            try:
+                try:
+                    streamed = st.write_stream(
+                        generate_answer_stream(
+                            context=context,
+                            query=query,
+                            dummy_mode=dummy_mode,
+                        )
+                    )
+                except Exception:
+                    full_answer = generate_answer(
+                        context=context,
+                        query=query,
+                        dummy_mode=dummy_mode,
+                    )
+                    streamed = st.write_stream(_stream_text_chunks(full_answer))
+                    if not streamed:
+                        streamed = full_answer
+                        st.markdown(full_answer)
+                st.session_state.last_answer = streamed if isinstance(streamed, str) else None
+                st.session_state.last_generation_error = None
+            except Exception as e:
+                generation_error = e
+                st.session_state.last_answer = None
+            generation_elapsed_ms = (
+                time.perf_counter() - generation_start
+            ) * 1000.0
+
+        total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
         if retrieval_warning:
             st.warning(retrieval_warning)

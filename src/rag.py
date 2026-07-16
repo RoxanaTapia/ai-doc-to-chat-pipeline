@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -38,10 +39,14 @@ DUMMY_UI_RESPONSE = (
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    """Swappable generation backend used by `generate_answer`."""
+    """Swappable generation backend used by `generate_answer` / `generate_answer_stream`."""
 
     def generate(self, context: str, query: str) -> str:
         """Return an answer string grounded in `context` for `query`."""
+        ...
+
+    def stream(self, context: str, query: str) -> Iterator[str]:
+        """Yield answer text chunks for progressive UI (e.g. `st.write_stream`)."""
         ...
 
 
@@ -160,15 +165,35 @@ def _dummy_response() -> str:
     return DUMMY_UI_RESPONSE
 
 
-def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | None = None) -> str:
-    """Generate answer text using local Ollama runtime."""
-    if settings is None:
-        settings = load_generation_config()
-    prompt_template = load_rag_prompt() if PROMPTS_PATH.exists() else DEFAULT_PROMPT_TEMPLATE
-    prompt = _format_prompt(prompt_template, context=context, query=query)
-    effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
+def _content_to_text(content: Any) -> str:
+    """Normalize LangChain message content (str or content blocks) to plain text."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(str(block.get("text", "")))
+            elif hasattr(block, "text"):
+                parts.append(str(block.text))
+        return "".join(parts)
+    return str(content)
 
-    llm = ChatOllama(
+
+def _prompt_for_generation(context: str, query: str) -> str:
+    """Build the RAG prompt from YAML template (or default)."""
+    prompt_template = load_rag_prompt() if PROMPTS_PATH.exists() else DEFAULT_PROMPT_TEMPLATE
+    return _format_prompt(prompt_template, context=context, query=query)
+
+
+def _build_ollama_llm(settings: dict[str, Any]) -> ChatOllama:
+    """Construct a ChatOllama client from generation settings."""
+    effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
+    return ChatOllama(
         model=settings["model"],
         temperature=effective_temperature,
         top_p=settings["top_p"],
@@ -176,8 +201,49 @@ def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | N
         num_ctx=settings["num_ctx"],
         timeout=settings["timeout_seconds"],
     )
-    response = llm.invoke(prompt)
-    return response.content.strip() if hasattr(response, "content") else str(response).strip()
+
+
+def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropic:
+    """Construct a ChatAnthropic client from generation settings."""
+    effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
+    model = str(settings.get("anthropic_model") or DEFAULT_ANTHROPIC_MODEL)
+    return ChatAnthropic(
+        model=model,
+        api_key=api_key,
+        temperature=effective_temperature,
+        max_tokens=int(settings["max_new_tokens"]),
+        top_p=settings["top_p"],
+        timeout=float(settings["timeout_seconds"]),
+    )
+
+
+def _iter_llm_text_chunks(llm: Any, prompt: str) -> Iterator[str]:
+    """Yield non-empty text pieces from `llm.stream(prompt)`."""
+    for chunk in llm.stream(prompt):
+        text = _content_to_text(chunk.content if hasattr(chunk, "content") else chunk)
+        if text:
+            yield text
+
+
+def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | None = None) -> str:
+    """Generate answer text using local Ollama runtime."""
+    if settings is None:
+        settings = load_generation_config()
+    prompt = _prompt_for_generation(context, query)
+    response = _build_ollama_llm(settings).invoke(prompt)
+    return _content_to_text(response.content if hasattr(response, "content") else response).strip()
+
+
+def _stream_with_ollama(
+    context: str,
+    query: str,
+    settings: dict[str, Any] | None = None,
+) -> Iterator[str]:
+    """Stream answer text chunks from local Ollama (`ChatOllama.stream`)."""
+    if settings is None:
+        settings = load_generation_config()
+    prompt = _prompt_for_generation(context, query)
+    yield from _iter_llm_text_chunks(_build_ollama_llm(settings), prompt)
 
 
 def _require_anthropic_api_key() -> str:
@@ -200,33 +266,44 @@ def _generate_with_anthropic(
     if settings is None:
         settings = load_generation_config()
     api_key = _require_anthropic_api_key()
-    prompt_template = load_rag_prompt() if PROMPTS_PATH.exists() else DEFAULT_PROMPT_TEMPLATE
-    prompt = _format_prompt(prompt_template, context=context, query=query)
-    effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
-    model = str(settings.get("anthropic_model") or DEFAULT_ANTHROPIC_MODEL)
+    prompt = _prompt_for_generation(context, query)
+    response = _build_anthropic_llm(settings, api_key).invoke(prompt)
+    return _content_to_text(response.content if hasattr(response, "content") else response).strip()
 
-    llm = ChatAnthropic(
-        model=model,
-        api_key=api_key,
-        temperature=effective_temperature,
-        max_tokens=int(settings["max_new_tokens"]),
-        top_p=settings["top_p"],
-        timeout=float(settings["timeout_seconds"]),
-    )
-    response = llm.invoke(prompt)
-    content = response.content if hasattr(response, "content") else response
-    if isinstance(content, list):
-        # ChatAnthropic may return a list of content blocks.
-        parts = []
-        for block in content:
-            if isinstance(block, str):
-                parts.append(block)
-            elif isinstance(block, dict) and block.get("type") == "text":
-                parts.append(str(block.get("text", "")))
-            elif hasattr(block, "text"):
-                parts.append(str(block.text))
-        return "".join(parts).strip()
-    return str(content).strip()
+
+def _stream_with_anthropic(
+    context: str,
+    query: str,
+    settings: dict[str, Any] | None = None,
+) -> Iterator[str]:
+    """Stream answer text chunks from Anthropic (`ChatAnthropic.stream`)."""
+    if settings is None:
+        settings = load_generation_config()
+    api_key = _require_anthropic_api_key()
+    prompt = _prompt_for_generation(context, query)
+    yield from _iter_llm_text_chunks(_build_anthropic_llm(settings, api_key), prompt)
+
+
+def _stream_with_generate_fallback(
+    stream_fn,
+    generate_fn,
+    *,
+    label: str,
+) -> Iterator[str]:
+    """Yield from `stream_fn`; if stream fails before any chunk, yield `generate_fn()` once."""
+    yielded_any = False
+    try:
+        for chunk in stream_fn():
+            yielded_any = True
+            yield chunk
+    except Exception as exc:
+        if yielded_any:
+            logger.exception("%s streaming interrupted after partial output: %s", label, exc)
+            raise
+        logger.warning("%s streaming failed; falling back to generate(): %s", label, exc)
+        answer = generate_fn()
+        if answer:
+            yield answer
 
 
 class DummyLLMProvider:
@@ -234,6 +311,9 @@ class DummyLLMProvider:
 
     def generate(self, context: str, query: str) -> str:
         return _dummy_response()
+
+    def stream(self, context: str, query: str) -> Iterator[str]:
+        yield _dummy_response()
 
 
 class OllamaLLMProvider:
@@ -252,6 +332,14 @@ class OllamaLLMProvider:
                 return f"Ollama unavailable, falling back to dummy mode.\n\n{_dummy_response()}"
             raise RuntimeError(f"Ollama generation unavailable: {exc}") from exc
 
+    def stream(self, context: str, query: str) -> Iterator[str]:
+        settings = self._settings if self._settings is not None else load_generation_config()
+        yield from _stream_with_generate_fallback(
+            lambda: _stream_with_ollama(context=context, query=query, settings=settings),
+            lambda: self.generate(context, query),
+            label="Ollama",
+        )
+
 
 class AnthropicLLMProvider:
     """Anthropic Claude generator (Haiku default) for fast demo / video recording."""
@@ -269,6 +357,14 @@ class AnthropicLLMProvider:
                 raise
             logger.exception("Anthropic generation failed: %s", exc)
             raise RuntimeError(f"Anthropic generation unavailable: {exc}") from exc
+
+    def stream(self, context: str, query: str) -> Iterator[str]:
+        settings = self._settings if self._settings is not None else load_generation_config()
+        yield from _stream_with_generate_fallback(
+            lambda: _stream_with_anthropic(context=context, query=query, settings=settings),
+            lambda: self.generate(context, query),
+            label="Anthropic",
+        )
 
 
 def resolve_llm_provider_name(dummy_mode: bool = True) -> str:
@@ -307,19 +403,59 @@ def get_llm_provider(
     )
 
 
-def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
-    """Generate a response from retrieved context and user question.
-
-    Provider selection: explicit `LLM_PROVIDER` env wins; when unset, `dummy_mode`
-    (and thus Streamlit's `USE_DUMMY_GENERATOR`) maps to dummy vs ollama.
-    """
+def _prepare_generation_inputs(
+    context: str,
+    query: str,
+) -> tuple[str, str] | str:
+    """Validate/sanitize inputs. Return `(safe_context, safe_query)` or an error message."""
     safe_query = _normalize_untrusted_text(query, max_chars=2000)
     if not safe_query:
         return "Please enter a non-empty question."
     safe_context = _normalize_untrusted_text(context, max_chars=12000)
     if not safe_context:
         return "I could not find relevant information in the document to answer this question."
+    return safe_context, safe_query
+
+
+def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
+    """Generate a response from retrieved context and user question.
+
+    Provider selection: explicit `LLM_PROVIDER` env wins; when unset, `dummy_mode`
+    (and thus Streamlit's `USE_DUMMY_GENERATOR`) maps to dummy vs ollama.
+    """
+    prepared = _prepare_generation_inputs(context, query)
+    if isinstance(prepared, str):
+        return prepared
+    safe_context, safe_query = prepared
 
     provider_name = resolve_llm_provider_name(dummy_mode=dummy_mode)
     provider = get_llm_provider(provider_name)
     return provider.generate(safe_context, safe_query)
+
+
+def generate_answer_stream(
+    context: str,
+    query: str,
+    dummy_mode: bool = True,
+) -> Iterator[str]:
+    """Yield answer text chunks for progressive UI (`st.write_stream`).
+
+    Same provider selection and input validation as `generate_answer`. Providers
+    that support native streaming use `.stream()`; if streaming fails before any
+    chunk, the full `generate()` result is yielded as one chunk.
+    """
+    prepared = _prepare_generation_inputs(context, query)
+    if isinstance(prepared, str):
+        yield prepared
+        return
+    safe_context, safe_query = prepared
+
+    provider_name = resolve_llm_provider_name(dummy_mode=dummy_mode)
+    provider = get_llm_provider(provider_name)
+    stream_fn = getattr(provider, "stream", None)
+    if callable(stream_fn):
+        yield from stream_fn(safe_context, safe_query)
+        return
+    answer = provider.generate(safe_context, safe_query)
+    if answer:
+        yield answer
