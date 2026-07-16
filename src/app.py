@@ -40,6 +40,7 @@ from sectioning import (
     extract_target_section,
 )
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from ui_theme import inject_theme
 
 st.set_page_config(page_title="Ask your PDF · Private RAG", layout="wide")
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -49,9 +50,9 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
 
-# Client-demo microcopy — memorable pilot tone, serious for legal/ops buyers
+# Client-demo microcopy — calm confidential document Q&A
 _CLIENT_COPY = {
-    "hero_title": "🔒 Ask your PDF anything ✨",
+    "hero_title": "Ask your PDF anything",
     "hero_lead": (
         "Private, grounded answers with <strong>page-level sources</strong> — "
         "on infrastructure you control."
@@ -129,30 +130,12 @@ def _active_generator_label(dummy_mode: bool) -> str:
 
 
 def _inject_demo_styles() -> None:
-    """Light hero styling for client-facing demos (Streamlit-safe CSS)."""
-    st.markdown(
-        """
-        <style>
-        .app-hero { margin: -0.75rem 0 1.25rem 0; }
-        .app-hero__lead {
-            font-size: 1.15rem;
-            line-height: 1.55;
-            color: #4b5563;
-            margin: 0 0 0.45rem 0;
-        }
-        .app-hero__kicker {
-            font-size: 0.95rem;
-            color: #9ca3af;
-            margin: 0;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    """Calm visual foundation for client-facing demos (Streamlit-safe CSS)."""
+    inject_theme()
 
 
 def _render_client_hero() -> None:
-    """Main headline — trustworthy, memorable, hire-me without being salesy."""
+    """Main headline — quiet title, clear lead/kicker hierarchy."""
     _inject_demo_styles()
     st.title(_CLIENT_COPY["hero_title"])
     st.markdown(
