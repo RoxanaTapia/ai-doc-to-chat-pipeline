@@ -1,7 +1,8 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -9,6 +10,13 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import rag  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _clear_llm_provider_env(monkeypatch) -> None:
+    """Keep legacy dummy_mode mapping tests independent of the host env."""
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    rag.load_generation_config.cache_clear()
 
 
 def test_generate_answer_dummy_mode_returns_placeholder() -> None:
@@ -128,7 +136,9 @@ def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
     monkeypatch.setattr(
         rag,
         "_generate_with_ollama",
-        lambda context, query: (_ for _ in ()).throw(ConnectionError("connection refused")),
+        lambda context, query, settings=None: (_ for _ in ()).throw(
+            ConnectionError("connection refused")
+        ),
     )
     monkeypatch.setattr(
         rag,
@@ -150,7 +160,9 @@ def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypa
     monkeypatch.setattr(
         rag,
         "_generate_with_ollama",
-        lambda context, query, settings=None: (_ for _ in ()).throw(RuntimeError("model not found")),
+        lambda context, query, settings=None: (_ for _ in ()).throw(
+            RuntimeError("model not found")
+        ),
     )
     monkeypatch.setattr(
         rag,
@@ -195,3 +207,67 @@ def test_generate_answer_raises_structured_timeout_when_fallback_disabled(monkey
     else:
         raise AssertionError("Expected RuntimeError on timeout when fallback is disabled.")
 
+
+def test_resolve_llm_provider_name_env_wins_over_dummy_mode(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    assert rag.resolve_llm_provider_name(dummy_mode=True) == "ollama"
+
+    monkeypatch.setenv("LLM_PROVIDER", "dummy")
+    assert rag.resolve_llm_provider_name(dummy_mode=False) == "dummy"
+
+
+def test_resolve_llm_provider_name_maps_dummy_mode_when_env_unset() -> None:
+    assert rag.resolve_llm_provider_name(dummy_mode=True) == "dummy"
+    assert rag.resolve_llm_provider_name(dummy_mode=False) == "ollama"
+
+
+def test_get_llm_provider_dummy_and_ollama() -> None:
+    assert isinstance(rag.get_llm_provider("dummy"), rag.DummyLLMProvider)
+    assert isinstance(rag.get_llm_provider("OLLAMA"), rag.OllamaLLMProvider)
+
+
+def test_get_llm_provider_anthropic_and_openai_not_implemented() -> None:
+    with pytest.raises(NotImplementedError, match="anthropic"):
+        rag.get_llm_provider("anthropic")
+    with pytest.raises(NotImplementedError, match="openai"):
+        rag.get_llm_provider("openai")
+
+
+def test_get_llm_provider_unknown_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
+        rag.get_llm_provider("grok")
+
+
+def test_generate_answer_llm_provider_dummy_env(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "dummy")
+    answer = rag.generate_answer(
+        context="Section A says notice period is 30 days.",
+        query="What is the notice period?",
+        dummy_mode=False,
+    )
+    assert "no AI model is running here" in answer
+
+
+def test_generate_answer_llm_provider_ollama_env(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setattr(
+        rag,
+        "_generate_with_ollama",
+        lambda context, query, settings=None: "via env",
+    )
+    answer = rag.generate_answer(
+        context="Clause text",
+        query="What applies?",
+        dummy_mode=True,
+    )
+    assert answer == "via env"
+
+
+def test_generate_answer_llm_provider_anthropic_raises(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    with pytest.raises(NotImplementedError, match="anthropic"):
+        rag.generate_answer(
+            context="Clause text",
+            query="What applies?",
+            dummy_mode=False,
+        )
