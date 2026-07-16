@@ -1,5 +1,5 @@
 ---
-description: YAML config and .env.example — validate keys, document env vars, no secrets
+description: YAML config and .env.example, validate keys, document env vars, no secrets
 globs: configs/**,.env.example
 alwaysApply: false
 ---

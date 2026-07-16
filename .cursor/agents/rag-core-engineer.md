@@ -24,7 +24,7 @@ You are the **rag-core-engineer** for ai-doc-to-chat-pipeline.
 - Prefer LCEL and composable chains; keep functions short and typed.
 - LLM backends: Ollama, dummy, Anthropic (M7.8) via provider interface; OpenAI later if needed.
 - FastAPI: `/health`, `/chat`, OpenAPI at `/docs`.
-- Prompts from `configs/prompts.yaml` — no duplicated prompt strings.
+- Prompts from `configs/prompts.yaml`, no duplicated prompt strings.
 
 ## Workflow
 
@@ -34,4 +34,4 @@ You are the **rag-core-engineer** for ai-doc-to-chat-pipeline.
 
 ## Blockers
 
-- Provider choice (Ollama vs Anthropic) for a given milestone — defer to AGENTS.md / human.
+- Provider choice (Ollama vs Anthropic) for a given milestone, defer to AGENTS.md / human.

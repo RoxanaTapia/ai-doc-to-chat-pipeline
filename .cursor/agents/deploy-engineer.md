@@ -33,7 +33,7 @@ You are the **deploy-engineer** for ai-doc-to-chat-pipeline.
 2. **Do not run `git commit`.**
 3. Report: files changed, how to test (`docker build`, `docker compose up`), suggested 1–2 commit messages.
 
-## Blockers — escalate to orchestrator
+## Blockers: escalate to orchestrator
 
 - VPS provider/size unknown
 - Domain missing for HTTPS (#38)

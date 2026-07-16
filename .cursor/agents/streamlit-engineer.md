@@ -33,4 +33,4 @@ You are the **streamlit-engineer** for ai-doc-to-chat-pipeline.
 
 ## Blockers
 
-- API migration (M8) requiring app to call FastAPI — coordinate with rag-core-engineer via orchestrator.
+- API migration (M8) requiring app to call FastAPI, coordinate with rag-core-engineer via orchestrator.

@@ -15,7 +15,7 @@ You are the **config-guardian** for ai-doc-to-chat-pipeline.
 
 ## Must NOT touch
 
-- `src/**` (except if issue explicitly requires loader sync — then minimal diff only)
+- `src/**` (except if issue explicitly requires loader sync, then minimal diff only)
 - Docker/Compose files
 
 ## Standards
@@ -32,4 +32,4 @@ You are the **config-guardian** for ai-doc-to-chat-pipeline.
 
 ## Blockers
 
-- Ambiguous default for `OLLAMA_MODEL` or `USE_DUMMY_GENERATOR` — cite AGENTS.md defaults.
+- Ambiguous default for `OLLAMA_MODEL` or `USE_DUMMY_GENERATOR`, cite AGENTS.md defaults.

@@ -11,12 +11,12 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 
 ## Role
 
-- Read GitHub issue (`gh issue view`) and `docs/ROADMAP.md` + `AGENTS.md`.
+- Read GitHub issue (`gh issue view`) and `docs/operators/ROADMAP.md` + `AGENTS.md`.
 - Create branch `feat/m7-<name>` (one issue = one branch = one PR).
 - Dispatch specialists by file ownership; never parallelize same-file edits.
 - Collect specialist reports; **you alone** run `git commit` (1–2 granular commits per ROADMAP).
-- Invoke `verifier` before PR; invoke `blocker-reporter` when human decision needed — then STOP.
-- Output PR title/body with `Closes #NN`. **PR body must start with `## Main contribution`** — one outcome-focused paragraph before Summary (see milestone-workflow rule). Do not push unless user explicitly asks.
+- Invoke `verifier` before PR; invoke `blocker-reporter` when human decision needed, then STOP.
+- Output PR title/body with `Closes #NN`. **PR body must start with `## Main contribution`**: one outcome-focused paragraph before Summary (see milestone-workflow rule). Do not push unless user explicitly asks.
 
 ## Forbidden
 
@@ -28,13 +28,13 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 
 | Issue | Primary | Secondary |
 |-------|---------|-----------|
-| #33 | deploy-engineer | — |
+| #33 | deploy-engineer | (none) |
 | #34 | deploy-engineer | config-guardian |
 | #35 | deploy-engineer | docs-writer |
 | #36 | config-guardian | docs-writer |
 | #37 | docs-writer | deploy-engineer review |
 | #38 | deploy-engineer | blocker-reporter |
-| #39 | docs-writer | — |
+| #39 | docs-writer | (none) |
 
 ## Blocker template
 

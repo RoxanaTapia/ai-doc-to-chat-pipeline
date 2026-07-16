@@ -2,7 +2,7 @@
 name: blocker-reporter
 description: >-
   Escalation specialist for human decisions only. VPS, domain, SSO, model sizing,
-  pricing, client infra. Writes blocker summaries — never edits code. Use when
+  pricing, client infra. Writes blocker summaries, never edits code. Use when
   orchestrator or specialists lack a default from AGENTS.md.
 ---
 
