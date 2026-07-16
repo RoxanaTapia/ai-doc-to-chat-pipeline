@@ -42,7 +42,7 @@ from sectioning import (
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from ui_theme import inject_theme
 
-st.set_page_config(page_title="Ask your PDF · Private RAG", layout="wide")
+st.set_page_config(page_title="Document Q&A · Private RAG", layout="wide")
 APP_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
@@ -50,31 +50,50 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
 
-# Client-demo microcopy — calm confidential document Q&A
+# Client-demo microcopy — calm confidential document Q&A (not a support-bot skin)
 _CLIENT_COPY = {
-    "hero_title": "Ask your PDF anything",
+    "hero_title": "Ask your document",
     "hero_lead": (
-        "Private, grounded answers with <strong>page-level sources</strong> — "
-        "on infrastructure you control."
+        "Grounded answers from a confidential PDF, with "
+        "<strong>page-level sources</strong> you can verify. "
+        "Runs on infrastructure you control."
     ),
-    "hero_kicker": "Upload · index · ask. No public ChatGPT tab required.",
-    "chat_ready": "What would you like to know?",
-    "chat_indexing": "Almost there…",
-    "chat_waiting": "Your questions land here once the PDF is ready.",
+    "hero_kicker": "Policies, SOPs, reports, contracts — upload one PDF, then ask.",
+    "chat_ready": "Ask about this document…",
+    "chat_indexing": "Indexing in progress…",
+    "chat_waiting": "Upload a PDF to start asking questions.",
     "doc_ready": (
-        "**{name}** is ready — your turn. Ask in plain language; "
-        "open **Sources** under each answer to verify the page."
+        "**{name}** is ready. Ask in plain language; "
+        "open **Sources** under each answer to check the page."
     ),
-    "doc_indexing": "Getting to know **{name}**…",
-    "doc_cleared": "Document removed — upload another PDF whenever you're ready.",
+    "doc_indexing": "Indexing **{name}**…",
+    "doc_cleared": "Document cleared. Upload a PDF when you want to continue.",
     "session_fresh": (
-        "Upload a PDF below — when you see the green **ready** message, "
+        "Upload a PDF below. When the green **ready** message appears, "
         "you can ask your first question."
     ),
     "doc_stale": (
-        "This PDF is not indexed yet — wait for the green **ready** message, "
+        "This PDF is not indexed yet. Wait for the green **ready** message, "
         "or use the **✕** on the file above and upload again."
     ),
+    "chat_blocked_indexing": (
+        "Still indexing. Wait for the green **ready** message, then ask again."
+    ),
+    "chat_blocked_ghost": (
+        "The file name may still appear after **Rerun**, but the upload was cleared. "
+        "Use the **✕** on the PDF above, or upload again."
+    ),
+    "chat_blocked_empty": (
+        "Upload a PDF and wait until indexing finishes before asking a question."
+    ),
+    "reindex_resume": "Re-indexing the uploaded PDF…",
+    "progress_prepare": "Preparing the PDF…",
+    "progress_extract": "Extracting text…",
+    "progress_chunk": "Preparing the index…",
+    "progress_embed": "Building the search index…",
+    "progress_index": "Indexing…",
+    "progress_done": "Ready.",
+    "toast_indexed": "Document indexed.",
 }
 
 
@@ -982,15 +1001,10 @@ def _chat_blocked_user_message(uploaded_file) -> str:
     if _document_is_indexed():
         return ""
     if uploaded_file is not None or st.session_state.get("uploaded_pdf_bytes"):
-        return (
-            "Still indexing — wait for the green **ready** message, then ask again."
-        )
+        return _CLIENT_COPY["chat_blocked_indexing"]
     if st.session_state.current_file or st.session_state.get("uploaded_pdf_name"):
-        return (
-            "The file box may still show a name after **Rerun**, but the upload buffer was cleared. "
-            "Use the **✕** on the PDF above, or upload again."
-        )
-    return "Upload a PDF and wait for indexing to finish before asking a question."
+        return _CLIENT_COPY["chat_blocked_ghost"]
+    return _CLIENT_COPY["chat_blocked_empty"]
 
 
 def _render_document_status(
@@ -1204,17 +1218,18 @@ st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only
 with st.sidebar.expander("About", expanded=False):
     st.markdown(
         """
-        **Built for teams who won't paste contracts into ChatGPT.**
+        Private document Q&A for confidential PDFs — policies, SOPs,
+        reports, contracts, and internal handbooks.
 
-        Upload a PDF, ask in plain language, get answers with **sources you
-        can verify**. Everything runs on **your** infrastructure — private
-        by design.
+        Upload one file, ask in plain language, and verify answers under
+        **Sources** (page-level citations). Processing runs on the
+        infrastructure you control; sessions do not keep a lasting library.
 
-        Digital PDFs shine; scanned pages work too (OCR when needed).
-
-        **Like what you see?** [Upwork](https://www.upwork.com/freelancers/roxanadev) ·
-        [GitHub](https://github.com/RoxanaTapia)
+        Digital PDFs work best; scanned pages can use OCR when needed.
         """
+    )
+    st.caption(
+        "[Project on GitHub](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)"
     )
     if st.session_state.developer_mode:
         st.caption(
@@ -1224,13 +1239,12 @@ with st.sidebar.expander("About", expanded=False):
 with st.sidebar.expander("How to use", expanded=False):
     st.markdown(
         """
-        **Three moves:**
-        1. Drop a PDF — contract, policy, report.
+        1. Upload a PDF (policy, SOP, report, or contract).
         2. Wait for the green **ready** message.
-        3. Ask like you'd ask a colleague — then open **Sources**.
+        3. Ask a question; open **Sources** under the answer to check the page.
 
-        Name the section in your question for sharper answers.
-        Scanned pages? OCR kicks in automatically.
+        Naming a section in your question often improves retrieval.
+        Scanned pages use OCR when little text is extractable.
         """
     )
 
@@ -1321,7 +1335,7 @@ if resolved_upload is not None:
     uploaded_hash = _cache_upload(file_bytes, file_name)
 
     if uploaded_file is None and not _document_is_indexed():
-        st.info("Welcome back — re-indexing your document now.")
+        st.info(_CLIENT_COPY["reindex_resume"])
 
     if (
         uploaded_hash == st.session_state.last_processed_hash
@@ -1340,7 +1354,7 @@ if resolved_upload is not None:
         tmp_path = None
         progress_bar = None
         try:
-            progress_bar = st.progress(5, text="Preparing your document…")
+            progress_bar = st.progress(5, text=_CLIENT_COPY["progress_prepare"])
             ocr_pages_used = 0
             scanned_pages_detected = 0
             ocr_pages_attempted = 0
@@ -1353,7 +1367,7 @@ if resolved_upload is not None:
             progress_bar.progress(25, text=(
                 "Extracting text from PDF…"
                 if st.session_state.developer_mode
-                else "Getting to know your document…"
+                else _CLIENT_COPY["progress_extract"]
             ))
 
             doc = fitz.open(str(tmp_path))
@@ -1378,7 +1392,7 @@ if resolved_upload is not None:
             progress_bar.progress(45, text=(
                 "Text extracted. Preparing chunking…"
                 if st.session_state.developer_mode
-                else "Preparing your document for questions…"
+                else _CLIENT_COPY["progress_chunk"]
             ))
 
             extracted_char_count = len(extracted_text.strip())
@@ -1405,7 +1419,7 @@ if resolved_upload is not None:
             with st.spinner(
                 "Splitting text into chunks…"
                 if st.session_state.developer_mode
-                else "Organizing content…"
+                else _CLIENT_COPY["progress_chunk"]
             ):
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=CHUNK_SIZE,
@@ -1428,7 +1442,7 @@ if resolved_upload is not None:
             progress_bar.progress(65, text=(
                 "Chunks created. Loading embedding model…"
                 if st.session_state.developer_mode
-                else "Almost ready…"
+                else _CLIENT_COPY["progress_embed"]
             ))
 
             if st.session_state.developer_mode:
@@ -1478,12 +1492,12 @@ if resolved_upload is not None:
                 progress_bar.progress(80, text=(
                     "Embeddings ready. Building FAISS index…"
                     if st.session_state.developer_mode
-                    else "Almost ready for your first question…"
+                    else _CLIENT_COPY["progress_embed"]
                 ))
                 with st.spinner(
                     f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index…"
                     if st.session_state.developer_mode
-                    else "Making your document searchable…"
+                    else _CLIENT_COPY["progress_index"]
                 ):
                     start = time.time()
 
@@ -1498,7 +1512,11 @@ if resolved_upload is not None:
                     took = time.time() - start
                 finalize_progress(
                     progress_bar,
-                    "Indexing complete." if st.session_state.developer_mode else "Good to go.",
+                    (
+                        "Indexing complete."
+                        if st.session_state.developer_mode
+                        else _CLIENT_COPY["progress_done"]
+                    ),
                 )
 
                 if st.session_state.developer_mode:
@@ -1509,7 +1527,7 @@ if resolved_upload is not None:
                         ),
                     )
                 else:
-                    st.toast("Document indexed — you can chat.", icon="✅")
+                    st.toast(_CLIENT_COPY["toast_indexed"], icon="✅")
 
                 _set_processed_document(file_name, uploaded_hash)
                 _set_indexed_doc_stats(
