@@ -12,7 +12,8 @@ rag:
   fetch_k: 75                # candidate pool size before MMR reranking
   early_page_max: 20         # prefer chunks from pages <= this value
   ui:
-    sources_display_max: 5   # sources shown in chat UI (can be <= top_k)
+    # Cap Sources panel length. Sensible range: 2–3 (keeps UI scannable; can be <= top_k).
+    sources_display_max: 3
     source_preview_chars: 280
   retrieval:
     strategy: "hybrid"       # Round 2 default: semantic + BM25 for section/term lookup

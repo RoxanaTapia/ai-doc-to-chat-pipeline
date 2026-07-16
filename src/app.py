@@ -258,7 +258,7 @@ try:
     CONTEXT_SUFFICIENCY_GUARD = bool(retrieval_cfg.get("context_sufficiency_guard", True))
 
     ui_cfg = rag_cfg.get("ui", {}) or {}
-    SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 5))
+    SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 3))
     SOURCE_PREVIEW_CHARS = int(ui_cfg.get("source_preview_chars", 280))
 except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError, ValueError) as exc:
     st.error(f"Configuration error in {CONFIG_PATH}: {exc}")
