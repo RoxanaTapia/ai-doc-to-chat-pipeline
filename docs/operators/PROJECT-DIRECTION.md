@@ -119,23 +119,24 @@ After each issue, you should answer **without opening Cursor**:
 
 ### Phase 1: Demo, video & packaging 🚧 START HERE
 
-**Milestones:** M7.8 ([#53–#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/7)) → video (#57) → packaging checklist in [ROADMAP.md](ROADMAP.md)
+**Milestones:** M7.8 ✅ → M7.9 ✅ → **M7.95 Sources trust** ([#80–#83](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/9)) → video (#57) → packaging checklist in [ROADMAP.md](ROADMAP.md)
 
 | # | Issue | Agent map | You learn |
 |---|-------|-----------|-----------|
-| 53 | LLMProvider + env switch | rag-core-engineer, config-guardian | Protocol pattern; config-driven backends |
-| 54 | Anthropic adapter | rag-core-engineer, config-guardian | API keys, Haiku vs Sonnet |
-| 55 | Streamlit streaming | streamlit-engineer | UX; generators |
-| 56 | Docs + non-legal sample | docs-writer | Positioning; eval ≠ vertical |
+| 53–56 | M7.8 demo tier | (shipped) | Provider switch; streaming; pitch |
+| 70–73 | M7.9 UI polish | (shipped) | Calm client UI |
+| 80 | Sources display cap | config-guardian, streamlit-engineer | Display vs retrieval `top_k` |
+| 81 | Sort Sources | rag-core-engineer, streamlit-engineer | On-section + score ordering |
+| 82 | Answer-overlap filter | rag-core-engineer, streamlit-engineer | Honest citations with fallback |
+| 83 | Header-aware chunking | rag-core-engineer, config-guardian | TOC bleed vs section bodies |
 | 57 | Record video + README link | docs-writer (you record) | Walkthrough asset |
 
 ```mermaid
 flowchart LR
-  A["/ship-issue #53"] --> B["#54"]
-  B --> C["#55"]
-  B --> D["#56 parallel"]
-  C --> E["#57 record"]
-  D --> E
+  A["M7.8 + M7.9"] --> B["#80 ∥ #83"]
+  B --> C["#81"]
+  C --> D["#82"]
+  D --> E["#57 record"]
   E --> F[Packaging]
   F --> G[Thin M8]
   G --> H[Phase pause]

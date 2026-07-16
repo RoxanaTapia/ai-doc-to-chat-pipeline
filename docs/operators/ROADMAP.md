@@ -17,8 +17,10 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | Milestone | Goal | Proof of done | Priority |
 |-----------|------|---------------|----------|
 | **M7** | Reference deployment | Live HTTPS pilot + `DEPLOYMENT.md` | ✅ Done |
-| **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | **Ship next** |
-| **Video (#57)** | Published walkthrough | Link in README | After M7.8 |
+| **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | ✅ Done |
+| **M7.9** | Interface polish | Calm client UI | ✅ Done |
+| **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | **Ship next** |
+| **Video (#57)** | Published walkthrough | Link in README | Prefer after M7.95 |
 | **Packaging** | Calm product framing | Clear pilot + Cloud + video links | After video |
 | **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | After packaging |
 | **M8.5** | Eval harness export | Before/after retrieval report | Optional |
@@ -141,13 +143,49 @@ Calm, elegant client UI for confidential document Q&A. Progressive polish only; 
 
 **Serial order:** #70 → #71 → #72 → #73. Nice-to-have before demo recording (#57); does not block thin M8.
 
-GitHub milestone: [M7.9 Interface polish](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/8)
+**Out of scope:** Docker, FastAPI, inventing brand logos.
 
-**Out of scope:** Docker, FastAPI, RAG accuracy, inventing brand logos.
+GitHub milestone: [M7.9 Interface polish](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/8) ✅ closed
 
 ---
 
-## Demo video (after M7.8)
+## M7.95: Sources trust
+
+**Background**
+
+Cited answers only help when Sources feels like an audit trail: short, ranked, and tied to what the model said. This slice tightens display ranking and chunk boundaries. It is not a model swap.
+
+> **Takeaway:** Fewer, better-ranked Sources that overlap the answer. Prefer shipping before the walkthrough video (#57).
+
+**Target:** part-time · **4 issues** · primary `rag-core-engineer` + `streamlit-engineer` · knobs via `config-guardian`
+
+| Issue | Outcome | GitHub |
+|-------|---------|--------|
+| M7.95-1 | Cap panel with `sources_display_max` (default 3) | [#80](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/80) |
+| M7.95-2 | Sort: on-section first, then similarity | [#81](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/81) |
+| M7.95-3 | Answer-overlap filter with safe fallback | [#82](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/82) |
+| M7.95-4 | Tighter chunking around section headers | [#83](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/83) |
+
+**Delivery train**
+
+```text
+(#80 ∥ #83) → #81 → #82 → [docs sync if needed]
+```
+
+| Wave | Work | Agents | Parallel notes |
+|------|------|--------|----------------|
+| 1a ∥ 1b | **#80** display cap · **#83** section chunking | config + streamlit ∥ rag-core | YAML/UI vs `sectioning.py` |
+| 2 | **#81** sort on-section → score | rag-core → streamlit | After #83 preferred |
+| 3 | **#82** answer-overlap + fallback | rag-core → streamlit | After #80 + #81 |
+| * | verifier | every issue | pytest green before PR |
+
+**Out of scope:** New LLM providers, FastAPI, full UI redesign.
+
+GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/9)
+
+---
+
+## Demo video (after M7.8 / prefer after M7.95)
 
 Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
 
