@@ -46,6 +46,58 @@ section.main h1 {
   margin: 0;
   letter-spacing: 0.01em;
 }
+
+/* Chat: calm spacing; answers stay scannable */
+[data-testid="stChatMessage"] {
+  padding-top: 0.35rem;
+  padding-bottom: 0.55rem;
+}
+
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+  line-height: 1.55;
+}
+
+[data-testid="stChatMessage"] [data-testid="stCaptionContainer"] {
+  color: var(--app-muted);
+  margin-top: 0.15rem;
+  margin-bottom: 0.35rem;
+}
+
+/* Sources: page-first audit trail, readable quotes */
+.app-source-item {
+  margin: 0 0 0.85rem 0;
+  padding: 0 0 0.75rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-ink) 8%, transparent);
+}
+
+.app-source-item:last-child {
+  margin-bottom: 0.15rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.app-source-page {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--app-ink);
+  letter-spacing: -0.01em;
+  margin: 0 0 0.35rem 0;
+}
+
+.app-source-meta {
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--app-muted);
+}
+
+.app-source-quote {
+  margin: 0;
+  padding: 0.45rem 0 0.15rem 0.85rem;
+  border-left: 2px solid color-mix(in srgb, var(--app-accent) 45%, var(--app-paper));
+  color: var(--app-slate);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
 """
 
 
