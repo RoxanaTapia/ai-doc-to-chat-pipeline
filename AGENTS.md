@@ -60,14 +60,15 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 | `deploy-engineer` | M7, M11 | `Dockerfile`, `docker-compose*.yml`, `Caddyfile`, `deploy/` | `src/app.py`, `src/rag.py` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
 | `rag-core-engineer` | M7.8, M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
-| `streamlit-engineer` | All UI | `src/app.py` | Docker, FastAPI internals |
+| `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload wiring | Docker, FastAPI internals, visual redesigns |
+| `streamlit-ux-designer` | M7.9 UI polish | Layout, IA, microcopy, chat/sources readability | Docker, FastAPI, RAG providers |
 | `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose, **blocker card polish** | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
 | `blocker-reporter` | All | Blocker summaries (structured) | Code changes |
 
 Invoke by role name. Files live in `.cursor/agents/`.
 
-**Train roster:** orchestrator always on; rag-core on #53/#54/#58/#59; config on #53/#54/#59; streamlit on #55/#60; docs-writer on #56/#57/packaging + pulses/blockers; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
+**Train roster:** orchestrator always on; rag-core on #53/#54/#58/#59; config on #53/#54/#59; streamlit on #55/#60; **streamlit-ux-designer on M7.9**; docs-writer on #56/#57/packaging + pulses/blockers; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
 
 ---
 
@@ -88,6 +89,15 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #55 M7.8-3 Streamlit streaming | streamlit-engineer | rag-core-engineer (review) | 1–2 | after #54 |
 | #56 M7.8-4 docs + sample doc | docs-writer | - | 1–2 | parallel #55 |
 | #57 M7.8-5 demo video + README | docs-writer | human records | 1 | after #54–#56 |
+
+### M7.9: Interface polish (short UX pass)
+
+| Issue | Primary | Secondary | Est. commits | Serial |
+|-------|---------|-----------|--------------|--------|
+| M7.9-1 visual foundation | streamlit-ux-designer | - | 1–2 | - |
+| M7.9-2 copy + empty/ready states | streamlit-ux-designer | docs-writer (tone) | 1 | after M7.9-1 |
+| M7.9-3 sidebar IA | streamlit-ux-designer | - | 1 | after M7.9-2 |
+| M7.9-4 chat + Sources readability | streamlit-ux-designer | streamlit-engineer (edge) | 1–2 | after M7.9-3 |
 
 ### M8: Thin FastAPI contract (after video + packaging)
 

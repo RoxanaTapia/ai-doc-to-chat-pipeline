@@ -126,6 +126,25 @@ GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 
 ---
 
+## M7.9: Interface polish (short UX pass)
+
+**Target:** part-time · **4 issues** · primary `streamlit-ux-designer` · serial on `src/app.py`
+
+Calm, elegant client UI for confidential document Q&A. Progressive polish only; preserve Generator status, ready-state, Sources, Cloud dummy banner, and developer diagnostics.
+
+| Issue | Outcome |
+|-------|---------|
+| M7.9-1 | Calm visual foundation (hero + light theme) |
+| M7.9-2 | Client copy and empty / ready states |
+| M7.9-3 | Sidebar information architecture |
+| M7.9-4 | Chat and Sources readability |
+
+**Serial order:** M7.9-1 → 2 → 3 → 4. Nice-to-have before demo recording (#57); does not block thin M8.
+
+**Out of scope:** Docker, FastAPI, RAG accuracy, inventing brand logos.
+
+---
+
 ## Demo video (after M7.8)
 
 Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
