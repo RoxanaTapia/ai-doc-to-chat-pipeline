@@ -1,19 +1,24 @@
 # Agent orchestration playbook
 
-How this repo uses Cursor **rules**, **subagents**, and **slash commands** to deliver milestones
-with clean one-issue-one-PR history.
+## Background
 
-**Operator guide:** [docs/PROJECT-DIRECTION.md](docs/PROJECT-DIRECTION.md) · **Roadmap:** [docs/ROADMAP.md](docs/ROADMAP.md)
+How this repo uses Cursor **rules**, **subagents**, and **slash commands** to deliver milestones with clean one-issue-one-PR history.
 
-## Current focus
+**Operator guide:** [docs/operators/PROJECT-DIRECTION.md](docs/operators/PROJECT-DIRECTION.md) · **Roadmap:** [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md) · **Docs index:** [docs/README.md](docs/README.md)
 
-- **Ship first:** M7.8 (#53–#57) → demo video → portfolio packaging (see ROADMAP).
-- **Then:** thin M8 (`/health` + `/chat`). **Optional:** M8.5 eval. **Client-triggered:** M9–M11.
-- **North star:** private document Q&A (this repo). n8n CRM / website Support MVP = **separate later project** — not M8+ here.
+> **Takeaway:** One issue, one chat, one PR. Specialists edit; only the orchestrator commits.
 
 ---
 
-## Agent roster
+## 🎯 Current focus
+
+- **Ship first:** M7.8 (#53–#57) → demo video → portfolio packaging (see ROADMAP).
+- **Then pause** for Support MVP (sibling project). **Optional:** thin M8 if jobs ask for FastAPI. **Client-triggered later:** M8.5, M9–M11.
+- **North star:** private document Q&A (this repo). n8n CRM / website Support MVP = **separate later project**, not M8+ here.
+
+---
+
+## 👥 Agent roster
 
 | Role (`name`) | Milestones | Owns | Must NOT touch |
 |---------------|------------|------|----------------|
@@ -30,33 +35,33 @@ Invoke by role name. Files live in `.cursor/agents/`.
 
 ---
 
-## Issue → agent mapping
+## 🗺️ Issue → agent mapping
 
 ### M7 ✅ shipped (#33–#39)
 
 | Issue | Primary | Status |
 |-------|---------|--------|
-| #33–#39 | see git history | Done — live at ai-doc-pilot.roxanatapia.dev |
+| #33–#39 | see git history | Done. Live at ai-doc-pilot.roxanatapia.dev |
 
-### M7.8 — Demo-ready tier (ship first)
+### M7.8: Demo-ready tier (ship first)
 
 | Issue | Primary | Secondary | Est. commits | Serial |
 |-------|---------|-----------|--------------|--------|
-| #53 M7.8-1 LLMProvider + env | rag-core-engineer | config-guardian | 2–3 | — |
+| #53 M7.8-1 LLMProvider + env | rag-core-engineer | config-guardian | 2–3 | - |
 | #54 M7.8-2 Anthropic adapter | rag-core-engineer | config-guardian | 2 | after #53 |
 | #55 M7.8-3 Streamlit streaming | streamlit-engineer | rag-core-engineer (review) | 1–2 | after #54 |
-| #56 M7.8-4 docs + sample doc | docs-writer | — | 1–2 | parallel #55 |
+| #56 M7.8-4 docs + sample doc | docs-writer | - | 1–2 | parallel #55 |
 | #57 M7.8-5 demo video + README | docs-writer | human records | 1 | after #54–#56 |
 
-### M8 — Thin FastAPI market contract (after video + packaging)
+### M8: Thin FastAPI market contract (after video + packaging)
 
 | Issue | Primary | Secondary | Est. commits | Serial |
 |-------|---------|-----------|--------------|--------|
-| #58 M8-1 extract `src/rag/` | rag-core-engineer | verifier | 2–4 | — |
+| #58 M8-1 extract `src/rag/` | rag-core-engineer | verifier | 2–4 | - |
 | #59 M8-2 FastAPI `/health` `/chat` | rag-core-engineer | config-guardian | 2–3 | after #58 |
 | #60 M8-3 Streamlit → API | streamlit-engineer | rag-core-engineer | 2 | after #59 |
 
-### M8.5 — Eval export (optional / next)
+### M8.5: Eval export (optional / next)
 
 | Issue | Primary | Secondary | Est. commits |
 |-------|---------|-----------|--------------|
@@ -64,7 +69,7 @@ Invoke by role name. Files live in `.cursor/agents/`.
 
 ---
 
-## Parallel vs serial
+## 🔀 Parallel vs serial
 
 **Safe in parallel:** #56 docs-writer while #55 streamlit (different files).
 
@@ -76,7 +81,17 @@ Only **milestone-orchestrator** runs `git commit`.
 
 ---
 
-## GitHub workflow
+## 🐙 GitHub workflow
+
+```mermaid
+flowchart LR
+  A[Pick issue] --> B[New Agent chat]
+  B --> C["/ship-issue #NN"]
+  C --> D[Specialists edit]
+  D --> E[Verifier]
+  E --> F[Orchestrator commits]
+  F --> G[PR with Main contribution]
+```
 
 1. Pick issue → **In progress** on Project board.
 2. **New Agent chat** → `/ship-issue #NN`.
@@ -84,11 +99,11 @@ Only **milestone-orchestrator** runs `git commit`.
 4. Specialists edit; orchestrator splits **1–2 granular commits**.
 5. `verifier` before PR.
 6. PR: **`## Main contribution`** first, `Closes #NN`. Push/merge when human approves.
-7. **15 min learning pass** — see PROJECT-DIRECTION.md.
+7. **15 min learning pass** (see PROJECT-DIRECTION).
 
 ---
 
-## Slash commands
+## ⌨️ Slash commands
 
 | Command | Purpose |
 |---------|---------|
@@ -99,7 +114,7 @@ Only **milestone-orchestrator** runs `git commit`.
 
 ---
 
-## Human decisions log
+## 🧾 Human decisions log
 
 | Decision | Current default | Notes |
 |----------|-----------------|-------|
@@ -116,7 +131,7 @@ Only **milestone-orchestrator** runs `git commit`.
 
 ---
 
-## Blocker template
+## 🚧 Blocker template
 
 ```markdown
 ## Blocker
@@ -129,27 +144,28 @@ Only **milestone-orchestrator** runs `git commit`.
 
 ---
 
-## Documentation maintenance
+## 📚 Documentation maintenance
 
 | File | Owner | Update when |
 |------|-------|-------------|
-| **README.md** | `docs-writer` | Phase changes; video link — client-facing |
+| **README.md** | `docs-writer` | Phase changes; video link (client-facing) |
 | **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` | LLM provider setup, Compose |
-| **docs/ROADMAP.md** | `docs-writer` | Milestone scope changes |
-| **docs/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
+| **docs/operators/ROADMAP.md** | `docs-writer` | Milestone scope changes |
+| **docs/operators/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
+| **docs/README.md** | `docs-writer` | Docs structure / index |
 | **AGENTS.md** | Human + orchestrator | New issues, decision log |
 
 After each phase slice: dispatch `docs-writer` to sync README + ROADMAP.
 
 ---
 
-## Operator prompt (copy per issue)
+## 📋 Operator prompt (copy per issue)
 
 ```text
 Act as milestone-orchestrator. Ship GitHub issue #NN.
 
 - New branch from main: feat/<phase>-<short-name>
-- Follow docs/PROJECT-DIRECTION.md and docs/ROADMAP.md
+- Follow docs/operators/PROJECT-DIRECTION.md and docs/operators/ROADMAP.md
 - Specialists must NOT commit; you split 1–2 granular commits
 - Run verifier before PR
 - After merge I will read the diff myself (learning pass)
