@@ -318,7 +318,8 @@ def test_generate_with_anthropic_respects_config_and_prompt(monkeypatch) -> None
     assert created["kwargs"]["api_key"] == "test-key-not-real"
     assert created["kwargs"]["max_tokens"] == 128
     assert created["kwargs"]["timeout"] == 30.0
-    assert created["kwargs"]["top_p"] == 0.9
+    # Haiku 4.5 rejects temperature + top_p together; we send temperature only.
+    assert "top_p" not in created["kwargs"]
     assert created["kwargs"]["temperature"] == 0.0
     assert "CTX=Context text" in created["prompt"]
     assert "Q=Question text" in created["prompt"]

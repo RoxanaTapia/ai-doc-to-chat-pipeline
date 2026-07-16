@@ -888,13 +888,44 @@ def _ollama_recovery_expander(*, expanded: bool = False) -> None:
         st.caption(f"CPU smoke-test order: {recommended_order_text}.")
 
 
+def _active_provider_for_errors() -> str:
+    """Provider name used when mapping generation failures to user-facing copy."""
+    return resolve_llm_provider_name(dummy_mode=st.session_state.get("dummy_generator_only", True))
+
+
 def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
     """Return (short_user_reason, normalized_error_text)."""
+    error_text = str(exc).lower()
+    provider = _active_provider_for_errors()
+
+    if provider == "anthropic":
+        if "api_key" in error_text or "authentication" in error_text or "401" in error_text:
+            reason = "Anthropic rejected the API key. Check `ANTHROPIC_API_KEY` in `.env`."
+        elif "temperature" in error_text and "top_p" in error_text:
+            reason = (
+                "Anthropic rejected the request (sampling settings). "
+                "Restart the app after updating, then retry."
+            )
+        elif "rate" in error_text or "429" in error_text:
+            reason = "Anthropic rate limit reached. Wait a moment, then retry."
+        elif "timeout" in error_text or "timed out" in error_text:
+            reason = "Anthropic timed out. Retry with a shorter question."
+        else:
+            detail = str(exc).strip()
+            # Prefer the API message body when present; keep it short for chat.
+            if "message': '" in detail:
+                try:
+                    reason = "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
+                except IndexError:
+                    reason = "Could not generate an Anthropic answer right now."
+            else:
+                reason = "Could not generate an Anthropic answer right now."
+        return reason, error_text
+
     try:
         model_name = load_generation_config().get("model", "llama3.1:8b")
     except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
         model_name = "llama3.1:8b"
-    error_text = str(exc).lower()
     if "connection" in error_text or "refused" in error_text:
         reason = "Could not connect to Ollama. Start the Ollama server first."
     elif "not found" in error_text or "model" in error_text:
@@ -918,7 +949,8 @@ def _render_persistent_generation_error() -> None:
         return
     reason = err.get("user_reason", "Generation failed.")
     st.error(reason)
-    _ollama_recovery_expander(expanded=False)
+    if _active_provider_for_errors() == "ollama":
+        _ollama_recovery_expander(expanded=False)
     detail = err.get("detail")
     if st.session_state.developer_mode and detail:
         with st.expander("Technical details", expanded=False):

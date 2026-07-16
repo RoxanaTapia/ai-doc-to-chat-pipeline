@@ -204,7 +204,11 @@ def _build_ollama_llm(settings: dict[str, Any]) -> ChatOllama:
 
 
 def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropic:
-    """Construct a ChatAnthropic client from generation settings."""
+    """Construct a ChatAnthropic client from generation settings.
+
+    Haiku 4.5+ rejects requests that set both ``temperature`` and ``top_p``.
+    Prefer temperature only (deterministic 0.0 when ``do_sample`` is false).
+    """
     effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
     model = str(settings.get("anthropic_model") or DEFAULT_ANTHROPIC_MODEL)
     return ChatAnthropic(
@@ -212,7 +216,6 @@ def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropi
         api_key=api_key,
         temperature=effective_temperature,
         max_tokens=int(settings["max_new_tokens"]),
-        top_p=settings["top_p"],
         timeout=float(settings["timeout_seconds"]),
     )
 
