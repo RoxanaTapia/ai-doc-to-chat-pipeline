@@ -46,7 +46,6 @@ docs/
 | [`operators/`](operators/) | Roadmap, project direction, contributor how-tos |
 | [`archive/`](archive/) | Historical eval rounds; keep for reference, not day-one reading |
 
-Old paths (for example `docs/ROADMAP.md`) keep short “Moved” stubs that point here, so bookmarks still work.
 
 ---
 
