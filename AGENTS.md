@@ -27,7 +27,7 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
 | `rag-core-engineer` | M7.8, M8, M9, M12 | `src/rag.py`, `src/rag/**`, `src/api/**` | Streamlit UI, Docker |
 | `streamlit-engineer` | All UI | `src/app.py` | Docker, FastAPI internals |
-| `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README** | Python except docstrings |
+| `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
 | `blocker-reporter` | All | Blocker summaries | Code changes |
 
@@ -153,9 +153,10 @@ flowchart LR
 | **docs/operators/ROADMAP.md** | `docs-writer` | Milestone scope changes |
 | **docs/operators/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
 | **docs/README.md** | `docs-writer` | Docs structure / index |
+| **PR / issue prose** | `docs-writer` | Short warm Main contribution; issue Outcome + DoD |
 | **AGENTS.md** | Human + orchestrator | New issues, decision log |
 
-After each phase slice: dispatch `docs-writer` to sync README + ROADMAP.
+After each phase slice: dispatch `docs-writer` to sync README + ROADMAP. Before opening a PR, docs-writer may polish the PR body (and issue text when needed).
 
 ---
 

@@ -18,6 +18,8 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 | **DEPLOYMENT.md** | Client IT, technical buyers | Prerequisites → install → verify → troubleshoot |
 | **docs/product/** | Buyers / evaluators | Calm, clear, scannable, joy to read |
 | **docs/operators/**, **AGENTS.md** | Contributors | Issues, agents, workflow (warm + precise) |
+| **PR descriptions** | Reviewers | Outcome first (`## Main contribution`), short summary, clear test plan |
+| **GitHub issues** | Operators / agents | Outcome, scope, DoD checkboxes; light context |
 | **`docs-private/`** | Operator (local, gitignored) | Sales, switches, provider picks, full recording notes |
 
 ## ✍️ Style techniques
@@ -29,6 +31,14 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 - Avoid em dashes; prefer commas, periods, or parentheses.
 - Optional `> **Takeaway:** …` near the top.
 - Meaningful relative links into `docs/product/` and `docs/operators/`.
+- Prefer short over long for PRs and issues; cut file laundry lists.
+
+### PR / issue copy
+
+- **docs-writer** owns polish of PR bodies and issue titles/bodies (see `.cursor/agents/docs-writer.md`).
+- PRs must start with `## Main contribution`, then Summary, then Test plan.
+- Issue DoD checkboxes should map cleanly into the PR test plan.
+- Do not invent scope; do not close issues/PRs unless asked.
 
 ## Rules
 
