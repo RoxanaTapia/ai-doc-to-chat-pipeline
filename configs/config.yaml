@@ -2,6 +2,7 @@
 chunking:
   chunk_size: 1000          # characters per chunk – tune for your documents
   chunk_overlap: 200        # R4-D: smaller overlap to reduce cross-section bleed
+  # M7.95-4: header split ignores TOC/FAQ false headers; re-index after changing this
   split_on_legal_headers: true  # tuning #2: split at numbered / title-style clause headers
 
 embeddings:
