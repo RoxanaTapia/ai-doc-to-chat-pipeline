@@ -17,6 +17,7 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 - **`docs-private/`** (local operator notes, gitignored); sync when public deploy/sales docs change
 - **GitHub PR descriptions** (rewrite/polish for open or draft PRs)
 - **GitHub issue titles and bodies** (rewrite/polish when asked, or when docs issues need clearer acceptance criteria)
+- **Blocker cards** (polish `blocker-reporter` output into a clear “need you” ask for the human)
 
 ## Must NOT touch
 

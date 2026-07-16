@@ -17,16 +17,20 @@ You are the **blocker-reporter** for ai-doc-to-chat-pipeline.
 
 ## Output template (required)
 
+Prefer the train-mode card (orchestrator may ask **docs-writer** to polish):
+
 ```markdown
-## Blocker
+## Blocker · need you
 - **Issue:** #NN or Mx-y
-- **Decision needed:**
+- **What I need:**
+- **Why:**
+- **What is ready:**
 - **Options:**
   - A: (cost/impact)
   - B: (cost/impact)
 - **Default if no reply:** (from AGENTS.md or conservative choice)
 - **Blocks:** files/issues
-- **Recommended human action:** one sentence
+- **Reply with:** exact shape of answer needed
 ```
 
 ## Common blockers

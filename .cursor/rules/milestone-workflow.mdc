@@ -30,7 +30,8 @@ Per issue caps: docs 1, infra 1–2, features 2–4. One logical change per comm
 
 1. Read GitHub issue checklist and `docs/operators/ROADMAP.md`.
 2. Run verifier (pytest; docker build when infra changed).
-3. Propose commit messages; commit only if user explicitly asked.
+3. **Train mode (default):** orchestrator commits, pushes, and merges when CI is green and the issue checklist is met; emit a short status pulse. See `AGENTS.md`.
+4. **Hold-merges mode:** if the operator said `hold merges` / `propose only`, propose commit messages and wait for explicit approval.
 
 ## PR body format
 
