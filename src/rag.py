@@ -1,9 +1,9 @@
+import logging
 import os
 import re
-import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import yaml
 from langchain_ollama import ChatOllama
@@ -13,16 +13,33 @@ CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B-\x1F\x7F]")
 APP_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_PATH = APP_ROOT / "configs" / "prompts.yaml"
 CONFIG_PATH = APP_ROOT / "configs" / "config.yaml"
+SUPPORTED_LLM_PROVIDERS = frozenset({"ollama", "anthropic", "openai", "dummy"})
 DEFAULT_PROMPT_TEMPLATE = (
     "You are a precise and concise legal assistant.\n"
     "Answer ONLY using information from the provided context.\n"
-    'If there is no relevant information, say: "I could not find enough information in the document to answer."\n\n'
+    "If there is no relevant information, say: "
+    '"I could not find enough information in the document to answer."\n\n'
     "Extracted context:\n"
     "{context}\n\n"
     "User question:\n"
     "{question}\n\n"
     "Answer (keep it short, clear, and cite the source when possible):"
 )
+DUMMY_UI_RESPONSE = (
+    "This is a UI demo — no AI model is running here.\n\n"
+    "Upload and search work, but answers are not generated on this host.\n\n"
+    "For real grounded answers on your documents, request access to the "
+    "[live pilot](https://ai-doc-pilot.roxanatapia.dev)."
+)
+
+
+@runtime_checkable
+class LLMProvider(Protocol):
+    """Swappable generation backend used by `generate_answer`."""
+
+    def generate(self, context: str, query: str) -> str:
+        """Return an answer string grounded in `context` for `query`."""
+        ...
 
 
 def _normalize_untrusted_text(text: str, max_chars: int) -> str:
@@ -97,8 +114,12 @@ def load_generation_config() -> dict[str, Any]:
 
     default_model = str(generation.get("model", "llama3.1:8b"))
     model_override = _env_text("OLLAMA_MODEL")
+    # Env wins when set; YAML `provider` is informational default for operators.
+    yaml_provider = str(generation.get("provider", "") or "").strip().lower()
+    env_provider = _env_text("LLM_PROVIDER")
 
     return {
+        "provider": (env_provider or yaml_provider or "").lower() or None,
         "model": model_override or default_model,
         "temperature": _env_float("OLLAMA_TEMPERATURE", float(generation.get("temperature", 0.3))),
         "top_p": _env_float("OLLAMA_TOP_P", float(generation.get("top_p", 0.9))),
@@ -129,6 +150,11 @@ def _format_prompt(template: str, context: str, query: str) -> str:
         return DEFAULT_PROMPT_TEMPLATE.format(context=context, question=query, query=query)
 
 
+def _dummy_response() -> str:
+    """Placeholder text for UI-demo / Streamlit Cloud (no local LLM)."""
+    return DUMMY_UI_RESPONSE
+
+
 def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | None = None) -> str:
     """Generate answer text using local Ollama runtime."""
     if settings is None:
@@ -149,8 +175,73 @@ def _generate_with_ollama(context: str, query: str, settings: dict[str, Any] | N
     return response.content.strip() if hasattr(response, "content") else str(response).strip()
 
 
+class DummyLLMProvider:
+    """UI-demo generator: fixed placeholder, no model calls."""
+
+    def generate(self, context: str, query: str) -> str:
+        return _dummy_response()
+
+
+class OllamaLLMProvider:
+    """Local Ollama generator with optional dummy fallback on errors."""
+
+    def __init__(self, settings: dict[str, Any] | None = None) -> None:
+        self._settings = settings
+
+    def generate(self, context: str, query: str) -> str:
+        settings = self._settings if self._settings is not None else load_generation_config()
+        try:
+            return _generate_with_ollama(context=context, query=query, settings=settings)
+        except Exception as exc:
+            logger.exception("Ollama generation failed: %s", exc)
+            if settings.get("fallback_to_dummy_on_error", False):
+                return (
+                    "Ollama unavailable, falling back to dummy mode.\n\n"
+                    f"{_dummy_response()}"
+                )
+            raise RuntimeError(f"Ollama generation unavailable: {exc}") from exc
+
+
+def resolve_llm_provider_name(dummy_mode: bool = True) -> str:
+    """Pick provider name from env, else map legacy dummy_mode / USE_DUMMY_GENERATOR.
+
+    Resolution:
+    1. `LLM_PROVIDER` env (non-empty) wins
+    2. Else `dummy` if `dummy_mode` else `ollama`
+    """
+    raw = os.getenv("LLM_PROVIDER")
+    if raw is not None and (normalized := raw.strip()):
+        return normalized.lower()
+    return "dummy" if dummy_mode else "ollama"
+
+
+def get_llm_provider(
+    name: str,
+    settings: dict[str, Any] | None = None,
+) -> LLMProvider:
+    """Factory for generation backends selected by `LLM_PROVIDER` / resolve helpers."""
+    normalized = (name or "").strip().lower()
+    if normalized == "dummy":
+        return DummyLLMProvider()
+    if normalized == "ollama":
+        return OllamaLLMProvider(settings=settings)
+    if normalized in {"anthropic", "openai"}:
+        raise NotImplementedError(
+            f"LLM provider {normalized!r} is not implemented yet "
+            f"(coming in a later milestone). Use 'ollama' or 'dummy' for now."
+        )
+    raise ValueError(
+        f"Unknown LLM provider {normalized!r}. "
+        f"Expected one of: {', '.join(sorted(SUPPORTED_LLM_PROVIDERS))}."
+    )
+
+
 def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
-    """Generate a response from retrieved context and user question."""
+    """Generate a response from retrieved context and user question.
+
+    Provider selection: explicit `LLM_PROVIDER` env wins; when unset, `dummy_mode`
+    (and thus Streamlit's `USE_DUMMY_GENERATOR`) maps to dummy vs ollama.
+    """
     safe_query = _normalize_untrusted_text(query, max_chars=2000)
     if not safe_query:
         return "Please enter a non-empty question."
@@ -158,25 +249,6 @@ def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
     if not safe_context:
         return "I could not find relevant information in the document to answer this question."
 
-    def _dummy_response() -> str:
-        return (
-            "This is a UI demo — no AI model is running here.\n\n"
-            "Upload and search work, but answers are not generated on this host.\n\n"
-            "For real grounded answers on your documents, request access to the "
-            "[live pilot](https://ai-doc-pilot.roxanatapia.dev)."
-        )
-
-    if dummy_mode:
-        return _dummy_response()
-
-    settings = load_generation_config()
-    try:
-        return _generate_with_ollama(context=safe_context, query=safe_query, settings=settings)
-    except Exception as exc:
-        logger.exception("Ollama generation failed: %s", exc)
-        if settings.get("fallback_to_dummy_on_error", False):
-            return (
-                "Ollama unavailable, falling back to dummy mode.\n\n"
-                f"{_dummy_response()}"
-            )
-        raise RuntimeError(f"Ollama generation unavailable: {exc}") from exc
+    provider_name = resolve_llm_provider_name(dummy_mode=dummy_mode)
+    provider = get_llm_provider(provider_name)
+    return provider.generate(safe_context, safe_query)

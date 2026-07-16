@@ -1,8 +1,7 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
-from langchain.prompts import PromptTemplate
-
+from langchain_core.prompts import PromptTemplate
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
