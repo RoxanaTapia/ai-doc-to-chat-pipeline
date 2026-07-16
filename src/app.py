@@ -30,6 +30,7 @@ from retrieval_quality import (
     INSUFFICIENT_CONTEXT_ANSWER,
     context_sufficient_for_query,
     dedupe_similar_chunks,
+    sort_source_docs,
 )
 from sectioning import (
     annotate_chunk_sections,
@@ -302,8 +303,9 @@ def _build_sources_payload(
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     target_section = extract_target_section(query) if query else None
+    ordered = sort_source_docs(retrieved_docs, target_section=target_section)
     payload = []
-    for chunk in retrieved_docs[:SOURCES_DISPLAY_MAX]:
+    for chunk in ordered[:SOURCES_DISPLAY_MAX]:
         similarity = chunk.metadata.get("similarity")
         entry = {
             "page": chunk.metadata.get("page", "N/A"),
