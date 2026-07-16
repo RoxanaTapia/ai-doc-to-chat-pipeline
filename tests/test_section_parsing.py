@@ -75,6 +75,30 @@ No Further Rights.
 Nothing herein shall grant any ownership of the Confidential Information.
 """
 
+TOC_BLEED_PAGE = """\
+CONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT
+
+TABLE OF CONTENTS
+1. Definition of Confidential Information ............. 1
+2. Exclusions from Confidential Information ........... 2
+3. Obligations of the Receiving Party ................. 3
+
+WHEREAS, the parties wish to share information.
+
+1. Definition of Confidential Information
+Confidential Information means any information with commercial value.
+
+2. Exclusions from Confidential Information
+Confidential Information does not include public information.
+
+3. Obligations of the Receiving Party
+The Receiving Party shall hold all Confidential Information in strict confidence.
+
+Note for pilot testers:
+1. How is Confidential Information defined in Section 1?
+2. What obligations does Section 3 impose on the Receiving Party?
+"""
+
 
 def test_extract_target_section_parses_common_patterns() -> None:
     assert extract_target_section("What does Section 3 require?") == "3"
@@ -324,4 +348,69 @@ def test_chunk_contains_section_matches_title_slug() -> None:
     )
     assert chunk_contains_section(doc.page_content, "confidentiality")
     assert doc.metadata.get("section") == "confidentiality"
+
+
+def test_find_legal_headers_skips_toc_and_faq_lines() -> None:
+    headers = find_legal_headers(TOC_BLEED_PAGE)
+    ids = [item[1] for item in headers]
+    titles = [item[2] for item in headers]
+    assert ids == ["1", "2", "3"]
+    assert all("...." not in title for title in titles)
+    assert all("How is" not in title for title in titles)
+    assert all(title for title in titles)  # real clauses keep titles
+
+
+def test_split_documents_keeps_toc_out_of_section_bodies() -> None:
+    sections = split_documents_by_legal_headers(
+        [Document(page_content=TOC_BLEED_PAGE, metadata={"page": 1})]
+    )
+    by_section = {
+        doc.metadata.get("section"): doc
+        for doc in sections
+        if doc.metadata.get("section")
+    }
+    preamble = next(
+        doc for doc in sections if doc.metadata.get("section_title") == "preamble"
+    )
+    notes = next(
+        (doc for doc in sections if doc.metadata.get("section_title") == "notes"),
+        None,
+    )
+
+    assert "TABLE OF CONTENTS" in preamble.page_content
+    assert "............." in preamble.page_content
+    assert "WHEREAS" in preamble.page_content
+    assert "means any information" not in preamble.page_content
+
+    section_one = by_section["1"]
+    assert section_one.page_content.startswith("1. Definition")
+    assert "means any information" in section_one.page_content
+    assert "............." not in section_one.page_content
+    assert "WHEREAS" not in section_one.page_content
+    assert "How is" not in section_one.page_content
+
+    section_three = by_section["3"]
+    assert "strict confidence" in section_three.page_content
+    assert "How is" not in section_three.page_content
+    assert "Note for pilot" not in section_three.page_content
+
+    assert notes is not None
+    assert "How is Confidential Information defined" in notes.page_content
+
+
+def test_split_documents_preamble_isolated_from_section_one() -> None:
+    page = """\
+Parties agree as follows.
+
+1. Definition of Confidential Information
+Confidential Information means trade secrets.
+"""
+    sections = split_documents_by_legal_headers(
+        [Document(page_content=page, metadata={"page": 1})]
+    )
+    assert sections[0].metadata.get("section_title") == "preamble"
+    assert "Parties agree" in sections[0].page_content
+    assert sections[1].metadata.get("section") == "1"
+    assert sections[1].page_content.startswith("1. Definition")
+    assert "Parties agree" not in sections[1].page_content
 

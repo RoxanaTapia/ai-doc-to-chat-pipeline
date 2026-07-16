@@ -13,7 +13,8 @@ TITLE_LINE_HEADER_RE = re.compile(
 )
 SECTION_IN_QUERY_RE = re.compile(r"section\s+(\d+)", re.IGNORECASE)
 SECTION_SYMBOL_RE = re.compile(r"§\s*(\d+)")
-SECTION_LABEL_RE = re.compile(r"(?i)\bsection\s+(\d+)\b")
+# Line-anchored: mid-sentence "defined in Section 1" must not become a header.
+SECTION_LABEL_RE = re.compile(r"(?im)^\s*section\s+(\d+)\b")
 
 _SKIP_TITLE_PREFIXES = (
     "Note to",
@@ -24,6 +25,15 @@ _SKIP_TITLE_PREFIXES = (
     "Place and",
     "Signature",
 )
+
+# TOC leaders ("Title ........ 3") and FAQ-style numbered questions are not clause headers.
+_TOC_LEADER_RE = re.compile(r"\.{2,}\s*\d+\s*$")
+_INTERROGATIVE_START_RE = re.compile(
+    r"(?i)^(?:how|what|why|when|where|who|whom|whose|which|"
+    r"does|do|did|is|are|was|were|can|could|should|will|would|may)\b"
+)
+_NOTE_FOR_RE = re.compile(r"(?i)^note for\b")
+_NUMBERED_LINE_RE = re.compile(r"^\s*\d+\.\s+")
 
 
 def extract_target_section(query: str) -> str | None:
@@ -60,17 +70,95 @@ def _valid_title_header(title: str) -> bool:
     return True
 
 
+def _looks_like_toc_entry(text: str) -> bool:
+    """True for TOC rows with leader dots and a trailing page number."""
+    return bool(_TOC_LEADER_RE.search((text or "").strip()))
+
+
+def _looks_like_faq_question(text: str) -> bool:
+    """True for eval/FAQ lines like 'How is X defined…?' or numbered questions."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return False
+    body = _NUMBERED_LINE_RE.sub("", cleaned, count=1).strip()
+    if not body:
+        return False
+    if body.endswith("?"):
+        return True
+    return bool(_INTERROGATIVE_START_RE.match(body))
+
+
+def _valid_numbered_header(title: str) -> bool:
+    """Reject TOC leaders and FAQ-style fragments as numbered clause headers."""
+    cleaned = (title or "").strip()
+    if not cleaned:
+        return False
+    if _looks_like_toc_entry(cleaned):
+        return False
+    if _looks_like_faq_question(cleaned):
+        return False
+    return True
+
+
+def _is_bleed_line(line: str) -> bool:
+    """Lines that should not stick to a section body (TOC rows, FAQ prompts, note banners)."""
+    stripped = (line or "").strip()
+    if not stripped:
+        return False
+    if _NOTE_FOR_RE.match(stripped):
+        return True
+    if _looks_like_toc_entry(stripped):
+        return True
+    if _NUMBERED_LINE_RE.match(stripped) and _looks_like_faq_question(stripped):
+        return True
+    return False
+
+
+def _peel_trailing_bleed(text: str) -> tuple[str, str]:
+    """
+    Peel trailing TOC/FAQ/note lines from a section body.
+
+    Returns (clean_body, bleed_text). Bleed is empty when nothing was peeled.
+    """
+    lines = (text or "").splitlines()
+    if not lines:
+        return "", ""
+
+    bleed_start = len(lines)
+    index = len(lines) - 1
+    while index >= 0:
+        stripped = lines[index].strip()
+        if not stripped:
+            index -= 1
+            continue
+        if _is_bleed_line(lines[index]):
+            bleed_start = index
+            index -= 1
+            continue
+        break
+
+    while bleed_start > 0 and not lines[bleed_start - 1].strip():
+        bleed_start -= 1
+
+    body = "\n".join(lines[:bleed_start]).strip()
+    bleed = "\n".join(lines[bleed_start:]).strip()
+    return body, bleed
+
+
 def find_legal_headers(text: str) -> list[tuple[int, str, str]]:
     """Return sorted (char_offset, section_id, title) for numbered and title-style headers."""
     headers: list[tuple[int, str, str]] = []
     seen_at: set[int] = set()
 
     for match in NUMBERED_CLAUSE_RE.finditer(text or ""):
+        title = match.group(2).strip()
+        if not _valid_numbered_header(title):
+            continue
         pos = match.start()
         if pos in seen_at:
             continue
         seen_at.add(pos)
-        headers.append((pos, match.group(1), match.group(2).strip()[:80]))
+        headers.append((pos, match.group(1), title[:80]))
 
     for match in SECTION_LABEL_RE.finditer(text or ""):
         pos = match.start()
@@ -103,12 +191,14 @@ def split_documents_by_legal_headers(page_docs: list[Document]) -> list[Document
     Split each page into header-bounded sections before character chunking (tuning #2).
 
     Keeps preamble (text before the first header) as its own document when non-empty.
+    Peels trailing TOC/FAQ bleed from section bodies into a separate notes document.
     """
     section_docs: list[Document] = []
     for page_doc in page_docs:
         text = page_doc.page_content or ""
         base_metadata = dict(page_doc.metadata)
         headers = find_legal_headers(text)
+        page_bleed: list[str] = []
 
         if not headers:
             section_docs.append(page_doc)
@@ -129,9 +219,14 @@ def split_documents_by_legal_headers(page_docs: list[Document]) -> list[Document
             section_text = text[pos:end].strip()
             if not section_text:
                 continue
+            body, bleed = _peel_trailing_bleed(section_text)
+            if bleed:
+                page_bleed.append(bleed)
+            if not body:
+                continue
             section_docs.append(
                 Document(
-                    page_content=section_text,
+                    page_content=body,
                     metadata={
                         **base_metadata,
                         "section": section_id,
@@ -139,6 +234,16 @@ def split_documents_by_legal_headers(page_docs: list[Document]) -> list[Document
                     },
                 )
             )
+
+        if page_bleed:
+            notes = "\n\n".join(page_bleed).strip()
+            if notes:
+                section_docs.append(
+                    Document(
+                        page_content=notes,
+                        metadata={**base_metadata, "section_title": "notes"},
+                    )
+                )
 
     return section_docs if section_docs else page_docs
 
@@ -162,11 +267,14 @@ def section_spans_in_chunk(text: str) -> list[tuple[str, int, int, str | None]]:
     seen_at: set[int] = set()
 
     for match in NUMBERED_CLAUSE_RE.finditer(text or ""):
+        title = match.group(2).strip()
+        if not _valid_numbered_header(title):
+            continue
         pos = match.start()
         if pos in seen_at:
             continue
         seen_at.add(pos)
-        headers.append((pos, match.group(1), match.group(2).strip()[:80]))
+        headers.append((pos, match.group(1), title[:80]))
 
     for match in TITLE_LINE_HEADER_RE.finditer(text or ""):
         title = match.group(1).strip()
