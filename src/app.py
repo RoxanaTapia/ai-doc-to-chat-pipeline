@@ -6,6 +6,7 @@ import threading
 import yaml
 import time
 import hashlib
+import html
 import os
 import io
 import re
@@ -333,16 +334,28 @@ def _render_sources_panel(
     developer_mode: bool,
     title: str = "Sources",
 ) -> None:
-    """Render source excerpts in a client-friendly expander."""
+    """Render page + excerpt audit trail in a client-friendly expander."""
     if not sources:
         return
     with st.expander(title, expanded=False):
-        for source_idx, source in enumerate(sources, start=1):
-            header = f"**Source {source_idx}** · Page {source['page']}"
+        st.caption("Page and short excerpt from the document — verify against the answer.")
+        blocks: list[str] = []
+        for source in sources:
+            page = source.get("page", "N/A")
+            preview = html.escape(source.get("preview") or "")
+            meta = ""
             if developer_mode and source.get("score") != "N/A":
-                header += f" · relevance {source['score']}"
-            st.markdown(header)
-            st.markdown(f"> {source['preview']}")
+                meta = (
+                    f' <span class="app-source-meta">· relevance '
+                    f"{html.escape(str(source['score']))}</span>"
+                )
+            blocks.append(
+                '<div class="app-source-item">'
+                f'<div class="app-source-page">Page {html.escape(str(page))}{meta}</div>'
+                f'<blockquote class="app-source-quote">{preview}</blockquote>'
+                "</div>"
+            )
+        st.markdown("".join(blocks), unsafe_allow_html=True)
 
 
 def _on_section_label(on_section: bool | None) -> str:
@@ -357,7 +370,7 @@ def _render_source_checklist(
     sources: list[dict],
     *,
     target_section: str | None = None,
-    title: str = "📋 Source checklist (eval)",
+    title: str = "Source checklist (eval)",
 ) -> None:
     """Dev-only Round 4 eval aid: page, ~80 char excerpt, on-section Y/N per source."""
     if not sources:
@@ -390,7 +403,7 @@ def _render_eval_context_panel(
     *,
     target_section: str | None = None,
     chunk_count: int | None = None,
-    title: str = "📄 Exact Context fed to LLM",
+    title: str = "Exact context fed to LLM",
 ) -> None:
     """Dev-only: persisted exact context for retrieval vs generation diagnosis."""
     with st.expander(title, expanded=False):
@@ -708,24 +721,6 @@ def _response_timing_caption(
     return f"Answered in {total_label}"
 
 
-def _assistant_message_with_timing(
-    content: str,
-    timing: dict[str, float] | None,
-    *,
-    developer_mode: bool,
-) -> str:
-    """Embed elapsed time in assistant markdown so it survives Streamlit reruns."""
-    if not timing or timing.get("total_ms", 0) <= 0:
-        return content
-    footer = _response_timing_caption(
-        total_ms=timing["total_ms"],
-        retrieval_ms=timing.get("retrieval_ms", 0.0),
-        generation_ms=timing.get("generation_ms", 0.0),
-        developer_mode=developer_mode,
-    )
-    return f"{content}\n\n---\n*{footer}*"
-
-
 def _remember_response_timing(timing: dict[str, float] | None) -> None:
     """Persist last response timing for the status line above chat input."""
     if timing and timing.get("total_ms", 0) > 0:
@@ -744,7 +739,21 @@ def _sources_panel_title(message: dict) -> str:
     preview = message.get("for_question")
     if preview:
         return f"Sources — {preview}"
-    return "Sources for this answer"
+    return "Sources — this answer"
+
+
+def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bool) -> None:
+    """Quiet timing cue under the answer (not inside the answer body)."""
+    if not timing or timing.get("total_ms", 0) <= 0:
+        return
+    st.caption(
+        _response_timing_caption(
+            total_ms=timing["total_ms"],
+            retrieval_ms=timing.get("retrieval_ms", 0.0),
+            generation_ms=timing.get("generation_ms", 0.0),
+            developer_mode=developer_mode,
+        )
+    )
 
 
 def _append_chat_message(
@@ -758,15 +767,15 @@ def _append_chat_message(
     eval_chunk_count: int | None = None,
 ) -> None:
     """Append a chat message and prune old history."""
-    if role == "assistant":
-        content = _assistant_message_with_timing(
-            content,
-            timing,
-            developer_mode=st.session_state.developer_mode,
-        )
     message = {"role": role, "content": content}
     if sources:
         message["sources"] = sources
+    if role == "assistant" and timing and timing.get("total_ms", 0) > 0:
+        message["timing"] = {
+            "total_ms": timing["total_ms"],
+            "retrieval_ms": timing.get("retrieval_ms", 0.0),
+            "generation_ms": timing.get("generation_ms", 0.0),
+        }
     if role == "assistant" and for_question:
         message["for_question"] = _question_preview(for_question)
     if role == "assistant" and st.session_state.developer_mode:
@@ -1562,24 +1571,26 @@ _render_document_status(
 # Chat history UI (persists across reruns)
 for msg_idx, message in enumerate(st.session_state.messages):
     turn_label = f"turn {msg_idx // 2 + 1}"
-    question_preview = message.get("for_question") if message["role"] == "assistant" else None
-    if message["role"] == "user" and not question_preview:
-        question_preview = _question_preview(message.get("content", ""))
 
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        if message["role"] == "assistant" and message.get("sources"):
-            _render_sources_panel(
-                message["sources"],
+        if message["role"] == "assistant":
+            _render_answer_timing(
+                message.get("timing"),
                 developer_mode=st.session_state.developer_mode,
-                title=_sources_panel_title(message),
             )
-            if st.session_state.developer_mode:
+            if message.get("sources"):
+                _render_sources_panel(
+                    message["sources"],
+                    developer_mode=st.session_state.developer_mode,
+                    title=_sources_panel_title(message),
+                )
+            if st.session_state.developer_mode and message.get("sources"):
                 _render_source_checklist(
                     message["sources"],
                     target_section=message.get("target_section"),
                     title=_dev_panel_title(
-                        "📋 Source checklist (eval)",
+                        "Source checklist (eval)",
                         message.get("for_question"),
                         fallback=turn_label,
                     ),
@@ -1590,7 +1601,7 @@ for msg_idx, message in enumerate(st.session_state.messages):
                         target_section=message.get("target_section"),
                         chunk_count=message.get("eval_chunk_count"),
                         title=_dev_panel_title(
-                            "📄 Exact Context fed to LLM",
+                            "Exact context fed to LLM",
                             message.get("for_question"),
                             fallback=turn_label,
                         ),
@@ -1640,9 +1651,9 @@ if query and query.strip() and chat_ready:
             t0 = time.perf_counter()
             while not stop_timer.wait(0.12):
                 elapsed = time.perf_counter() - t0
-                timer_placeholder.caption(f"⏱ {elapsed:.1f}s · Thinking…")
+                timer_placeholder.caption(f"Working… {elapsed:.1f}s")
 
-        with st.spinner("Thinking…"):
+        with st.spinner("Working on your answer…"):
             timer_thread = None
             if script_ctx is not None:
                 timer_thread = threading.Thread(
@@ -1799,7 +1810,7 @@ if query and query.strip() and chat_ready:
             query_preview = _question_preview(query)
             if st.session_state.last_retrieval_metrics:
                 with st.expander(
-                    _dev_panel_title("📊 Retrieval metrics (last run)", query_preview, fallback="live"),
+                    _dev_panel_title("Retrieval metrics (last run)", query_preview, fallback="live"),
                     expanded=False,
                 ):
                     metrics = st.session_state.last_retrieval_metrics
@@ -1821,13 +1832,13 @@ if query and query.strip() and chat_ready:
                     if retrieval_warning:
                         st.caption(f"Retrieval warning: {retrieval_warning}")
             with st.expander(
-                _dev_panel_title("📄 Exact Context fed to LLM", query_preview, fallback="live"),
+                _dev_panel_title("Exact context fed to LLM", query_preview, fallback="live"),
                 expanded=False,
             ):
                 st.code(context, language="text")
-                st.caption(f"• {len(raw_results)} chunks • {len(context)} chars • top-k={TOP_K}")
+                st.caption(f"• {len(raw_results)} chunks • {len(context)} chars · top-k={TOP_K}")
             with st.expander(
-                _dev_panel_title("🔍 Retrieved raw chunks + scores", query_preview, fallback="live"),
+                _dev_panel_title("Retrieved raw chunks + scores", query_preview, fallback="live"),
                 expanded=False,
             ):
                 for i, (doc, _raw_score) in enumerate(raw_results, start=1):
