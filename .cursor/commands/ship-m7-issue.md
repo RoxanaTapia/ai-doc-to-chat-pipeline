@@ -1,48 +1,8 @@
-# Ship one M7 GitHub issue
+# Ship one GitHub issue (alias)
 
-Act as **milestone-orchestrator**. Ship the M7 GitHub issue specified below (default: ask me for issue number if not provided).
+Alias for `/ship-issue`. M7 is shipped; use this the same way for M7.8+ issues.
 
-## Steps
-
-1. `gh issue view <NUMBER> --json title,body,labels,milestone`
-2. Read `docs/operators/ROADMAP.md` M7 section and `AGENTS.md` issue→agent mapping.
-3. Create branch `feat/m7-<short-name>` from latest main (or current base if I specify).
-4. Dispatch specialists **only** for this issue:
-
-   | Issue | Primary | Secondary |
-   |-------|---------|-----------|
-   | #33 | deploy-engineer | (none) |
-   | #34 | deploy-engineer | config-guardian |
-   | #35 | deploy-engineer | docs-writer |
-   | #36 | config-guardian | docs-writer |
-   | #37 | docs-writer | deploy-engineer review |
-   | #38 | deploy-engineer | blocker-reporter if no domain |
-   | #39 | docs-writer | (none) |
-
-5. Specialists must **NOT** run `git commit`.
-6. Invoke **verifier**: pytest; docker build if Dockerfile/compose changed.
-7. Split into **1–2 granular commits** per ROADMAP; show messages; commit **only if I said commit**.
-8. Draft PR title/body with **`## Main contribution`** first (one outcome paragraph), then Summary, Test plan, and `Closes #NN`. **Do not push** unless I say push.
-
-### PR body template
-
-```markdown
-## Main contribution
-
-<One paragraph: what this delivers, why it matters, who benefits. No file list.>
-
-## Summary
-- ...
-
-## Test plan
-- [ ] ...
-
-Closes #NN
-```
-
-## If blocked
-
-Invoke **blocker-reporter**, use AGENTS.md Human decisions log defaults, then **STOP**.
+Follow `.cursor/commands/ship-issue.md` and train mode in `AGENTS.md`.
 
 ## Issue number
 
