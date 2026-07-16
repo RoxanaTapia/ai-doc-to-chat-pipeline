@@ -94,10 +94,10 @@ Invoke by role name. Files live in `.cursor/agents/`.
 
 | Issue | Primary | Secondary | Est. commits | Serial |
 |-------|---------|-----------|--------------|--------|
-| M7.9-1 visual foundation | streamlit-ux-designer | - | 1–2 | - |
-| M7.9-2 copy + empty/ready states | streamlit-ux-designer | docs-writer (tone) | 1 | after M7.9-1 |
-| M7.9-3 sidebar IA | streamlit-ux-designer | - | 1 | after M7.9-2 |
-| M7.9-4 chat + Sources readability | streamlit-ux-designer | streamlit-engineer (edge) | 1–2 | after M7.9-3 |
+| #70 M7.9-1 visual foundation | streamlit-ux-designer | - | 1–2 | - |
+| #71 M7.9-2 copy + empty/ready states | streamlit-ux-designer | docs-writer (tone) | 1 | after #70 |
+| #72 M7.9-3 sidebar IA | streamlit-ux-designer | - | 1 | after #71 |
+| #73 M7.9-4 chat + Sources readability | streamlit-ux-designer | streamlit-engineer (edge) | 1–2 | after #72 |
 
 ### M8: Thin FastAPI contract (after video + packaging)
 

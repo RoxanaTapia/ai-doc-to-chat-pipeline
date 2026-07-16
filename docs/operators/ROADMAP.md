@@ -132,14 +132,16 @@ GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 
 Calm, elegant client UI for confidential document Q&A. Progressive polish only; preserve Generator status, ready-state, Sources, Cloud dummy banner, and developer diagnostics.
 
-| Issue | Outcome |
-|-------|---------|
-| M7.9-1 | Calm visual foundation (hero + light theme) |
-| M7.9-2 | Client copy and empty / ready states |
-| M7.9-3 | Sidebar information architecture |
-| M7.9-4 | Chat and Sources readability |
+| Issue | Outcome | GitHub |
+|-------|---------|--------|
+| M7.9-1 | Calm visual foundation (hero + light theme) | [#70](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/70) |
+| M7.9-2 | Client copy and empty / ready states | [#71](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/71) |
+| M7.9-3 | Sidebar information architecture | [#72](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/72) |
+| M7.9-4 | Chat and Sources readability | [#73](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/73) |
 
-**Serial order:** M7.9-1 → 2 → 3 → 4. Nice-to-have before demo recording (#57); does not block thin M8.
+**Serial order:** #70 → #71 → #72 → #73. Nice-to-have before demo recording (#57); does not block thin M8.
+
+GitHub milestone: [M7.9 Interface polish](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/8)
 
 **Out of scope:** Docker, FastAPI, RAG accuracy, inventing brand logos.
 
