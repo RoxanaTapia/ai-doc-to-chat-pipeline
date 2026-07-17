@@ -124,13 +124,22 @@ Expect: `ollama` **healthy** · `app` **Up** · `caddy` **Up**. Port 8501 is not
 
 ### 6. Verify
 
+With the hybrid Caddyfile (public gate + app under `/app`):
+
 ```bash
-# 401 without credentials, 200 with
+# Public gate (no credentials): expect 200 HTML from roxanatapia-web sites/pilot-gate
 curl -sk -o /dev/null -w "%{http_code}\n" https://YOUR_DOMAIN/
-curl -sk -o /dev/null -w "%{http_code}\n" -u demo:YOUR_PASSWORD https://YOUR_DOMAIN/
+
+# App path: 401 without credentials, 200 with
+curl -sk -o /dev/null -w "%{http_code}\n" https://YOUR_DOMAIN/app
+curl -sk -o /dev/null -w "%{http_code}\n" -u demo:YOUR_PASSWORD https://YOUR_DOMAIN/app
 ```
 
-Open `https://YOUR_DOMAIN` in a browser. Sign in, upload a PDF, ask a question.
+Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a PDF, ask a question.
+
+**Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
+
+**IP-only mode** (`Caddyfile.ip`) still puts basic auth on the whole listener (no static gate). Use domain mode for the hybrid front door.
 
 **Later, switch from IP to domain:** set `SITE_ADDRESS=your.domain.com` + `ACME_EMAIL`, remove `CADDYFILE=./Caddyfile.ip`, recreate Caddy. Let's Encrypt issues the cert automatically.
 

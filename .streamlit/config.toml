@@ -2,6 +2,8 @@
 # Docker has no hot-reload; disable watcher to avoid probing transformers submodules
 # that optionally import torchvision (not installed — not needed for embeddings).
 fileWatcherType = "none"
+# Served under /app behind Caddy (public gate owns /). See deploy/Caddyfile.
+baseUrlPath = "app"
 
 [client]
 # Private pilot: no "Ask ChatGPT" / Google links on errors; keep messages user-safe.
