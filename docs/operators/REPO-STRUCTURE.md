@@ -42,6 +42,8 @@ As of **M7.96-2** ([#90](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 | **`deploy/`** | Everything needed to run the pilot container stack |
 | **`.cursor/` + `AGENTS.md`** | How humans and agents ship milestones |
 
+Contributors may run `pre-commit install` so local commits use [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) (ruff + basic hooks).
+
 ---
 
 ## 🛠️ `deploy/` (no root shims)
