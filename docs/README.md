@@ -16,8 +16,8 @@ Start here when you want to understand the product, deploy it, or contribute. Do
 | **Deploying on a VPS** | [DEPLOYMENT.md](../DEPLOYMENT.md) | [Architecture](product/architecture.md) |
 | **Browsing as a buyer** | [README](../README.md) | Live pilot + [sample NDA](product/sample-nda.pdf) / [sample policy](product/sample-policy.md) |
 | **Shipping milestones** | [PROJECT-DIRECTION](operators/PROJECT-DIRECTION.md) | [ROADMAP](operators/ROADMAP.md), [AGENTS.md](../AGENTS.md) |
-| **Finding files in the repo** | [REPO-STRUCTURE](operators/REPO-STRUCTURE.md) | Target layout after M7.96 |
-| **Testing OCR** | [Testing OCR](operators/testing-ocr.md) | Local Docker steps |
+| **Finding files in the repo** | [REPO-STRUCTURE](operators/REPO-STRUCTURE.md) | Current layout (`src/`, `docs/`, `deploy/`, `.cursor/`) |
+| **Testing OCR** | [Testing OCR](operators/testing-ocr.md) | Local Docker steps under `deploy/` |
 
 ```mermaid
 flowchart LR
@@ -33,12 +33,21 @@ flowchart LR
 
 ## 🗂️ Folder map
 
+Docs sit inside a calm top-level tree. Product code in `src/`, self-host assets in `deploy/`, agentic tooling in `.cursor/` + [AGENTS.md](../AGENTS.md). Detail: [REPO-STRUCTURE](operators/REPO-STRUCTURE.md).
+
 ```text
-docs/
-  README.md          ← you are here
-  product/           ← how it works, demo, evaluation, sample docs
-  operators/         ← roadmap, direction, repo structure, OCR testing
-  archive/           ← older eval rounds (not primary reading)
+.
+├── README.md            ← client-facing overview
+├── AGENTS.md            ← contributor / agent playbook
+├── DEPLOYMENT.md        ← self-host & pilot ops
+├── src/                 ← Streamlit + RAG
+├── deploy/              ← Dockerfile, Compose, Caddy, scripts
+├── .cursor/             ← rules, agents, slash commands
+└── docs/                ← you are here
+      README.md
+      product/           ← architecture, demo, evaluation, sample docs
+      operators/         ← roadmap, direction, repo structure, OCR testing
+      archive/           ← older eval rounds (not primary reading)
 ```
 
 | Folder | Role |
@@ -46,7 +55,7 @@ docs/
 | [`product/`](product/) | Client-readable: architecture, demo script, evaluation, sample NDA + policy |
 | [`operators/`](operators/) | Roadmap, project direction, [repo structure](operators/REPO-STRUCTURE.md), contributor how-tos |
 | [`archive/`](archive/) | Historical eval rounds; keep for reference, not day-one reading |
-
+| [`deploy/`](../deploy/) (repo root) | Docker, Compose, and Caddy only (no root shims); start from [DEPLOYMENT.md](../DEPLOYMENT.md) |
 
 ---
 
@@ -55,4 +64,5 @@ docs/
 - **Live pilot:** [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev)
 - **Public UI demo:** [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app)
 - **Self-host:** [DEPLOYMENT.md](../DEPLOYMENT.md)
+- **Repo layout:** [REPO-STRUCTURE](operators/REPO-STRUCTURE.md) · [AGENTS.md](../AGENTS.md)
 - **Sample uploads:** [product/sample-nda.pdf](product/sample-nda.pdf) · [product/sample-policy.md](product/sample-policy.md) (export to PDF)

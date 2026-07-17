@@ -41,6 +41,20 @@ Everything runs on one VM. Your documents never leave your environment (self-hos
 
 ---
 
+## 🗂️ Repository layout
+
+| Path | Role |
+|------|------|
+| `src/` | Application code (Streamlit UI and RAG pipeline) |
+| `docs/` | Product and operator docs ([index](docs/README.md)) |
+| `deploy/` | Docker, Compose, and Caddy assets for self-host |
+| `.cursor/` | Agent rules, specialists, and slash commands |
+| [`AGENTS.md`](AGENTS.md) | Contributor playbook (issues, agents, delivery train) |
+
+To run your own instance, follow the [Deployment Guide](DEPLOYMENT.md). Full tree: [docs/operators/REPO-STRUCTURE.md](docs/operators/REPO-STRUCTURE.md).
+
+---
+
 ## ✨ What it does well
 
 - **Policies, SOPs, reports, contracts, handbooks:** find rules, obligations, dates, and definitions in the PDF you uploaded
