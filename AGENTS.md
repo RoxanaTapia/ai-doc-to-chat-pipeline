@@ -10,6 +10,21 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 
 ---
 
+## 🛠️ How we build
+
+This repo is set up for **Cursor agents**: named specialists under [`.cursor/agents/`](.cursor/agents/), slash commands under [`.cursor/commands/`](.cursor/commands/), and always-on rules under [`.cursor/rules/`](.cursor/rules/). See [`.cursor/README.md`](.cursor/README.md) for a one-screen map.
+
+**Discipline stays simple:**
+
+1. One GitHub issue → one branch `feat/<phase>-<name>` → one PR → `Closes #NN`.
+2. Specialists edit only what they own; they do **not** commit.
+3. The **milestone-orchestrator** commits, opens the PR, and (in train mode) merges when verifier + CI are green.
+4. After each merge, a short **status pulse**; hard gates get a **Blocker** card instead of guesswork.
+
+Operator direction and sequencing live in [docs/operators/PROJECT-DIRECTION.md](docs/operators/PROJECT-DIRECTION.md) and [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+
+---
+
 ## 🗺️ Milestone recap
 
 | Milestone | Goal | Status |
@@ -252,10 +267,11 @@ For the full queue, prefer `/ship-milestone M7.8` then continue into packaging +
 
 | Command | Purpose |
 |---------|---------|
-| `/ship-issue` | Ship one GitHub issue end-to-end (**use this**) |
-| `/ship-m7-issue` | Alias → same as `/ship-issue` |
+| `/ship-issue` | Ship one GitHub issue end-to-end |
 | `/ship-milestone` | Run or plan a milestone train (M7.8–M12) |
 | `/verify` | pytest + ruff; report gaps |
+
+Command files live in [`.cursor/commands/`](.cursor/commands/). Stale M7-only aliases were removed (use `/ship-issue`).
 
 ---
 
