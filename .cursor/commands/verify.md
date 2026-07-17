@@ -6,7 +6,7 @@ Act as **verifier**. Run quality checks before a PR.
 
 1. `pytest tests/ -v` from repo root
 2. If `ruff` is available: `ruff check src tests` and `ruff format --check src tests`
-3. If `Dockerfile` or `docker-compose*.yml` changed in this branch: `docker build -t ai-doc-to-chat-test .`
+3. If `deploy/Dockerfile` or `deploy/docker-compose*.yml` changed in this branch: `docker build -f deploy/Dockerfile -t ai-doc-to-chat-test .`
 4. If `src/api/` exists: note whether `/health` should be curl-tested
 
 ## Output

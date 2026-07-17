@@ -87,7 +87,7 @@ SITE_ADDRESS=your-subdomain.example.com
 ACME_EMAIL=you@example.com
 ```
 
-For an **IP-only interim** (no domain yet), set `CADDYFILE=./Caddyfile.ip` instead of `SITE_ADDRESS`.
+For an **IP-only interim** (no domain yet), set `CADDYFILE=./Caddyfile.ip` instead of `SITE_ADDRESS` (path is relative to `deploy/` when Compose resolves volumes).
 
 ### 3. Generate basic-auth credentials
 
@@ -108,16 +108,16 @@ chmod +x deploy/generate-ip-tls.sh
 ### 4. Start Ollama and pull a model
 
 ```bash
-docker compose up -d ollama
-docker compose ps ollama          # wait for STATUS = healthy (~60 s)
-docker compose exec ollama ollama pull phi3:mini
+docker compose -f deploy/docker-compose.yml up -d ollama
+docker compose -f deploy/docker-compose.yml ps ollama          # wait for STATUS = healthy (~60 s)
+docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
 ```
 
 ### 5. Start the full stack with HTTPS
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up --build -d
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml ps
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
 ```
 
 Expect: `ollama` **healthy** · `app` **Up** · `caddy` **Up**. Port 8501 is not exposed publicly.
@@ -140,19 +140,19 @@ Open `https://YOUR_DOMAIN` in a browser. Sign in, upload a PDF, ask a question.
 
 ```bash
 # Start Ollama
-docker compose up -d ollama
-docker compose ps ollama   # wait for healthy
+docker compose -f deploy/docker-compose.yml up -d ollama
+docker compose -f deploy/docker-compose.yml ps ollama   # wait for healthy
 
 # Pull a model once
-docker compose exec ollama ollama pull phi3:mini
+docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
 
 # Build and start app
-docker compose up --build -d
+docker compose -f deploy/docker-compose.yml up --build -d
 ```
 
 Open [http://localhost:8501](http://localhost:8501). Port 8501 binds to the host in the default (non-Caddy) Compose config.
 
-For Caddy locally: same `docker compose -f docker-compose.yml -f docker-compose.caddy.yml` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
+For Caddy locally: same `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
 
 ---
 
@@ -170,7 +170,7 @@ Settings cascade: `.env` overrides → `configs/config.yaml` → built-in defaul
 | `APP_ALLOW_DEV_TOGGLE` | `false` | `true` only for local retrieval tuning |
 | `SITE_ADDRESS` | *(empty)* | Subdomain for Let's Encrypt (e.g. `demo.example.com`) |
 | `ACME_EMAIL` | *(empty)* | Let's Encrypt registration email |
-| `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` for bare-IP mode |
+| `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` (or `Caddyfile.ip`) for bare-IP mode; relative to `deploy/` |
 | `LLM_PROVIDER` | *(empty → ollama)* | Set to `anthropic` for the fast demo tier |
 | `ANTHROPIC_API_KEY` | *(empty)* | Required when `LLM_PROVIDER=anthropic`; `.env` only, never git |
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Optional Haiku override |
@@ -209,12 +209,12 @@ Restart the app container after changing provider or key. Leave `LLM_PROVIDER` u
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| `app` never starts | Ollama not healthy yet | `docker compose logs ollama` (wait for `healthy`) |
+| `app` never starts | Ollama not healthy yet | `docker compose -f deploy/docker-compose.yml logs ollama` (wait for `healthy`) |
 | Connection refused on Ollama | Wrong host or app started too early | Use Compose; `OLLAMA_HOST` must be `http://ollama:11434`, not `localhost` |
-| `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f docker-compose.caddy.yml`; confirm `caddy` is Up |
+| `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f deploy/docker-compose.caddy.yml`; confirm `caddy` is Up |
 | **401** with correct password | Wrong hash in conf file | Re-run `./deploy/generate-caddy-auth.sh`, restart Caddy |
 | **ERR_SSL_PROTOCOL_ERROR** / TLS error | Stale or mismatched cert/key | Re-run `./deploy/generate-ip-tls.sh YOUR_IP`, wipe Caddy volumes, recreate |
-| **Model not found** in chat | Model not pulled or name mismatch | `docker compose exec ollama ollama pull phi3:mini`; set `OLLAMA_MODEL` to same tag |
+| **Model not found** in chat | Model not pulled or name mismatch | `docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini`; set `OLLAMA_MODEL` to same tag |
 | OOM / very slow on CPU | Model too large for RAM | Use `phi3:mini`; set `OLLAMA_NUM_CTX=1024` in `.env` |
 | Slow first answer | Cold model start | Normal on first query; later answers are faster |
 | Disk full during pull | ~4 GB needed | `docker system df`; prune unused images |
@@ -222,8 +222,8 @@ Restart the app container after changing provider or key. Leave `LLM_PROVIDER` u
 Quick diagnostics:
 
 ```bash
-docker compose ps
-docker compose logs --tail=50 app
-docker compose logs --tail=50 ollama
-docker compose exec ollama ollama list
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
+docker compose -f deploy/docker-compose.yml logs --tail=50 app
+docker compose -f deploy/docker-compose.yml logs --tail=50 ollama
+docker compose -f deploy/docker-compose.yml exec ollama ollama list
 ```

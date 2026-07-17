@@ -1,6 +1,6 @@
 ---
 description: Docker Compose, Dockerfile, Caddy, and VPS deploy conventions for Ollama pilot
-globs: Dockerfile,docker-compose*.yml,**/Caddyfile,deploy/**
+globs: deploy/**
 alwaysApply: false
 ---
 
