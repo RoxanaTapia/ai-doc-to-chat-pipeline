@@ -119,28 +119,31 @@ After each issue, you should answer **without opening Cursor**:
 
 ### Phase 1: Demo, video & packaging 🚧 START HERE
 
-**Milestones:** M7.8 ✅ → M7.9 ✅ → **M7.95 Sources trust** ([#80–#83](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/9)) → video (#57) → packaging checklist in [ROADMAP.md](ROADMAP.md)
+**Milestones:** M7.8–M7.95 ✅ → **M7.96 Repo clarity** ([#89–#93](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/10), main only) → video (#57) → packaging checklist in [ROADMAP.md](ROADMAP.md)
 
 | # | Issue | Agent map | You learn |
 |---|-------|-----------|-----------|
-| 53–56 | M7.8 demo tier | (shipped) | Provider switch; streaming; pitch |
-| 70–73 | M7.9 UI polish | (shipped) | Calm client UI |
-| 80 | Sources display cap | config-guardian, streamlit-engineer | Display vs retrieval `top_k` |
-| 81 | Sort Sources | rag-core-engineer, streamlit-engineer | On-section + score ordering |
-| 82 | Answer-overlap filter | rag-core-engineer, streamlit-engineer | Honest citations with fallback |
-| 83 | Header-aware chunking | rag-core-engineer, config-guardian | TOC bleed vs section bodies |
+| 53–56, 70–73, 80–83 | M7.8–M7.95 | (shipped) | Demo tier, UI, Sources trust |
+| 89 | REPO-STRUCTURE | docs-writer | Target tree, no shims |
+| 90 | Consolidate under `deploy/` | deploy-engineer, docs-writer | Compose contexts, real path moves |
+| 91 | Agentic surface tidy | docs-writer | `.cursor/` + AGENTS intentional |
+| 92 | README + docs index | docs-writer | Client first paint |
+| 93 | Templates + pre-commit | config-guardian, docs-writer | Contributor hygiene |
 | 57 | Record video + README link | docs-writer (you record) | Walkthrough asset |
 
 ```mermaid
 flowchart LR
-  A["M7.8 + M7.9"] --> B["#80 ∥ #83"]
-  B --> C["#81"]
-  C --> D["#82"]
-  D --> E["#57 record"]
-  E --> F[Packaging]
-  F --> G[Thin M8]
-  G --> H[Phase pause]
+  A["M7.95 done"] --> B["#89 ∥ #91"]
+  B --> C["#90 deploy/"]
+  C --> D["#92 README"]
+  D --> E["#93 tooling"]
+  E --> F["#57 record"]
+  F --> G[Packaging]
+  G --> H[Thin M8]
+  H --> I[Phase pause]
 ```
+
+**M7.96 note:** merge to `main` only; leave `deploy/stable` on v0.8.0 until you intentionally advance it.
 
 After packaging + thin M8: **pause** for Support MVP unless a paid engagement needs more here.
 

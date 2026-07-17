@@ -17,8 +17,9 @@ How this repo uses Cursor **rules**, **subagents**, and **slash commands** to de
 | **M7** | Reference deployment (Docker, Compose, Caddy, live pilot) | ✅ Shipped |
 | **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | ✅ Shipped (#53–#56; #57 video open) |
 | **M7.9** | Interface polish | ✅ Shipped (#70–#73) |
-| **M7.95** | Sources trust | 🚧 Next (#80–#83) |
-| **Video / packaging** | Walkthrough linked from README; calm product framing | After M7.95 (#57) |
+| **M7.95** | Sources trust | ✅ Shipped (#80–#83) |
+| **M7.96** | Repo clarity (deploy/ consolidation, no shims) | 🚧 Next (#89–#93) · **main only** |
+| **Video / packaging** | Walkthrough linked from README; calm product framing | #57 (stable pin unchanged by M7.96) |
 | **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | After packaging (#58–#60) |
 | **M8.5** | Eval report export | Optional (#61) |
 | **M9–M11** | Persist, access control, ops runbook | Client-triggered |
@@ -32,25 +33,27 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ## 🎯 Current focus
 
-- **Ship next:** M7.95 Sources trust (#80–#83) → demo video (#57) → packaging → thin M8 (#58–#60).
+- **Ship next:** M7.96 Repo clarity (#89–#93) on **main only** (optional before video) → demo video (#57) → packaging → thin M8 (#58–#60).
+- **Do not** bump `deploy/stable` for M7.96 unless the operator asks (VPS/Cloud stay on v0.8.0).
 - **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
 - **Later / on demand:** M8.5, M9–M11.
 
 ### Delivery train (default queue)
 
 ```text
-M7.8 ✅ → M7.9 ✅ → (#80 ∥ #83) → #81 → #82 → #57 → packaging → #58 → #59 → #60 → [pause]
+M7.95 ✅ → (#89 ∥ #91) → #90 → #92 → #93 → #57 → packaging → #58 → #59 → #60 → [pause]
 ```
 
 | Wave | Work | Agents | Human? |
 |------|------|--------|--------|
-| — | M7.8 + M7.9 | shipped | — |
-| 1a ∥ 1b | **#80** Sources cap · **#83** header chunking | config + streamlit ∥ rag-core → verifier | None |
-| 2 | **#81** sort Sources | rag-core → streamlit → verifier | None |
-| 3 | **#82** answer-overlap filter | rag-core → streamlit → verifier | None |
-| 4 | **#57** demo video + README | docs-writer prepares; **human records** | **Hard gate:** video URL |
-| 5 | **Packaging** | docs-writer | Soft: thumbnail / links OK |
-| 6–8 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
+| — | M7.8–M7.95 | shipped | — |
+| 1a ∥ 1b | **#89** REPO-STRUCTURE · **#91** agentic tidy | docs-writer | None |
+| 2 | **#90** move Docker/Compose/Caddy → `deploy/` (no shims) | deploy-engineer → docs → verifier | Compose path change on `main` only |
+| 3 | **#92** README + docs index | docs-writer | None |
+| 4 | **#93** issue templates + pre-commit | config-guardian → docs-writer | None |
+| 5 | **#57** demo video + README | docs-writer prepares; **human records** | **Hard gate:** video URL |
+| 6 | **Packaging** | docs-writer | Soft: thumbnail / links OK |
+| 7–9 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
 | — | **Pause** | orchestrator “phase complete” pulse | Support MVP elsewhere |
 
 ---
@@ -60,7 +63,7 @@ M7.8 ✅ → M7.9 ✅ → (#80 ∥ #83) → #81 → #82 → #57 → packaging �
 | Role (`name`) | Milestones | Owns | Must NOT touch |
 |---------------|------------|------|----------------|
 | `milestone-orchestrator` | All | Queue, branches, commits, PRs, **merges**, pulses | Direct app code edits |
-| `deploy-engineer` | M7, M11 | `Dockerfile`, `docker-compose*.yml`, `Caddyfile`, `deploy/` | `src/app.py`, `src/rag.py` |
+| `deploy-engineer` | M7, M7.96, M11 | `deploy/**` (Dockerfile, Compose, Caddy, scripts) | `src/app.py`, `src/rag.py` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
 | `rag-core-engineer` | M7.8, M7.95, M8, M9, M12 | `src/rag.py`, `src/sectioning.py`, `src/retrieval_quality.py`, `src/rag/**`, `src/api/**` | Streamlit layout polish, Docker |
 | `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload/Sources payload wiring | Docker, FastAPI internals, visual redesigns |
@@ -71,7 +74,7 @@ M7.8 ✅ → M7.9 ✅ → (#80 ∥ #83) → #81 → #82 → #57 → packaging �
 
 Invoke by role name. Files live in `.cursor/agents/`.
 
-**Train roster:** orchestrator always on; **rag-core + config + streamlit on M7.95 (#80–#83)**; streamlit-ux only if Sources captions need polish; docs-writer on #57/packaging + pulses; verifier every issue; deploy-engineer idle unless compose/env deploy notes change.
+**Train roster:** orchestrator always on; **docs-writer + deploy-engineer on M7.96 (#89–#93)**; config-guardian on #93; verifier when compose/Docker moves (#90); docs-writer on #57/packaging + pulses.
 
 ---
 
@@ -110,6 +113,18 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #81 M7.95-2 sort on-section → score | rag-core-engineer | streamlit-engineer | 1–2 | after #80; prefer after #83 |
 | #82 M7.95-3 answer-overlap filter | rag-core-engineer | streamlit-engineer | 2 | after #81 |
 | #83 M7.95-4 tighter header chunking | rag-core-engineer | config-guardian | 1–2 | ∥ #80 |
+
+### M7.96: Repo clarity (chore · main only · no shims)
+
+| Issue | Primary | Secondary | Est. commits | Serial |
+|-------|---------|-----------|--------------|--------|
+| #89 M7.96-1 REPO-STRUCTURE | docs-writer | - | 1 | ∥ #91 |
+| #90 M7.96-2 consolidate under `deploy/` | deploy-engineer | docs-writer | 2 | after #89 |
+| #91 M7.96-3 agentic surface tidy | docs-writer | orchestrator | 1 | ∥ #89 |
+| #92 M7.96-4 README + docs index | docs-writer | - | 1 | after #90 |
+| #93 M7.96-5 templates + pre-commit | config-guardian | docs-writer | 1 | after #92 |
+
+**Rule:** no root stub files (“Moved to deploy/…”). Update real paths. Do not ff `deploy/stable` in this milestone.
 
 ### M8: Thin FastAPI contract (after video + packaging)
 
