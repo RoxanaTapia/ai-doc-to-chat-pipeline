@@ -16,6 +16,7 @@ Start here when you want to understand the product, deploy it, or contribute. Do
 | **Deploying on a VPS** | [DEPLOYMENT.md](../DEPLOYMENT.md) | [Architecture](product/architecture.md) |
 | **Browsing as a buyer** | [README](../README.md) | Live pilot + [sample NDA](product/sample-nda.pdf) / [sample policy](product/sample-policy.md) |
 | **Shipping milestones** | [PROJECT-DIRECTION](operators/PROJECT-DIRECTION.md) | [ROADMAP](operators/ROADMAP.md), [AGENTS.md](../AGENTS.md) |
+| **Finding files in the repo** | [REPO-STRUCTURE](operators/REPO-STRUCTURE.md) | Target layout after M7.96 |
 | **Testing OCR** | [Testing OCR](operators/testing-ocr.md) | Local Docker steps |
 
 ```mermaid
@@ -36,14 +37,14 @@ flowchart LR
 docs/
   README.md          ← you are here
   product/           ← how it works, demo, evaluation, sample docs
-  operators/         ← roadmap, direction, OCR testing
+  operators/         ← roadmap, direction, repo structure, OCR testing
   archive/           ← older eval rounds (not primary reading)
 ```
 
 | Folder | Role |
 |--------|------|
 | [`product/`](product/) | Client-readable: architecture, demo script, evaluation, sample NDA + policy |
-| [`operators/`](operators/) | Roadmap, project direction, contributor how-tos |
+| [`operators/`](operators/) | Roadmap, project direction, [repo structure](operators/REPO-STRUCTURE.md), contributor how-tos |
 | [`archive/`](archive/) | Historical eval rounds; keep for reference, not day-one reading |
 
 
