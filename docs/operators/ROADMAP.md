@@ -19,8 +19,9 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | **M7** | Reference deployment | Live HTTPS pilot + `DEPLOYMENT.md` | ✅ Done |
 | **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | ✅ Done |
 | **M7.9** | Interface polish | Calm client UI | ✅ Done |
-| **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | **Ship next** |
-| **Video (#57)** | Published walkthrough | Link in README | Prefer after M7.95 |
+| **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | ✅ Done |
+| **M7.96** | Repo clarity | Professional layout; deploy assets under `deploy/` (no shims) | **Ship next** (main only) |
+| **Video (#57)** | Published walkthrough | Link in README | Soft: can film before or after M7.96 |
 | **Packaging** | Calm product framing | Clear pilot + Cloud + video links | After video |
 | **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | After packaging |
 | **M8.5** | Eval harness export | Before/after retrieval report | Optional |
@@ -181,11 +182,48 @@ Cited answers only help when Sources feels like an audit trail: short, ranked, a
 
 **Out of scope:** New LLM providers, FastAPI, full UI redesign.
 
-GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/9)
+GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/9) ✅ closed
 
 ---
 
-## Demo video (after M7.8 / prefer after M7.95)
+## M7.96: Repo clarity (chore · main only)
+
+**Background**
+
+Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Agentic tooling (`.cursor/`, `AGENTS.md`) stays visible and intentional. Merge to **`main` only** — do **not** bump `deploy/stable` as part of this milestone (VPS/Cloud stay on v0.8.0 until you choose).
+
+> **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, ops in `deploy/` + `DEPLOYMENT.md`, agents in `.cursor/` + `AGENTS.md`.
+
+**Target:** part-time · **5 issues** · primary `docs-writer` + `deploy-engineer`
+
+| Issue | Outcome | GitHub |
+|-------|---------|--------|
+| M7.96-1 | Target layout in `REPO-STRUCTURE.md` | [#89](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/89) |
+| M7.96-2 | Move Docker/Compose/Caddy into `deploy/` (no shims) | [#90](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/90) |
+| M7.96-3 | Tidy agentic surface (`.cursor` + `AGENTS`) | [#91](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/91) |
+| M7.96-4 | README + docs index first paint | [#92](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/92) |
+| M7.96-5 | Issue templates + pre-commit hygiene | [#93](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/93) |
+
+**Delivery train**
+
+```text
+(#89 ∥ #91) → #90 → #92 → #93
+```
+
+| Wave | Work | Agents | Parallel notes |
+|------|------|--------|----------------|
+| 1a ∥ 1b | **#89** structure doc · **#91** agentic tidy | docs-writer ∥ docs-writer (split files) | No `deploy/` moves yet |
+| 2 | **#90** consolidate under `deploy/` | deploy-engineer → docs-writer → verifier | **No shims**; update compose contexts + DEPLOYMENT |
+| 3 | **#92** README + docs index | docs-writer | After paths final |
+| 4 | **#93** GitHub templates + pre-commit | config-guardian → docs-writer | Keep pre-commit |
+
+**Out of scope:** RAG/UI features, bumping `deploy/stable`, inventing new product scope.
+
+GitHub milestone: [M7.96 Repo clarity](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/10)
+
+---
+
+## Demo video (after M7.95; M7.96 optional before record)
 
 Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
 
