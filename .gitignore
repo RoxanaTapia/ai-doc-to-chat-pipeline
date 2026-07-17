@@ -58,6 +58,7 @@ uploaded/
 # Editor-specific — track rules, agents, commands; ignore rest of .cursor/
 # =====================================
 .cursor/*
+!.cursor/README.md
 !.cursor/rules/
 !.cursor/rules/**
 !.cursor/agents/
