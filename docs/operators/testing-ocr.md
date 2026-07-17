@@ -39,7 +39,7 @@ Expected: **13 passed**.
 ### Prerequisites
 
 - Docker and Docker Compose
-- Tesseract already in the image (`tesseract-ocr` in `Dockerfile`)
+- Tesseract already in the image (`tesseract-ocr` in `deploy/Dockerfile`)
 - A **genuinely scanned PDF** (image pages, no selectable text)
 
 ### Create a scanned test PDF
@@ -74,10 +74,10 @@ flowchart TD
 2. **Start the local stack** (no Caddy needed):
 
    ```bash
-   docker compose up -d ollama
-   docker compose ps ollama   # wait for STATUS = healthy (~60 s)
-   docker compose exec ollama ollama pull phi3:mini
-   docker compose up --build -d app
+   docker compose -f deploy/docker-compose.yml up -d ollama
+   docker compose -f deploy/docker-compose.yml ps ollama   # wait for STATUS = healthy (~60 s)
+   docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
+   docker compose -f deploy/docker-compose.yml up --build -d app
    ```
 
 3. Open [http://localhost:8501](http://localhost:8501).
@@ -108,8 +108,8 @@ Answer cites the correct page
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | No OCR warning, no answer | PDF has selectable text | Use a true image-based PDF |
-| `"OCR dependencies not installed"` | Missing Python OCR deps in image | `docker compose build --no-cache app` |
-| `"OCR failed on page: …"` | Tesseract binary absent | Check `Dockerfile` installs `tesseract-ocr` |
+| `"OCR dependencies not installed"` | Missing Python OCR deps in image | `docker compose -f deploy/docker-compose.yml build --no-cache app` |
+| `"OCR failed on page: …"` | Tesseract binary absent | Check `deploy/Dockerfile` installs `tesseract-ocr` |
 | Answer is gibberish | Low scan quality | Cleaner scan; OCR depends on DPI and contrast |
 
 ---

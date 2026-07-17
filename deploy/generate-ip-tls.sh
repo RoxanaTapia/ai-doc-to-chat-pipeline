@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Generate a self-signed TLS cert/key for a VPS public IP (Caddyfile.ip).
-# Usage: ./deploy/generate-ip-tls.sh 1.2.3.4
+# Generate a self-signed TLS cert/key for a VPS public IP (deploy/Caddyfile.ip).
+# Usage (from repo root): ./deploy/generate-ip-tls.sh 1.2.3.4
 
 set -eu
 

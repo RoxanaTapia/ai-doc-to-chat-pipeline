@@ -2,7 +2,7 @@
 
 ## Background
 
-For technical buyers and IT reviewers who want to see how the stack fits on one machine. Matches the Compose files in this repo (`docker-compose.yml` plus optional `docker-compose.caddy.yml` for HTTPS).
+For technical buyers and IT reviewers who want to see how the stack fits on one machine. Matches the Compose files in this repo (`deploy/docker-compose.yml` plus optional `deploy/docker-compose.caddy.yml` for HTTPS).
 
 > **Takeaway:** Browser traffic hits Caddy; Streamlit and Ollama stay internal. Documents live in memory for the session; only model weights persist on disk.
 
@@ -42,16 +42,16 @@ With the Caddy overlay active, Streamlit and Ollama are **not** published to the
 | Service | Image / build | Published ports | Role |
 |---------|---------------|-----------------|------|
 | `caddy` | `caddy:2.9.1-alpine` | `80`, `443` | TLS, basic auth, reverse proxy |
-| `app` | Dockerfile (this repo) | *(none with Caddy)* | UI, RAG, local embeddings |
+| `app` | `deploy/Dockerfile` (this repo) | *(none with Caddy)* | UI, RAG, local embeddings |
 | `ollama` | `ollama/ollama:0.6.5` | *(internal)* | Local LLM; models on `ollama_models` |
 
 **Pilot start (HTTPS):**
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d
 ```
 
-For local work without HTTPS, use `docker-compose.yml` alone. Then `app` binds `8501` on the host.
+For local work without HTTPS, use `deploy/docker-compose.yml` alone. Then `app` binds `8501` on the host.
 
 Full steps: [DEPLOYMENT.md](../../DEPLOYMENT.md).
 

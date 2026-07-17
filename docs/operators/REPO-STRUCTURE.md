@@ -1,8 +1,8 @@
-# Repository structure (target)
+# Repository structure
 
 ## Background
 
-After **M7.96**, the repo should read as one calm tree: product code and docs in the obvious places, deploy assets under `deploy/`, and agentic tooling kept intentional rather than hidden. This page describes that **target** layout (post [#90](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/90)). Until that move lands, Docker/Compose/Caddy may still sit at the repo root.
+As of **M7.96-2** ([#90](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/90)), the repo reads as one calm tree: product code and docs in the obvious places, deploy assets under `deploy/`, and agentic tooling kept intentional rather than hidden. This page describes the **current** layout.
 
 > **Takeaway:** Product in `src/` + `docs/product/`. Ops in `deploy/` + `DEPLOYMENT.md`. Agents in `AGENTS.md` + `.cursor/`. No root “Moved to deploy/…” stubs.
 
@@ -46,7 +46,7 @@ After **M7.96**, the repo should read as one calm tree: product code and docs in
 
 ## 🛠️ `deploy/` (no root shims)
 
-After [#90](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/90), deploy assets live **only** under `deploy/`:
+Deploy assets live **only** under `deploy/` (as of M7.96-2 / #90). `.dockerignore` stays at the **repo root** (build context is the repo root).
 
 ```text
 deploy/
@@ -61,11 +61,17 @@ deploy/
 └── …                             ← other deploy scripts as needed
 ```
 
+**Canonical Compose (from repo root):**
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d
+```
+
 **Rules**
 
 - No root copies of Dockerfile, `docker-compose*.yml`, or `Caddyfile*`.
 - No stub files at the root that say “Moved to `deploy/`…”. Update real paths in docs and CI instead.
-- Compose build contexts and `DEPLOYMENT.md` commands point at `deploy/`.
+- Compose build context is `..` (repo root); `dockerfile: deploy/Dockerfile` (path relative to context).
 
 Operators still start from [DEPLOYMENT.md](../../DEPLOYMENT.md); the folder above is where the files actually live.
 

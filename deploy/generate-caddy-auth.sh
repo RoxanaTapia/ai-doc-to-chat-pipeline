@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Write deploy/caddy-basicauth.conf with a bcrypt hash for Caddy basic_auth.
-# Usage: ./deploy/generate-caddy-auth.sh demo 'your-plain-password'
+# Usage (from repo root): ./deploy/generate-caddy-auth.sh demo 'your-plain-password'
 
 set -eu
 
