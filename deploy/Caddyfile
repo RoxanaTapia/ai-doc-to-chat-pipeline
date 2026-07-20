@@ -6,10 +6,9 @@
 # Static sites live in roxanatapia-web (mounted from /srv/roxanatapia-web/sites/…).
 # Cutover checklist: https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md
 # Apply only after those directories exist on the VPS (otherwise apex/gate 404).
-
-{
-	email {$ACME_EMAIL:you@example.com}
-}
+#
+# Do not use {$ACME_EMAIL:you@example.com} — a default containing "@" breaks Caddy's
+# placeholder parser. ACME contact is optional; existing certs in caddy_data keep working.
 
 # Pilot host: public gate at /; Streamlit behind basic_auth under /app.
 {$SITE_ADDRESS} {

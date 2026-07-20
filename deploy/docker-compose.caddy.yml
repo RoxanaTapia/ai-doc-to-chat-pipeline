@@ -1,8 +1,17 @@
-# HTTPS reverse proxy overlay — use with the base stack (from repo root):
-#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d
+# HTTPS reverse proxy overlay — run from the **repo root**:
+#
+#   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+#     -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d
+#
+# Why these flags (learned in M4 cutover):
+# - `--env-file .env` loads SITE_ADDRESS / ACME_EMAIL from the repo-root .env
+#   (Compose does not auto-load root .env when the first -f file is under deploy/).
+# - `-p ai-doc-to-chat-pipeline` keeps volume names stable (avoid project name "deploy").
+# - Volume paths below are relative to this file's directory (deploy/).
+#   Do NOT use `--project-directory` at repo root with these relative paths, or
+#   Docker may create empty host directories named Caddyfile / caddy-basicauth.conf.
 #
 # Streamlit stays on the internal Compose network; only Caddy publishes 80/443.
-# Copy .env.example → .env and set SITE_ADDRESS (or CADDYFILE=./Caddyfile.ip).
 # Generate auth first: ./deploy/generate-caddy-auth.sh demo 'your-password'
 
 services:

@@ -115,12 +115,18 @@ docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
 
 ### 5. Start the full stack with HTTPS
 
+From the **repo root** (so `.env` is found and volume names stay stable):
+
 ```bash
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
+docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d
+docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
 ```
 
 Expect: `ollama` **healthy** · `app` **Up** · `caddy` **Up**. Port 8501 is not exposed publicly.
+
+Set `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` in `.env` (see `.env.example`) so you can omit `-p` later. Always pass `--env-file .env` when the first compose file lives under `deploy/`.
 
 ### 6. Verify
 
@@ -161,7 +167,7 @@ docker compose -f deploy/docker-compose.yml up --build -d
 
 Open [http://localhost:8501](http://localhost:8501). Port 8501 binds to the host in the default (non-Caddy) Compose config.
 
-For Caddy locally: same `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
+For Caddy locally: same `--env-file .env -p ai-doc-to-chat-pipeline -f deploy/…` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
 
 ---
 
@@ -178,8 +184,9 @@ Settings cascade: `.env` overrides → `configs/config.yaml` → built-in defaul
 | `APP_PRESENTATION_MODE` | `client` | `client` hides dev debug panels |
 | `APP_ALLOW_DEV_TOGGLE` | `false` | `true` only for local retrieval tuning |
 | `SITE_ADDRESS` | *(empty)* | Subdomain for Let's Encrypt (e.g. `demo.example.com`) |
-| `ACME_EMAIL` | *(empty)* | Let's Encrypt registration email |
-| `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` (or `Caddyfile.ip`) for bare-IP mode; relative to `deploy/` |
+| `COMPOSE_PROJECT_NAME` | `ai-doc-to-chat-pipeline` | Keeps Docker volume names stable after the `deploy/` layout move |
+| `ACME_EMAIL` | *(empty)* | Optional ACME contact; not required for existing certs |
+| `CADDYFILE` | `./Caddyfile` | Set to `./Caddyfile.ip` for bare-IP mode; relative to `deploy/` |
 | `LLM_PROVIDER` | *(empty → ollama)* | Set to `anthropic` for the fast demo tier |
 | `ANTHROPIC_API_KEY` | *(empty)* | Required when `LLM_PROVIDER=anthropic`; `.env` only, never git |
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | Optional Haiku override |
@@ -222,6 +229,11 @@ Restart the app container after changing provider or key. Leave `LLM_PROVIDER` u
 | Connection refused on Ollama | Wrong host or app started too early | Use Compose; `OLLAMA_HOST` must be `http://ollama:11434`, not `localhost` |
 | `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f deploy/docker-compose.caddy.yml`; confirm `caddy` is Up |
 | **401** with correct password | Wrong hash in conf file | Re-run `./deploy/generate-caddy-auth.sh`, restart Caddy |
+| **401** on `/app` without password | Expected | Public gate is `/`; only `/app` requires basic auth |
+| Caddy restart loop: `email` parse error | Empty `ACME_EMAIL` inside container, or `{$VAR:you@…}` default | Pass `--env-file .env`; do not use an `@` in Caddy env defaults |
+| Caddy: `caddy-basicauth.conf: is a directory` | Docker created an empty host dir after a bad bind path | `rm -rf` that directory; mount `deploy/caddy-basicauth.conf` (a file); recreate Caddy |
+| New volumes named `deploy_*` | Project name became `deploy` | Use `-p ai-doc-to-chat-pipeline` or `COMPOSE_PROJECT_NAME` |
+| `SITE_ADDRESS` / `ACME_EMAIL` empty in `docker inspect` | Root `.env` not loaded | Always `docker compose --env-file .env …` from repo root |
 | **ERR_SSL_PROTOCOL_ERROR** / TLS error | Stale or mismatched cert/key | Re-run `./deploy/generate-ip-tls.sh YOUR_IP`, wipe Caddy volumes, recreate |
 | **Model not found** in chat | Model not pulled or name mismatch | `docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini`; set `OLLAMA_MODEL` to same tag |
 | OOM / very slow on CPU | Model too large for RAM | Use `phi3:mini`; set `OLLAMA_NUM_CTX=1024` in `.env` |
@@ -231,7 +243,8 @@ Restart the app container after changing provider or key. Leave `LLM_PROVIDER` u
 Quick diagnostics:
 
 ```bash
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
+docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml ps
 docker compose -f deploy/docker-compose.yml logs --tail=50 app
 docker compose -f deploy/docker-compose.yml logs --tail=50 ollama
 docker compose -f deploy/docker-compose.yml exec ollama ollama list
