@@ -49,7 +49,7 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ## 🎯 Current focus
 
-- **Ship next:** packaging soft pass (no video URL required) → thin M8 (#58–#60) → demo video (#57) last.
+- **Ship next:** demo video (#57) last — thin M8 (#58–#60) shipped; need public walkthrough URL.
 - **Do not** bump `deploy/stable` unless the operator asks (VPS/Cloud stay on v0.8.0).
 - **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
 - **Later / on demand:** M8.5, M9–M11.

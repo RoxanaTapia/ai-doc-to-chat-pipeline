@@ -87,7 +87,7 @@ Follow the [Deployment Guide](DEPLOYMENT.md). It covers VPS sizing, HTTPS with C
 
 Eval corpus: [sample NDA](docs/product/sample-nda.pdf) · [sample retention policy](docs/product/sample-policy.md) · [pilot evaluation](docs/product/pilot-evaluation.md).
 
-**What's next on this product:** a thin `/health` + `/chat` API, then a calm walkthrough video. Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+**What's next on this product:** a calm walkthrough video (thin `/health` + `/chat` API is ready). Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ---
 
