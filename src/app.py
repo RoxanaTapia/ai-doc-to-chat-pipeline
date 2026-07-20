@@ -19,6 +19,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from api_client import api_base_url, chat_via_api, chat_via_api_stream
 from rag import (
     generate_answer,
     generate_answer_stream,
@@ -1795,23 +1796,38 @@ if query and query.strip() and chat_ready:
         timer_placeholder.empty()
 
         # Stream tokens after retrieval so the UI feels responsive; fall back if needed.
+        # When API_BASE_URL is set, generation goes through the thin FastAPI /chat.
         if need_stream_generation:
             generation_start = time.perf_counter()
             dummy_mode = st.session_state.dummy_generator_only
+            use_api = bool(api_base_url())
             try:
                 try:
+                    stream_fn = (
+                        chat_via_api_stream
+                        if use_api
+                        else generate_answer_stream
+                    )
                     streamed = st.write_stream(
-                        generate_answer_stream(
+                        stream_fn(
                             context=context,
                             query=query,
                             dummy_mode=dummy_mode,
                         )
                     )
                 except Exception:
-                    full_answer = generate_answer(
-                        context=context,
-                        query=query,
-                        dummy_mode=dummy_mode,
+                    full_answer = (
+                        chat_via_api(
+                            context=context,
+                            query=query,
+                            dummy_mode=dummy_mode,
+                        )
+                        if use_api
+                        else generate_answer(
+                            context=context,
+                            query=query,
+                            dummy_mode=dummy_mode,
+                        )
                     )
                     streamed = st.write_stream(_stream_text_chunks(full_answer))
                     if not streamed:

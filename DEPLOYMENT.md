@@ -190,6 +190,8 @@ docker compose -f deploy/docker-compose.yml --profile api up --build -d api
 curl -s http://localhost:8000/health
 ```
 
+Streamlit stays in-process by default. To route generation through the API, set `API_BASE_URL` (e.g. `http://127.0.0.1:8000` locally, or `http://api:8000` between Compose services).
+
 For Caddy locally: same `--env-file .env -p ai-doc-to-chat-pipeline -f deploy/…` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
 
 ---
