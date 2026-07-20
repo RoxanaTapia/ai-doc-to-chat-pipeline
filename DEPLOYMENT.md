@@ -177,6 +177,19 @@ docker compose -f deploy/docker-compose.yml up --build -d
 
 Open [http://localhost:8501](http://localhost:8501). Port 8501 binds to the host in the default (non-Caddy) Compose config.
 
+### Thin API (optional)
+
+Same Docker image; OpenAPI at `/docs`. Pass retrieved `context` with each `POST /chat` (no document store yet).
+
+```bash
+# Local (repo root, venv active)
+PYTHONPATH=src uvicorn api.app:app --host 127.0.0.1 --port 8000
+
+# Compose profile
+docker compose -f deploy/docker-compose.yml --profile api up --build -d api
+curl -s http://localhost:8000/health
+```
+
 For Caddy locally: same `--env-file .env -p ai-doc-to-chat-pipeline -f deploy/…` flow with `CADDYFILE=./Caddyfile.ip` and a self-signed cert.
 
 ---
