@@ -8,6 +8,11 @@
 # Core framework & UI
 streamlit>=1.54.0,<1.55.0                  # Modern file uploader, fragments, stable UI
 
+# Thin integration API (M8)
+fastapi>=0.115.0,<1.0.0                    # GET /health, POST /chat, OpenAPI
+uvicorn[standard]>=0.32.0,<1.0.0           # ASGI server for src/api
+httpx>=0.27.0,<1.0.0                       # FastAPI TestClient + optional Streamlit client
+
 # Document processing & OCR
 pymupdf>=1.27.1                            # Fast PDF text + metadata extraction
 pytesseract>=0.3.13                        # Tesseract OCR wrapper (requires Tesseract binary installed)
