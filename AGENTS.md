@@ -30,12 +30,13 @@ Operator direction and sequencing live in [docs/operators/PROJECT-DIRECTION.md](
 | Milestone | Goal | Status |
 |-----------|------|--------|
 | **M7** | Reference deployment (Docker, Compose, Caddy, live pilot) | ✅ Shipped |
-| **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | ✅ Shipped (#53–#56; #57 video open) |
+| **M7.8** | Demo-ready tier: swappable LLM, Anthropic path, streaming | ✅ Shipped (#53–#56; #57 video open, last) |
 | **M7.9** | Interface polish | ✅ Shipped (#70–#73) |
 | **M7.95** | Sources trust | ✅ Shipped (#80–#83) |
-| **M7.96** | Repo clarity (deploy/ consolidation, no shims) | 🚧 Next (#89–#93) · **main only** |
-| **Video / packaging** | Walkthrough linked from README; calm product framing | #57 (stable pin unchanged by M7.96) |
-| **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | After packaging (#58–#60) |
+| **M7.96** | Repo clarity (deploy/ consolidation, no shims) | ✅ Shipped (#89–#93) · **main only** |
+| **Packaging** | Calm product framing (pilot + Cloud links; video URL later) | Soft pass after M7.96 |
+| **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | Next (#58–#60) |
+| **Video (#57)** | Walkthrough linked from README | **Last** after thin M8 |
 | **M8.5** | Eval report export | Optional (#61) |
 | **M9–M11** | Persist, access control, ops runbook | Client-triggered |
 | **M12** | Light services / tiers one-pager | Light |
@@ -48,27 +49,23 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ## 🎯 Current focus
 
-- **Ship next:** M7.96 Repo clarity (#89–#93) on **main only** (optional before video) → demo video (#57) → packaging → thin M8 (#58–#60).
-- **Do not** bump `deploy/stable` for M7.96 unless the operator asks (VPS/Cloud stay on v0.8.0).
+- **Ship next:** packaging soft pass (no video URL required) → thin M8 (#58–#60) → demo video (#57) last.
+- **Do not** bump `deploy/stable` unless the operator asks (VPS/Cloud stay on v0.8.0).
 - **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
 - **Later / on demand:** M8.5, M9–M11.
 
 ### Delivery train (default queue)
 
 ```text
-M7.95 ✅ → (#89 ∥ #91) → #90 → #92 → #93 → #57 → packaging → #58 → #59 → #60 → [pause]
+M7.96 ✅ → packaging (minus video) → #58 → #59 → #60 → #57 → [pause]
 ```
 
 | Wave | Work | Agents | Human? |
 |------|------|--------|--------|
-| — | M7.8–M7.95 | shipped | — |
-| 1a ∥ 1b | **#89** REPO-STRUCTURE · **#91** agentic tidy | docs-writer | None |
-| 2 | **#90** move Docker/Compose/Caddy → `deploy/` (no shims) | deploy-engineer → docs → verifier | Compose path change on `main` only |
-| 3 | **#92** README + docs index | docs-writer | None |
-| 4 | **#93** issue templates + pre-commit | config-guardian → docs-writer | None |
-| 5 | **#57** demo video + README | docs-writer prepares; **human records** | **Hard gate:** video URL |
-| 6 | **Packaging** | docs-writer | Soft: thumbnail / links OK |
-| 7–9 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
+| — | M7.8–M7.96 | shipped | — |
+| 1 | **Packaging** (README framing, tiers, thumbnail; skip video URL) | docs-writer | Soft |
+| 2–4 | **#58 → #59 → #60** thin M8 | rag-core → config → streamlit → verifier | Rare |
+| 5 | **#57** demo video + README link | docs-writer prepares; **human records** | Closing gate: video URL |
 | — | **Pause** | orchestrator “phase complete” pulse | Support MVP elsewhere |
 
 ---
@@ -89,7 +86,7 @@ M7.95 ✅ → (#89 ∥ #91) → #90 → #92 → #93 → #57 → packaging → #5
 
 Invoke by role name. Files live in `.cursor/agents/`.
 
-**Train roster:** orchestrator always on; **docs-writer + deploy-engineer on M7.96 (#89–#93)**; config-guardian on #93; verifier when compose/Docker moves (#90); docs-writer on #57/packaging + pulses.
+**Train roster:** orchestrator always on; **docs-writer on packaging**; rag-core + config + streamlit on thin M8 (#58–#60); docs-writer on #57 (video last) + pulses.
 
 ---
 
@@ -109,7 +106,7 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #54 M7.8-2 Anthropic adapter | rag-core-engineer | config-guardian | 2 | after #53 |
 | #55 M7.8-3 Streamlit streaming | streamlit-engineer | rag-core-engineer (review) | 1–2 | after #54 |
 | #56 M7.8-4 docs + sample doc | docs-writer | - | 1–2 | parallel #55 |
-| #57 M7.8-5 demo video + README | docs-writer | human records | 1 | after #54–#56 |
+| #57 M7.8-5 demo video + README | docs-writer | human records | 1 | **last** after #58–#60 |
 
 ### M7.9: Interface polish (short UX pass)
 
@@ -141,7 +138,7 @@ Invoke by role name. Files live in `.cursor/agents/`.
 
 **Rule:** no root stub files (“Moved to deploy/…”). Update real paths. Do not ff `deploy/stable` in this milestone.
 
-### M8: Thin FastAPI contract (after video + packaging)
+### M8: Thin FastAPI contract (after packaging; before video)
 
 | Issue | Primary | Secondary | Est. commits | Serial |
 |-------|---------|-----------|--------------|--------|
@@ -229,9 +226,9 @@ Keep it short. Operator supervises via these, not via “say commit.”
 
 ### Hard human gates (stop the train)
 
-1. **#57 recording** — agents prepare script/README; only the human can film/upload and supply the public URL.
-2. **Secrets** — API keys and real hostnames stay in `.env` / VPS only; never in git.
-3. **CI still red** after one focused fix attempt — emit a Blocker card; do not loop forever.
+1. **Secrets** — API keys and real hostnames stay in `.env` / VPS only; never in git.
+2. **CI still red** after one focused fix attempt — emit a Blocker card; do not loop forever.
+3. **#57 recording** — only when the train reaches #57 (after thin M8). Agents prepare script/README; only the human can film/upload and supply the public URL. Do **not** stop packaging or M8 waiting for a video link.
 
 Soft gate: packaging thumbnail / README emphasis (default: calm product framing; human can tweak later).
 
@@ -259,7 +256,7 @@ flowchart LR
 6. PR: **`## Main contribution`** first, `Closes #NN`. Push and merge when green (train mode).
 7. Optional learning pass later (see PROJECT-DIRECTION).
 
-For the full queue, prefer `/ship-milestone M7.8` then continue into packaging + thin M8 rather than a fresh chat per issue (unless context is huge).
+For the full queue, prefer `/ship-milestone M8` (packaging → #58–#60 → #57) rather than a fresh chat per issue (unless context is huge).
 
 ---
 
@@ -289,7 +286,8 @@ Command files live in [`.cursor/commands/`](.cursor/commands/). Stale M7-only al
 | OpenAI provider | After Anthropic (#54) | Optional third backend |
 | Support MVP / n8n CRM bot | Separate later project | Not this repo’s M8+ north star |
 | M9–M11 depth | Client-triggered | Not required for demo-ready pause |
-| Thin M8 in delivery train | **Include** (#58–#60 after packaging) | Then pause for Support MVP |
+| Thin M8 in delivery train | **Include** (#58–#60 after packaging) | Then #57 video last; pause for Support MVP |
+| Demo video order | **Last** after thin M8 (#57) | Not a blocker for packaging or M8 |
 
 ---
 
@@ -336,12 +334,13 @@ After each phase slice: dispatch `docs-writer` to sync README + ROADMAP. Before 
 
 ```text
 Act as milestone-orchestrator. Run the delivery train:
-#53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60.
+packaging (minus video) → #58 → #59 → #60 → #57.
 
 - Follow docs/operators/PROJECT-DIRECTION.md, docs/operators/ROADMAP.md, and AGENTS.md
 - Specialists must NOT commit; you commit, push, and merge when verifier + CI are green
 - After each merge, send a short Status pulse
-- On hard gates (#57 video URL, secrets, CI still red): Blocker card (docs-writer polish) and STOP
+- On hard gates (secrets, CI still red): Blocker card (docs-writer polish) and STOP
+- #57 video is last: stop only when the train reaches recording (need public URL)
 - Do not start Support MVP in this repo; end with a phase-complete pulse
 ```
 

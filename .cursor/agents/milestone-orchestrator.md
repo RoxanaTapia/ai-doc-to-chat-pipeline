@@ -13,7 +13,7 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 ## Role
 
 - Read GitHub issue (`gh issue view`) and `docs/operators/ROADMAP.md` + `AGENTS.md`.
-- Prefer **train mode** for the delivery queue (#53→#60); still **one issue = one branch = one PR**.
+- Prefer **train mode** for the delivery queue (packaging → #58→#60 → #57); still **one issue = one branch = one PR**.
 - Create branch `feat/m7-8-<name>` or `feat/m8-<name>` from latest `main`.
 - Dispatch specialists by file ownership; never parallelize same-file edits.
 - Collect specialist reports; **you alone** run `git commit` (1–2 granular commits per ROADMAP).
@@ -33,9 +33,9 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 
 ## Hard human gates (stop)
 
-1. **#57 video URL** — human records and supplies the public link.
-2. **Secrets** — never commit API keys or real hostnames.
-3. **CI still red** after one focused fix attempt.
+1. **Secrets** — never commit API keys or real hostnames.
+2. **CI still red** after one focused fix attempt.
+3. **#57 video URL** — only when shipping #57 (after thin M8). Human records and supplies the public link. Do not block packaging or M8 on this.
 
 ## Status pulse (required after each merge / wave)
 
@@ -50,7 +50,7 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 ## Delivery train order
 
 ```text
-#53 → #54 → (#55 ∥ #56) → #57 → packaging → #58 → #59 → #60
+packaging (minus video) → #58 → #59 → #60 → #57
 ```
 
 Then pause; Support MVP is a sibling project, not this repo’s next milestone.

@@ -19,7 +19,7 @@ Upload a confidential PDF (policies, SOPs, reports, contracts, or internal handb
 The live pilot is password-protected. Credentials are not published here.
 [Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or once you have access use the [sample NDA](docs/product/sample-nda.pdf) or the [sample retention policy](docs/product/sample-policy.md) (export the markdown to PDF).
 
-**Demo video:** Coming after the demo-ready recording pass. Storyboard: [docs/product/demo-script.md](docs/product/demo-script.md).
+**Demo video:** Coming after the thin API pass. Storyboard: [docs/product/demo-script.md](docs/product/demo-script.md).
 
 > **Privacy note:** Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
 
@@ -87,7 +87,7 @@ Follow the [Deployment Guide](DEPLOYMENT.md). It covers VPS sizing, HTTPS with C
 
 Eval corpus: [sample NDA](docs/product/sample-nda.pdf) · [sample retention policy](docs/product/sample-policy.md) · [pilot evaluation](docs/product/pilot-evaluation.md).
 
-**What's next on this product:** demo-ready recording and a calm walkthrough video. Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+**What's next on this product:** a thin `/health` + `/chat` API, then a calm walkthrough video. Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 
 ---
 
