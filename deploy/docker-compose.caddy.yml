@@ -22,6 +22,9 @@ services:
       - ${CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - ./caddy-basicauth.conf:/etc/caddy/caddy-basicauth.conf:ro
       - ./certs:/etc/caddy/certs:ro
+      # Static front doors from roxanatapia-web (clone/rsync to host paths first).
+      - /srv/roxanatapia-web/sites/apex:/srv/roxanatapia-web/sites/apex:ro
+      - /srv/roxanatapia-web/sites/pilot-gate:/srv/roxanatapia-web/sites/pilot-gate:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

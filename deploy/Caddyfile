@@ -1,23 +1,37 @@
-# Production pilot: automatic HTTPS via Let's Encrypt.
-# Set SITE_ADDRESS to your subdomain (e.g. demo.example.com) and ACME_EMAIL in .env.
+# Production: Let's Encrypt HTTPS + pilot hybrid gate + apex static landing.
+# Set SITE_ADDRESS (e.g. ai-doc-pilot.roxanatapia.dev) and ACME_EMAIL in .env.
 # Generate auth: ./deploy/generate-caddy-auth.sh demo 'your-password'
 # See DEPLOYMENT.md § HTTPS (Caddy).
+#
+# Static sites live in roxanatapia-web (mounted from /srv/roxanatapia-web/sites/…).
+# Cutover checklist: https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md
+# Apply only after those directories exist on the VPS (otherwise apex/gate 404).
 
 {
 	email {$ACME_EMAIL:you@example.com}
 }
 
+# Pilot host: public gate at /; Streamlit behind basic_auth under /app.
 {$SITE_ADDRESS} {
-	import /etc/caddy/caddy-basicauth.conf
+	handle /app* {
+		import /etc/caddy/caddy-basicauth.conf
 
-	reverse_proxy app:8501 {
-		header_up Host {host}
-		header_up X-Real-IP {remote_host}
+		reverse_proxy app:8501 {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	handle {
+		root * /srv/roxanatapia-web/sites/pilot-gate
+		file_server
 	}
 }
 
-# Root domain marketing redirects (optional; set A/AAAA for apex to VPS).
+# Apex marketing site (no redirect to pilot).
 roxanatapia.dev, www.roxanatapia.dev {
 	redir /upwork https://www.upwork.com/freelancers/roxanadev 301
-	redir / https://ai-doc-pilot.roxanatapia.dev 302
+
+	root * /srv/roxanatapia-web/sites/apex
+	file_server
 }
