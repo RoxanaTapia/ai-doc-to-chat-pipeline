@@ -65,7 +65,7 @@ feat/m8-fastapi-chat       → closes #59
 
 **When stuck:** invoke `blocker-reporter` format in AGENTS.md; update Human decisions log; STOP.
 
-**Do not:** one mega-PR for multiple issues; parallel edits on `src/rag.py` + `src/app.py` across two issues.
+**Do not:** one mega-PR for multiple issues; parallel edits on `src/rag/` + `src/app.py` across two issues.
 
 ---
 
@@ -76,7 +76,7 @@ After each issue, you should answer **without opening Cursor**:
 | Layer | Files | Question to answer |
 |-------|-------|-------------------|
 | **UI** | `src/app.py` | What happens on upload → index → chat? |
-| **RAG** | `src/rag.py` → `src/rag/` (M8) | How does context get built before the LLM? |
+| **RAG** | `src/rag/` | How does context get built before the LLM? |
 | **Config** | `configs/config.yaml`, `.env` | What knob changes retrieval vs generation? |
 | **Deploy** | `docker-compose*.yml`, `DEPLOYMENT.md` | How does a request reach Ollama or API LLM? |
 

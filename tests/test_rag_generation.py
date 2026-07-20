@@ -40,7 +40,7 @@ def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
         captured["settings"] = settings
         return "final from ollama"
 
-    monkeypatch.setattr(rag, "_generate_with_ollama", _fake_generate)
+    monkeypatch.setattr(rag.providers, "_generate_with_ollama", _fake_generate)
 
     answer = rag.generate_answer(
         context="Clause 5: Non-compete applies for 3 years.",
@@ -61,9 +61,9 @@ def test_generate_answer_passes_settings_to_ollama_wrapper(monkeypatch) -> None:
         captured["settings"] = settings
         return "ok"
 
-    monkeypatch.setattr(rag, "_generate_with_ollama", _fake_generate)
+    monkeypatch.setattr(rag.providers, "_generate_with_ollama", _fake_generate)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {
             "model": "phi3:mini",
@@ -99,9 +99,9 @@ def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
             created["prompt"] = prompt
             return SimpleNamespace(content=" Generated answer. ")
 
-    monkeypatch.setattr(rag, "ChatOllama", FakeChatOllama)
+    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {
             "model": "phi3:mini",
@@ -115,7 +115,7 @@ def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_rag_prompt",
         lambda: "CTX={context}\nQ={question}\nA=",
     )
@@ -136,14 +136,14 @@ def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
 
 def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_ollama",
         lambda context, query, settings=None: (_ for _ in ()).throw(
             ConnectionError("connection refused")
         ),
     )
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {"fallback_to_dummy_on_error": True},
     )
@@ -160,14 +160,14 @@ def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
 
 def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypatch) -> None:
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_ollama",
         lambda context, query, settings=None: (_ for _ in ()).throw(
             RuntimeError("model not found")
         ),
     )
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {"fallback_to_dummy_on_error": False},
     )
@@ -187,12 +187,12 @@ def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypa
 
 def test_generate_answer_raises_structured_timeout_when_fallback_disabled(monkeypatch) -> None:
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_ollama",
         lambda context, query, settings=None: (_ for _ in ()).throw(TimeoutError("timed out")),
     )
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {"fallback_to_dummy_on_error": False},
     )
@@ -252,7 +252,7 @@ def test_generate_answer_llm_provider_dummy_env(monkeypatch) -> None:
 def test_generate_answer_llm_provider_ollama_env(monkeypatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_ollama",
         lambda context, query, settings=None: "via env",
     )
@@ -268,7 +268,7 @@ def test_generate_answer_llm_provider_anthropic_env(monkeypatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_anthropic",
         lambda context, query, settings=None: "via anthropic",
     )
@@ -292,9 +292,9 @@ def test_generate_with_anthropic_respects_config_and_prompt(monkeypatch) -> None
             return SimpleNamespace(content=" Cited answer. ")
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
-    monkeypatch.setattr(rag, "ChatAnthropic", FakeChatAnthropic)
+    monkeypatch.setattr(rag.providers, "ChatAnthropic", FakeChatAnthropic)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {
             "anthropic_model": "claude-haiku-4-5-20251001",
@@ -306,7 +306,7 @@ def test_generate_with_anthropic_respects_config_and_prompt(monkeypatch) -> None
         },
     )
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_rag_prompt",
         lambda: "CTX={context}\nQ={question}\nA=",
     )
@@ -340,7 +340,7 @@ def test_anthropic_provider_generate_routes_and_invokes(monkeypatch) -> None:
         captured["settings"] = settings
         return "anthropic answer"
 
-    monkeypatch.setattr(rag, "_generate_with_anthropic", _fake_generate)
+    monkeypatch.setattr(rag.providers, "_generate_with_anthropic", _fake_generate)
     provider = rag.AnthropicLLMProvider(
         settings={
             "anthropic_model": "claude-haiku-4-5-20251001",
@@ -415,9 +415,9 @@ def test_stream_with_anthropic_uses_langchain_stream(monkeypatch) -> None:
             raise AssertionError("invoke should not be used for streaming path")
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
-    monkeypatch.setattr(rag, "ChatAnthropic", FakeChatAnthropic)
+    monkeypatch.setattr(rag.providers, "ChatAnthropic", FakeChatAnthropic)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {
             "anthropic_model": "claude-haiku-4-5-20251001",
@@ -428,7 +428,7 @@ def test_stream_with_anthropic_uses_langchain_stream(monkeypatch) -> None:
             "timeout_seconds": 30,
         },
     )
-    monkeypatch.setattr(rag, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
+    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
 
     chunks = list(rag._stream_with_anthropic("Context text", "Question text"))
 
@@ -447,7 +447,7 @@ def test_generate_answer_stream_anthropic_env(monkeypatch) -> None:
         yield "chunk-a"
         yield "chunk-b"
 
-    monkeypatch.setattr(rag, "_stream_with_anthropic", _fake_stream)
+    monkeypatch.setattr(rag.providers, "_stream_with_anthropic", _fake_stream)
 
     chunks = list(
         rag.generate_answer_stream(
@@ -466,9 +466,9 @@ def test_anthropic_provider_stream_falls_back_to_generate(monkeypatch) -> None:
         raise ConnectionError("stream broken")
         yield  # pragma: no cover — make this a generator
 
-    monkeypatch.setattr(rag, "_stream_with_anthropic", _failing_stream)
+    monkeypatch.setattr(rag.providers, "_stream_with_anthropic", _failing_stream)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_anthropic",
         lambda context, query, settings=None: "fallback full answer",
     )
@@ -502,9 +502,9 @@ def test_stream_with_ollama_uses_langchain_stream(monkeypatch) -> None:
         def invoke(self, prompt):
             raise AssertionError("invoke should not be used for streaming path")
 
-    monkeypatch.setattr(rag, "ChatOllama", FakeChatOllama)
+    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "load_generation_config",
         lambda: {
             "model": "phi3:mini",
@@ -517,7 +517,7 @@ def test_stream_with_ollama_uses_langchain_stream(monkeypatch) -> None:
             "timeout_seconds": 30,
         },
     )
-    monkeypatch.setattr(rag, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
+    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
 
     chunks = list(rag._stream_with_ollama("Context text", "Question text"))
 
@@ -534,9 +534,9 @@ def test_generate_answer_stream_ollama_falls_back_to_generate(monkeypatch) -> No
         raise TimeoutError("stream timed out")
         yield  # pragma: no cover
 
-    monkeypatch.setattr(rag, "_stream_with_ollama", _failing_stream)
+    monkeypatch.setattr(rag.providers, "_stream_with_ollama", _failing_stream)
     monkeypatch.setattr(
-        rag,
+        rag.providers,
         "_generate_with_ollama",
         lambda context, query, settings=None: "non-stream answer",
     )

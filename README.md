@@ -45,7 +45,7 @@ Everything runs on one VM. Your documents never leave your environment (self-hos
 
 | Path | Role |
 |------|------|
-| `src/` | Application code (Streamlit UI and RAG pipeline) |
+| `src/` | Application code (Streamlit UI; RAG under `src/rag/`) |
 | `docs/` | Product and operator docs ([index](docs/README.md)) |
 | `deploy/` | Docker, Compose, and Caddy assets for self-host |
 | `.cursor/` | Agent rules, specialists, and slash commands |
