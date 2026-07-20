@@ -1,6 +1,7 @@
 # Production: Let's Encrypt HTTPS + pilot hybrid gate + apex static landing.
 # Set SITE_ADDRESS (e.g. ai-doc-pilot.roxanatapia.dev) and ACME_EMAIL in .env.
 # Generate auth: ./deploy/generate-caddy-auth.sh demo 'your-password'
+# Invites: INVITE_SECRET in .env; mint with python deploy/invite/mint.py
 # See DEPLOYMENT.md § HTTPS (Caddy).
 #
 # Static sites live in roxanatapia-web (mounted from /srv/roxanatapia-web/sites/…).
@@ -10,14 +11,36 @@
 # Do not use {$ACME_EMAIL:you@example.com} — a default containing "@" breaks Caddy's
 # placeholder parser. ACME contact is optional; existing certs in caddy_data keep working.
 
-# Pilot host: public gate at /; Streamlit behind basic_auth under /app.
+# Pilot host: public gate at /; Streamlit under /app via invite cookie or basic_auth.
 {$SITE_ADDRESS} {
-	handle /app* {
-		import /etc/caddy/caddy-basicauth.conf
+	handle /invite* {
+		reverse_proxy invite:8090
+	}
 
-		reverse_proxy app:8501 {
-			header_up Host {host}
-			header_up X-Real-IP {remote_host}
+	handle /app* {
+		@hasInviteCookie {
+			header Cookie *pilot_invite=*
+		}
+
+		handle @hasInviteCookie {
+			forward_auth invite:8090 {
+				uri /verify
+				copy_headers X-Invite-Ok
+			}
+
+			reverse_proxy app:8501 {
+				header_up Host {host}
+				header_up X-Real-IP {remote_host}
+			}
+		}
+
+		handle {
+			import /etc/caddy/caddy-basicauth.conf
+
+			reverse_proxy app:8501 {
+				header_up Host {host}
+				header_up X-Real-IP {remote_host}
+			}
 		}
 	}
 

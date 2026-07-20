@@ -4,7 +4,7 @@
 #     -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d
 #
 # Why these flags (learned in M4 cutover):
-# - `--env-file .env` loads SITE_ADDRESS / ACME_EMAIL from the repo-root .env
+# - `--env-file .env` loads SITE_ADDRESS / ACME_EMAIL / INVITE_SECRET from the repo-root .env
 #   (Compose does not auto-load root .env when the first -f file is under deploy/).
 # - `-p ai-doc-to-chat-pipeline` keeps volume names stable (avoid project name "deploy").
 # - Volume paths below are relative to this file's directory (deploy/).
@@ -13,10 +13,21 @@
 #
 # Streamlit stays on the internal Compose network; only Caddy publishes 80/443.
 # Generate auth first: ./deploy/generate-caddy-auth.sh demo 'your-password'
+# Invites: set INVITE_SECRET in .env; mint with python deploy/invite/mint.py
 
 services:
   app:
     ports: !override []
+
+  invite:
+    build: ./invite
+    restart: unless-stopped
+    environment:
+      INVITE_SECRET: ${INVITE_SECRET:?Set INVITE_SECRET in repo-root .env}
+      INVITE_BIND: 0.0.0.0
+      INVITE_PORT: "8090"
+    expose:
+      - "8090"
 
   caddy:
     image: caddy:2.9.1-alpine
@@ -38,6 +49,7 @@ services:
       - caddy_config:/config
     depends_on:
       - app
+      - invite
 
 volumes:
   caddy_data:
