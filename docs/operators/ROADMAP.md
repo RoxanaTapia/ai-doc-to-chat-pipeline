@@ -4,7 +4,7 @@
 
 For contributors and operators. Moves the pipeline from a **reference deployment** to a **demo-ready** private document Q&A product: fast cited answers on a walkthrough, then a thin API for integrations. Deeper production work (persist / SSO / ops) is client-triggered, not the default climb after M7.
 
-> **Takeaway:** Ship M7.8 → video → packaging → thin M8. Support MVP / n8n CRM is a separate later project.
+> **Takeaway:** Ship M7.8 → packaging → thin M8 → video last. Support MVP / n8n CRM is a separate later project.
 
 **Positioning:** private **document Q&A** for confidential PDFs (contracts, policies, SOPs, reports, internal KB exports), not legal-only. LLM backend is swappable: local Ollama (air-gap) or Anthropic/OpenAI (speed for demos and pilots).
 
@@ -20,10 +20,10 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | ✅ Done |
 | **M7.9** | Interface polish | Calm client UI | ✅ Done |
 | **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | ✅ Done |
-| **M7.96** | Repo clarity | Professional layout; deploy assets under `deploy/` (no shims) | **Ship next** (main only) |
-| **Video (#57)** | Published walkthrough | Link in README | Soft: can film before or after M7.96 |
-| **Packaging** | Calm product framing | Clear pilot + Cloud + video links | After video |
-| **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | After packaging |
+| **M7.96** | Repo clarity | Professional layout; deploy assets under `deploy/` (no shims) | ✅ Done (main only) |
+| **Packaging** | Calm product framing | Clear pilot + Cloud links; video URL later | Soft pass after M7.96 |
+| **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | **Ship next** |
+| **Video (#57)** | Published walkthrough | Link in README | **Last** after thin M8 |
 | **M8.5** | Eval harness export | Before/after retrieval report | Optional |
 | **M9** | Persistent ingestion | PDFs + vectors survive restart | Client-triggered |
 | **M10** | Access control | SSO / auth proxy + `SECURITY.md` | Client-triggered |
@@ -55,25 +55,26 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | Phase | Milestones | Outcome you can stand behind |
 |-------|------------|------------------------------|
 | **0. Shipped** | M7 ✅ | Reproducible private pilot on one VM; live URL; deployment guide |
-| **1. Demo & trust** | **M7.8** → video → **packaging** | Fast, cited answers on a walkthrough; calm README; clear pilot + Cloud links |
+| **1. Demo & trust** | **M7.8** → **packaging** | Fast, cited answers; calm README; clear pilot + Cloud links |
 | **2. Thin API** | **M8** | Not Streamlit-only: `/health`, `/chat`, OpenAPI |
-| **2b. Optional** | **M8.5** eval | Reproducible retrieval report for audits |
+| **2b. Walkthrough** | **Video (#57)** | Published demo linked from README (last) |
+| **2c. Optional** | **M8.5** eval | Reproducible retrieval report for audits |
 | **3. Client-triggered** | M9 → M11 | Docs survive restart; SSO; runbooks when a pilot/RFP needs them |
 | **4. Light pack** | M12 | Pilot tiers / services one-pager |
 
 ```mermaid
 flowchart TD
   M7[M7 shipped] --> M78[M7.8 demo tier]
-  M78 --> V[Demo video]
-  V --> P[Packaging]
+  M78 --> P[Packaging]
   P --> M8[Thin M8 API]
-  M8 --> Pause[Phase pause]
+  M8 --> V[Demo video]
+  V --> Pause[Phase pause]
   Pause --> Support[Support MVP sibling project]
   M8 -.-> M85[M8.5 eval optional]
   Pause -.->|client-triggered| M9[M9–M11]
 ```
 
-**Phase pause** after packaging + thin M8: this repo is demo-ready and integration-ready. Then focus the Support MVP sibling unless a paid client needs more depth here. M8.5 and M9–M12 do not unlock Support MVP.
+**Phase pause** after thin M8 + video: this repo is demo-ready and integration-ready. Then focus the Support MVP sibling unless a paid client needs more depth here. M8.5 and M9–M12 do not unlock Support MVP.
 
 ---
 
@@ -99,7 +100,7 @@ flowchart TD
 
 ---
 
-## M7.8: Demo-ready tier 🚧 next
+## M7.8: Demo-ready tier ✅ shipped (#53–#56; #57 video last)
 
 **Target:** part-time · **5 issues** · `priority-ship-first`
 
@@ -123,7 +124,7 @@ flowchart TD
 | M7.8-4 | Product narrative ≠ code; eval corpus (NDA) ≠ market vertical |
 | M7.8-5 | Walkthrough asset; no new Python required |
 
-**Serial order:** #53 → #54 → #55; #56 parallel with #55; #57 after #54–#56.
+**Serial order:** #53 → #54 → #55; #56 parallel with #55; #57 last after thin M8 (#58–#60).
 
 GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/7)
 
@@ -223,33 +224,22 @@ GitHub milestone: [M7.96 Repo clarity](https://github.com/RoxanaTapia/ai-doc-to-
 
 ---
 
-## Demo video (after M7.95; M7.96 optional before record)
-
-Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
-
-### Learnings
-
-- The video should show **retrieval + citations + deploy path**, not raw local inference speed.
-- Pre-warm the model; run storyboard questions once before Record.
-
----
-
-## Packaging (after video)
+## Packaging (after M7.96; before thin M8)
 
 | Item | Outcome |
 |------|---------|
 | Thumbnail story | Calm 16:9 still (upload → cited answer) |
 | README framing | Private document Q&A; pilot + Cloud links obvious |
-| Video link | README Demo video line points at published walkthrough |
 | Honest tiers | Demo (API LLM) vs self-host (Ollama) stated once |
+| Video link | Deferred to [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) (after thin M8) |
 
-**Definition of done:** A first-time reader understands the product and where to go next in under a minute.
+**Definition of done:** A first-time reader understands the product and where to go next in under a minute (walkthrough URL can still say “coming soon”).
 
 ---
 
 ## M8: Thin FastAPI contract
 
-Thin integration surface after video + packaging. Enough for proposals and integrations. Not a large API rewrite gate.
+Thin integration surface after packaging. Enough for proposals and integrations. Not a large API rewrite gate. Does **not** wait on the demo video.
 
 | Issue | Outcome | GitHub |
 |-------|---------|--------|
@@ -262,6 +252,19 @@ Thin integration surface after video + packaging. Enough for proposals and integ
 **Serial:** #58 before #59–#60.
 
 GitHub milestone: [M8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2)
+
+---
+
+## Demo video (last; after thin M8)
+
+Storyboard: [`docs/product/demo-script.md`](../product/demo-script.md). Record using **Anthropic demo tier**; show architecture slide for **Ollama self-host**. Tracked as [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57).
+
+Film after packaging + thin M8 so the walkthrough can mention the live pilot and (optionally) `/health` + `/chat`. Then set the README **Demo video** line to the published URL.
+
+### Learnings
+
+- The video should show **retrieval + citations + deploy path**, not raw local inference speed.
+- Pre-warm the model; run storyboard questions once before Record.
 
 ---
 
@@ -318,8 +321,9 @@ GitHub milestone: [M8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/mi
 | Stage | You can confidently offer |
 |-------|---------------------------|
 | **Now (M7)** | RAG retrieval review; private pilot deploy; live URL |
-| **After M7.8 + video + packaging** | Walkthrough with cited answers; clear demo vs self-host story |
+| **After M7.8 + packaging** | Clear demo vs self-host story; calm README |
 | **After thin M8** | Integrations via `/health` + `/chat` / OpenAPI |
+| **After video (#57)** | Walkthrough with cited answers linked from README |
 | **After M8.5** | Reproducible retrieval reports for audits |
 | **After M9–M11 (client-scoped)** | Deeper production contracts |
 
@@ -335,7 +339,7 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
                               └── LLM (Ollama | Anthropic | OpenAI)
 ```
 
-**Today:** M7 shipped (Streamlit + Ollama + FAISS per session). **Next:** M7.8 swappable LLM + streaming → video → packaging → thin M8.
+**Today:** M7–M7.96 shipped (Streamlit + swappable LLM + FAISS per session; deploy under `deploy/`). **Next:** packaging → thin M8 → video last.
 
 Client-readable diagram: [product/architecture.md](../product/architecture.md).
 

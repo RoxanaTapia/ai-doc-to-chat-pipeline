@@ -55,7 +55,7 @@ Closes #NN
 
 Invoke **blocker-reporter**, ask **docs-writer** to polish the Blocker card, use AGENTS.md Human decisions log, then **STOP**.
 
-Hard gates: #57 video URL, secrets, CI still red after one fix attempt.
+Hard gates: secrets, CI still red after one fix attempt. #57 video URL only when shipping #57 (after thin M8).
 
 ## Issue number
 

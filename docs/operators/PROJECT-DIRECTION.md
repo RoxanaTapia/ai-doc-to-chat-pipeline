@@ -6,7 +6,7 @@ How to finish this pipeline with Cursor discipline, code you understand, and a p
 
 Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](../../AGENTS.md) · Docs index: [docs/README.md](../README.md)
 
-> **Takeaway:** Start Phase 1 at #53. Deep production waits for a real client.
+> **Takeaway:** Start thin M8 at #58 (video is last). Deep production waits for a real client.
 
 ---
 
@@ -15,9 +15,10 @@ Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](.
 | Milestone | Goal | Status |
 |-----------|------|--------|
 | **M7** | Reference deployment | ✅ Shipped |
-| **M7.8** | Demo-ready LLM tier + streaming | 🚧 Next (#53–#57) |
-| **Video + packaging** | Walkthrough + calm README framing | After M7.8 |
-| **M8** | Thin `/health` + `/chat` API | After packaging (#58–#60) |
+| **M7.8–M7.96** | Demo tier, UI, Sources trust, repo clarity | ✅ Shipped |
+| **Packaging** | Calm README framing (video URL later) | Soft pass |
+| **M8** | Thin `/health` + `/chat` API | **Next** (#58–#60) |
+| **Video (#57)** | Walkthrough linked from README | **Last** after thin M8 |
 | **M8.5 / M9–M12** | Eval export; persist; SSO; ops; light pack | Optional / client-triggered |
 
 ---
@@ -38,7 +39,7 @@ This repo’s north star is **not** a website support assistant. Escalate/CRM be
 
 > Upload a confidential PDF, ask a question, get a **fast** answer with **page citations** on **your** infrastructure. Optionally expose a **thin** `/health` + `/chat` API for integrations; keep eval export and persistence for when a buyer asks.
 
-If that sentence feels true after **demo + video + packaging + thin M8**, this phase of the repo is complete. Then pause here and start the Support MVP sibling unless a paid client needs more depth.
+If that sentence feels true after **demo + packaging + thin M8 + video**, this phase of the repo is complete. Then pause here and start the Support MVP sibling unless a paid client needs more depth.
 
 ---
 
@@ -95,9 +96,10 @@ After each issue, you should answer **without opening Cursor**:
 | Phase | Milestones | “I’d use it / I’d show it” test |
 |-------|------------|----------------------------------|
 | **0** | M7 ✅ | You trust deploy; you don’t trust speed on VPS Ollama |
-| **1** | M7.8 → video → packaging | You’d show a colleague the video; README looks calm |
+| **1** | M7.8 → packaging | README looks calm; pilot + Cloud links clear |
 | **2** | Thin M8 | You’d call `/chat` from curl in a proposal |
-| **2b** | M8.5 (optional) | You’d send an eval report for a retrieval audit |
+| **2b** | Video (#57) | You’d show a colleague the walkthrough |
+| **2c** | M8.5 (optional) | You’d send an eval report for a retrieval audit |
 | **3** | M9–M11 | Client-triggered |
 | **4** | M12 light | Short tiers/services one-pager |
 
@@ -117,35 +119,47 @@ After each issue, you should answer **without opening Cursor**:
 
 ---
 
-### Phase 1: Demo, video & packaging 🚧 START HERE
+### Phase 1: Demo & packaging ✅ (M7.8–M7.96 shipped)
 
-**Milestones:** M7.8–M7.95 ✅ → **M7.96 Repo clarity** ([#89–#93](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/10), main only) → video (#57) → packaging checklist in [ROADMAP.md](ROADMAP.md)
+**Milestones:** M7.8–M7.96 ✅ → packaging soft pass (video URL deferred) → see Phase 2.
 
 | # | Issue | Agent map | You learn |
 |---|-------|-----------|-----------|
-| 53–56, 70–73, 80–83 | M7.8–M7.95 | (shipped) | Demo tier, UI, Sources trust |
-| 89 | REPO-STRUCTURE | docs-writer | Target tree, no shims |
-| 90 | Consolidate under `deploy/` | deploy-engineer, docs-writer | Compose contexts, real path moves |
-| 91 | Agentic surface tidy | docs-writer | `.cursor/` + AGENTS intentional |
-| 92 | README + docs index | docs-writer | Client first paint |
-| 93 | Templates + pre-commit | config-guardian, docs-writer | Contributor hygiene |
-| 57 | Record video + README link | docs-writer (you record) | Walkthrough asset |
+| 53–56, 70–73, 80–83, 89–93 | M7.8–M7.96 | (shipped) | Demo tier, UI, Sources trust, repo clarity |
+
+**M7.96 note:** left `deploy/stable` on v0.8.0; advance only when you intentionally choose to.
+
+---
+
+### Phase 1b: Packaging soft pass 🚧
+
+Calm README framing, honest tiers, thumbnail story. **Do not wait** on a video URL (that is #57 after M8). Checklist: [ROADMAP.md](ROADMAP.md).
+
+---
+
+### Phase 2: Thin API contract 🚧 START HERE
+
+**Milestones:** M8 ([#58–#60](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2))
+
+Serial #58 → #59 → #60. Default delivery train after packaging soft pass. Does **not** wait on #57.
 
 ```mermaid
 flowchart LR
-  A["M7.95 done"] --> B["#89 ∥ #91"]
-  B --> C["#90 deploy/"]
-  C --> D["#92 README"]
-  D --> E["#93 tooling"]
+  A["M7.96 done"] --> B[Packaging]
+  B --> C["#58"]
+  C --> D["#59"]
+  D --> E["#60"]
   E --> F["#57 record"]
-  F --> G[Packaging]
-  G --> H[Thin M8]
-  H --> I[Phase pause]
+  F --> G[Phase pause]
 ```
 
-**M7.96 note:** merge to `main` only; leave `deploy/stable` on v0.8.0 until you intentionally advance it.
+After thin M8 + video: **pause** for Support MVP unless a paid engagement needs more here.
 
-After packaging + thin M8: **pause** for Support MVP unless a paid engagement needs more here.
+---
+
+### Phase 2b: Demo video (last)
+
+**Issue:** [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) — record walkthrough; link from README. Human films; agents prepare storyboard/README line.
 
 **Env for recording (local, never commit)**
 
@@ -157,15 +171,7 @@ ANTHROPIC_API_KEY=sk-...
 
 ---
 
-### Phase 2: Thin API contract
-
-**Milestones:** M8 ([#58–#60](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2))
-
-Serial #58 → #59 → #60. Included in the default delivery train after packaging.
-
----
-
-### Phase 2b: Eval export (optional / next)
+### Phase 2c: Eval export (optional / next)
 
 **Milestone:** M8.5 ([#61](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/61))
 
@@ -202,9 +208,9 @@ Not required for the demo-ready pause.
 
 Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 
-**Ready now:** [#53](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/53)
+**Ready now:** packaging soft pass, then [#58](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/58)
 
-**Do not start:** [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) (video) until #54–#56 done.
+**Do not start:** [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) (video) until thin M8 (#58–#60) is done.
 
 ---
 
@@ -229,6 +235,7 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 | Pitch vertical | Confidential **documents**, not legal-only |
 | Support MVP / n8n CRM bot | Separate later project |
 | Commit / merge | Train mode in AGENTS.md (orchestrator merges when green) |
+| Demo video order | **Last** after thin M8 (#57) | Not a blocker for packaging or M8 |
 
 ---
 
