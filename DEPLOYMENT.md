@@ -132,13 +132,15 @@ Set `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` in `.env` (see `.env.example`
 
 ### Time-limited invites
 
-Set `INVITE_SECRET` in `.env` (required for the Caddy overlay). Mint out-of-band codes:
+Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay + **Request an invite**). See [deploy/invite/README.md](deploy/invite/README.md).
 
 ```bash
+# Auto path: gate → Request an invite → POST /invite/request (emails visitor + notify)
+# Manual path:
 python deploy/invite/mint.py --ttl 72h --label client-acme
 ```
 
-Invitees redeem via the gate (**Have invite**) or the signed URL (`/invite/redeem?token=…`). Valid cookie bypasses basic auth on `/app`; operators still use basic auth as fallback. Details: [deploy/invite/README.md](deploy/invite/README.md).
+Invitees redeem via **I have an invite** or the signed URL. Operators use corner **Login** (basic auth). Details: [deploy/invite/README.md](deploy/invite/README.md).
 
 With the hybrid Caddyfile (public gate + app under `/app`):
 
