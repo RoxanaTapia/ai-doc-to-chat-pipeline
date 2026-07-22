@@ -1,0 +1,12 @@
+Your temporary AI Doc invite
+
+Access to the AI Doc pilot is by invitation.
+This invite expires in {{ ttl_label }}.
+
+Open invite:
+{{ redeem_url }}
+
+Or paste this code on the gate under "I have an invite":
+{{ code }}
+
+If you did not request this, you can ignore the message.
