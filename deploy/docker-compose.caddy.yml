@@ -26,6 +26,15 @@ services:
       INVITE_SECRET: ${INVITE_SECRET:?Set INVITE_SECRET in repo-root .env}
       INVITE_BIND: 0.0.0.0
       INVITE_PORT: "8090"
+      INVITE_BASE_URL: ${INVITE_BASE_URL:-https://ai-doc-pilot.roxanatapia.dev}
+      INVITE_REQUEST_TTL: ${INVITE_REQUEST_TTL:-72h}
+      INVITE_NOTIFY_TO: ${INVITE_NOTIFY_TO:-hello@roxanatapia.dev}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-hello@roxanatapia.dev}
+      SMTP_TLS: ${SMTP_TLS:-true}
     expose:
       - "8090"
 
