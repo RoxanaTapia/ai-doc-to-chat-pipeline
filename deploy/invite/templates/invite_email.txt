@@ -1,6 +1,6 @@
-Your temporary AI Doc invite
+Your temporary {{ product_name }} invite
 
-Access to the AI Doc pilot is by invitation.
+{{ access_phrase }}
 This invite expires in {{ ttl_label }}.
 
 Open invite:

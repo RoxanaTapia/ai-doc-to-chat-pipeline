@@ -11,8 +11,10 @@ import secrets
 import time
 from typing import Any
 
-
+# Deprecated: kept for backwards compatibility with callers that imported this directly.
+# New code should use site_cfg.cookie from sites.SiteConfig instead.
 COOKIE_NAME = "pilot_invite"
+
 TOKEN_PREFIX = "v1"
 
 
@@ -32,12 +34,14 @@ def get_secret() -> bytes:
     return secret.encode("utf-8")
 
 
-def mint(ttl_seconds: int, label: str = "") -> str:
+def mint(ttl_seconds: int, label: str = "", site: str = "pilot") -> str:
+    """Mint a signed token embedding exp, jti, site (and optionally label)."""
     if ttl_seconds < 60:
         raise ValueError("ttl_seconds must be at least 60")
     payload: dict[str, Any] = {
         "exp": int(time.time()) + ttl_seconds,
         "jti": secrets.token_urlsafe(12),
+        "site": site,
     }
     if label:
         payload["label"] = label
@@ -47,6 +51,11 @@ def mint(ttl_seconds: int, label: str = "") -> str:
 
 
 def verify(token: str) -> dict[str, Any]:
+    """Verify signature and expiry; return the decoded payload.
+
+    Tokens without a ``site`` claim (minted before multi-site support) are
+    treated as ``pilot`` for backward compatibility.
+    """
     token = (token or "").strip()
     parts = token.split(".")
     if len(parts) != 3 or parts[0] != TOKEN_PREFIX:
@@ -62,6 +71,9 @@ def verify(token: str) -> dict[str, Any]:
     exp = int(payload.get("exp", 0))
     if exp < int(time.time()):
         raise ValueError("token expired")
+    # Back-fill site for tokens minted before multi-site support.
+    if "site" not in payload:
+        payload["site"] = "pilot"
     return payload
 
 

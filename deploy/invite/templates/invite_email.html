@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Your AI Doc invite</title>
+  <title>Your {{ product_name }} invite</title>
 </head>
 <body style="margin:0;padding:0;background:#0c1218;color:#e8eef0;font-family:'Segoe UI',Helvetica,Arial,sans-serif;line-height:1.55;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0c1218;padding:32px 16px;">
@@ -13,13 +13,13 @@
           <tr>
             <td>
               <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:lowercase;color:#a8bdc4;">
-                ai-doc-pilot.roxanatapia.dev
+                {{ host_label }}
               </p>
               <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:600;color:#e8eef0;">
                 Your temporary invite
               </h1>
               <p style="margin:0 0 16px;font-size:16px;color:#c5d4d8;">
-                Access to the AI Doc pilot is by invitation. This invite expires in
+                {{ access_phrase }} This invite expires in
                 <strong style="color:#e8eef0;">{{ ttl_label }}</strong>.
               </p>
               <p style="margin:0 0 24px;">
