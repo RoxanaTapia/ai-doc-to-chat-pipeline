@@ -54,6 +54,7 @@ services:
       # Static front doors from roxanatapia-web (clone/rsync to host paths first).
       - /srv/roxanatapia-web/sites/apex:/srv/roxanatapia-web/sites/apex:ro
       - /srv/roxanatapia-web/sites/pilot-gate:/srv/roxanatapia-web/sites/pilot-gate:ro
+      - /srv/roxanatapia-web/sites/receipt-gate:/srv/roxanatapia-web/sites/receipt-gate:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

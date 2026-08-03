@@ -66,15 +66,21 @@ roxanatapia.dev, www.roxanatapia.dev {
 # Receipt Intelligence (sibling stack on Docker network `edge`).
 # Upstream aliases (stable across recreate): receipt-api:8000 · receipt-n8n:5678
 # Sibling must join `edge` via its shared-edge overlay — see receipt-intelligence-demo DEPLOYMENT.md.
-# Edge basic auth wraps the whole host (including /health).
+# Hybrid gate: public / → static gate; /app* and /n8n* protected by Basic Auth.
+# handle_path strips /app prefix so receipt-api sees /health, /chat, etc. directly.
 receipt-intelligence.roxanatapia.dev {
-	import /etc/caddy/caddy-basicauth.conf
-
 	handle /n8n* {
+		import /etc/caddy/caddy-basicauth.conf
 		reverse_proxy receipt-n8n:5678
 	}
 
-	handle {
+	handle_path /app* {
+		import /etc/caddy/caddy-basicauth.conf
 		reverse_proxy receipt-api:8000
+	}
+
+	handle {
+		root * /srv/roxanatapia-web/sites/receipt-gate
+		file_server
 	}
 }
