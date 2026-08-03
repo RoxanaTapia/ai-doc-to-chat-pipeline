@@ -8,6 +8,11 @@
 # Cutover checklist: https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md
 # Apply only after those directories exist on the VPS (otherwise apex/gate 404).
 #
+# receipt-intelligence.roxanatapia.dev (when present below) proxies an external
+# compose project on Docker network edge (aliases receipt-api, receipt-n8n).
+# Upstream stack: https://github.com/RoxanaTapia/receipt-intelligence-demo
+# This repo does not own receipt compose internals. Operator notes: DEPLOYMENT.md.
+#
 # Do not use {$ACME_EMAIL:you@example.com} — a default containing "@" breaks Caddy's
 # placeholder parser. ACME contact is optional; existing certs in caddy_data keep working.
 
@@ -56,4 +61,20 @@ roxanatapia.dev, www.roxanatapia.dev {
 
 	root * /srv/roxanatapia-web/sites/apex
 	file_server
+}
+
+# Receipt Intelligence (sibling stack on Docker network `edge`).
+# Upstream aliases (stable across recreate): receipt-api:8000 · receipt-n8n:5678
+# Sibling must join `edge` via its shared-edge overlay — see receipt-intelligence-demo DEPLOYMENT.md.
+# Edge basic auth wraps the whole host (including /health).
+receipt-intelligence.roxanatapia.dev {
+	import /etc/caddy/caddy-basicauth.conf
+
+	handle /n8n* {
+		reverse_proxy receipt-n8n:5678
+	}
+
+	handle {
+		reverse_proxy receipt-api:8000
+	}
 }
