@@ -27,8 +27,10 @@ services:
       INVITE_BIND: 0.0.0.0
       INVITE_PORT: "8090"
       INVITE_BASE_URL: ${INVITE_BASE_URL:-https://ai-doc-pilot.roxanatapia.dev}
+      RECEIPT_INVITE_BASE_URL: ${RECEIPT_INVITE_BASE_URL:-https://receipt-intelligence.roxanatapia.dev}
       INVITE_REQUEST_TTL: ${INVITE_REQUEST_TTL:-72h}
       INVITE_NOTIFY_TO: ${INVITE_NOTIFY_TO:-hello@roxanatapia.dev}
+      RECEIPT_INVITE_NOTIFY_TO: ${RECEIPT_INVITE_NOTIFY_TO:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
