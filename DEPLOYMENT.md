@@ -157,13 +157,13 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 
 **Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
-**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). It mirrors the AI Doc pilot hybrid: public static gate at `/`, time-limited invites on `/invite*` and `/app*`, and Basic Auth as the operator **Login** fallback. `/n8n*` stays Basic Auth only (no invites). Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`.
+**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). It mirrors the AI Doc pilot hybrid: public static gate at `/`, time-limited invites on `/invite*` and `/app*`, and Basic Auth as the operator **Login** fallback. `/n8n*` stays Basic Auth only (no invites). Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API, n8n, and demo UX run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000`, `receipt-n8n:5678`, and `receipt-ux:8080`.
 
 | Path | Access | Upstream |
 |------|--------|----------|
 | `/` | Public (no auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
 | `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
-| `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-api:8000` (prefix stripped; health is `/app/health`) |
+| `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
 | `/n8n*` | Edge Basic Auth only (no invites) | `receipt-n8n:5678` |
 
 The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
