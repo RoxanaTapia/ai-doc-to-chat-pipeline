@@ -59,7 +59,20 @@ services:
     depends_on:
       - app
       - invite
+    # default: app + invite on the project network
+    # edge (external): receipt-api / receipt-n8n aliases from sibling compose
+    networks:
+      - default
+      - edge
 
 volumes:
   caddy_data:
   caddy_config:
+
+# Create once on the VPS: docker network create edge
+# Receipt stack joins the same network with aliases receipt-api / receipt-n8n.
+networks:
+  edge:
+    external: true
+    name: edge
+
