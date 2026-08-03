@@ -157,37 +157,45 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 
 **Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
-**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). It uses the same hybrid pattern as the AI Doc pilot: public static gate at `/`, Basic Auth on protected paths. Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`.
+**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). It mirrors the AI Doc pilot hybrid: public static gate at `/`, time-limited invites on `/invite*` and `/app*`, and Basic Auth as the operator **Login** fallback. `/n8n*` stays Basic Auth only (no invites). Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`.
 
 | Path | Access | Upstream |
 |------|--------|----------|
-| `/` | Public (no Basic Auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
-| `/app*` | Edge Basic Auth (`caddy-basicauth.conf`) | `receipt-api:8000` (prefix stripped; health is `/app/health`) |
-| `/n8n*` | Edge Basic Auth | `receipt-n8n:5678` |
+| `/` | Public (no auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
+| `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
+| `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-api:8000` (prefix stripped; health is `/app/health`) |
+| `/n8n*` | Edge Basic Auth only (no invites) | `receipt-n8n:5678` |
 
-Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate or reload this Caddy; otherwise the public gate returns 404. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
+The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
+
+Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate Caddy; otherwise the public gate returns 404. After pulling this repo's Caddy changes, recreate the edge with the same compose overlay as before (`docker-compose.yml` + `docker-compose.caddy.yml`) so `/invite*` and `/app*` forward_auth take effect. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
 
 Cross-repo ship order:
 
 1. DNS for `receipt-intelligence.roxanatapia.dev` → this VPS
 2. receipt-intelligence-demo: shared-host compose (api + n8n joined to `edge`)
-3. VPS: `cd /srv/roxanatapia-web && git pull` (so `sites/receipt-gate` exists)
-4. This Caddy change (recreate or reload the edge, with receipt-gate mounted)
-5. VPS smoke (commands below)
-6. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (subdomain root → public gate)
+3. Multi-site invite service live (receipt cookie + verify; see [deploy/invite/README.md](deploy/invite/README.md))
+4. VPS: `cd /srv/roxanatapia-web && git pull` (so `sites/receipt-gate` exists)
+5. This Caddy change (recreate the edge with the caddy overlay, receipt-gate mounted)
+6. VPS smoke (commands below)
+7. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (subdomain root → public gate)
 
 ```bash
 # Receipt public gate (no credentials): expect 200 HTML from sites/receipt-gate
 curl -sk -o /dev/null -w "%{http_code}\n" \
   https://receipt-intelligence.roxanatapia.dev/
 
-# App health: 401 without credentials, 200 with edge basic auth
+# App health: 401 without cookie or credentials, 200 with edge Basic Auth
 curl -sk -o /dev/null -w "%{http_code}\n" \
   https://receipt-intelligence.roxanatapia.dev/app/health
 curl -sk -o /dev/null -w "%{http_code}\n" \
   -u demo:YOUR_PASSWORD https://receipt-intelligence.roxanatapia.dev/app/health
 
-# Optional: /n8n* still requires Basic Auth (expect 401 without credentials)
+# Optional invite path (cookie redeem is awkward to fully curl; mint then open redeem URL in a browser)
+# python deploy/invite/mint.py --site receipt --ttl 72h --label smoke
+# → redeem the printed URL on the receipt host; expect Set-Cookie: receipt_invite=… then /app without Basic Auth
+
+# /n8n* still requires Basic Auth only (expect 401 without credentials)
 curl -sk -o /dev/null -w "%{http_code}\n" \
   https://receipt-intelligence.roxanatapia.dev/n8n/
 
