@@ -157,22 +157,39 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 
 **Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
-**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`. Edge basic auth (`caddy-basicauth.conf`) wraps the whole receipt host, including `/health`. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
+**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). It uses the same hybrid pattern as the AI Doc pilot: public static gate at `/`, Basic Auth on protected paths. Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`.
+
+| Path | Access | Upstream |
+|------|--------|----------|
+| `/` | Public (no Basic Auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
+| `/app*` | Edge Basic Auth (`caddy-basicauth.conf`) | `receipt-api:8000` (prefix stripped; health is `/app/health`) |
+| `/n8n*` | Edge Basic Auth | `receipt-n8n:5678` |
+
+Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate or reload this Caddy; otherwise the public gate returns 404. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
 
 Cross-repo ship order:
 
 1. DNS for `receipt-intelligence.roxanatapia.dev` → this VPS
 2. receipt-intelligence-demo: shared-host compose (api + n8n joined to `edge`)
-3. This Caddy change (reload the edge)
-4. VPS smoke (commands below)
-5. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web)
+3. VPS: `cd /srv/roxanatapia-web && git pull` (so `sites/receipt-gate` exists)
+4. This Caddy change (recreate or reload the edge, with receipt-gate mounted)
+5. VPS smoke (commands below)
+6. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (subdomain root → public gate)
 
 ```bash
-# Receipt host: 401 without credentials, 200 with edge basic auth
+# Receipt public gate (no credentials): expect 200 HTML from sites/receipt-gate
 curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://receipt-intelligence.roxanatapia.dev/health
+  https://receipt-intelligence.roxanatapia.dev/
+
+# App health: 401 without credentials, 200 with edge basic auth
 curl -sk -o /dev/null -w "%{http_code}\n" \
-  -u demo:YOUR_PASSWORD https://receipt-intelligence.roxanatapia.dev/health
+  https://receipt-intelligence.roxanatapia.dev/app/health
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  -u demo:YOUR_PASSWORD https://receipt-intelligence.roxanatapia.dev/app/health
+
+# Optional: /n8n* still requires Basic Auth (expect 401 without credentials)
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  https://receipt-intelligence.roxanatapia.dev/n8n/
 
 # Regression: pilot gate + apex still behave as today
 curl -sk -o /dev/null -w "%{http_code}\n" https://ai-doc-pilot.roxanatapia.dev/
