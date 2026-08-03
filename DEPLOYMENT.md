@@ -157,6 +157,28 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 
 **Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
+**Receipt Intelligence host** (`receipt-intelligence.roxanatapia.dev`) is also terminated by this repo's Caddy (same edge as pilot + apex). Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API and n8n run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000` and `receipt-n8n:5678`. Edge basic auth (`caddy-basicauth.conf`) wraps the whole receipt host, including `/health`. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
+
+Cross-repo ship order:
+
+1. DNS for `receipt-intelligence.roxanatapia.dev` → this VPS
+2. receipt-intelligence-demo: shared-host compose (api + n8n joined to `edge`)
+3. This Caddy change (reload the edge)
+4. VPS smoke (commands below)
+5. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web)
+
+```bash
+# Receipt host: 401 without credentials, 200 with edge basic auth
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  https://receipt-intelligence.roxanatapia.dev/health
+curl -sk -o /dev/null -w "%{http_code}\n" \
+  -u demo:YOUR_PASSWORD https://receipt-intelligence.roxanatapia.dev/health
+
+# Regression: pilot gate + apex still behave as today
+curl -sk -o /dev/null -w "%{http_code}\n" https://ai-doc-pilot.roxanatapia.dev/
+curl -sk -o /dev/null -w "%{http_code}\n" https://roxanatapia.dev/
+```
+
 **IP-only mode** (`Caddyfile.ip`) still puts basic auth on the whole listener (no static gate). Use domain mode for the hybrid front door.
 
 **Later, switch from IP to domain:** set `SITE_ADDRESS=your.domain.com` + `ACME_EMAIL`, remove `CADDYFILE=./Caddyfile.ip`, recreate Caddy. Let's Encrypt issues the cert automatically.
