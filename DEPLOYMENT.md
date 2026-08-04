@@ -164,7 +164,7 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 | `/` | Public (no auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
 | `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
 | `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
-| `/n8n*` | Edge Basic Auth only (no invites) | `receipt-n8n:5678` |
+| `/n8n*` | Edge Basic Auth only (no invites) | `receipt-n8n:5678` (`handle_path` strips `/n8n`; sibling sets `N8N_PATH=/n8n/`) |
 
 The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
 
