@@ -76,7 +76,13 @@ roxanatapia.dev, www.roxanatapia.dev {
 # Use handle_path /app/* (not /app*) so only the /app prefix is stripped — otherwise /app/static/*
 # is stripped to / and CSS never loads.
 n8n.receipt-intelligence.roxanatapia.dev {
-	reverse_proxy receipt-n8n:5678
+	reverse_proxy receipt-n8n:5678 {
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		# SSE / long-lived editor push
+		flush_interval -1
+	}
 }
 
 receipt-intelligence.roxanatapia.dev {
