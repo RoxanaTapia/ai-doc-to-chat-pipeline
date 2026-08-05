@@ -67,23 +67,25 @@ roxanatapia.dev, www.roxanatapia.dev {
 # Upstream aliases (stable across recreate):
 #   receipt-api:8000 · receipt-n8n:5678 · receipt-ux:8080
 # Sibling must join `edge` via its shared-edge overlay — see receipt-intelligence-demo DEPLOYMENT.md.
-# Hybrid gate: public / → receipt-gate; /app/* invite cookie or Basic Auth → receipt-ux:8080; /n8n* Basic Auth only.
+# Hybrid gate: public / → receipt-gate; /app/* invite cookie or Basic Auth → receipt-ux:8080.
+# n8n on its own host at / — avoids n8n's known path-prefix login redirect bug.
+# Sibling: N8N_PATH= empty, N8N_HOST=n8n.receipt-intelligence.roxanatapia.dev,
+# N8N_BASIC_AUTH_ACTIVE=false (edge basicauth only on the n8n host).
 # Use handle_path /app/* (not /app*) so only the /app prefix is stripped — otherwise /app/static/*
 # is stripped to / and CSS never loads.
-# /n8n*: do NOT strip. Sibling sets N8N_PATH=/n8n/ so n8n serves under that prefix. handle_path
-# strip + N8N_PATH caused /n8n/n8n/ login redirects (404). Keep N8N_BASIC_AUTH_ACTIVE=false in the
-# sibling so edge basicauth is the only HTTP Basic layer (avoids a double-challenge loop).
+n8n.receipt-intelligence.roxanatapia.dev {
+	import /etc/caddy/caddy-basicauth.conf
+	reverse_proxy receipt-n8n:5678
+}
+
 receipt-intelligence.roxanatapia.dev {
 	handle /invite* {
 		reverse_proxy invite:8090
 	}
 
-	redir /n8n /n8n/ 308
-
-	handle /n8n* {
-		import /etc/caddy/caddy-basicauth.conf
-		reverse_proxy receipt-n8n:5678
-	}
+	# Legacy /n8n* bookmarks → n8n subdomain root.
+	redir /n8n https://n8n.receipt-intelligence.roxanatapia.dev/ 308
+	redir /n8n/* https://n8n.receipt-intelligence.roxanatapia.dev/ 308
 
 	redir /app /app/ 308
 
