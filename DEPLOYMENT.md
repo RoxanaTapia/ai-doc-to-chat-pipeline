@@ -170,7 +170,7 @@ Create the shared Docker network once (`docker network create edge`); the Caddy 
 | `receipt-intelligence…` `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
 | `receipt-intelligence…` `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
 | `receipt-intelligence…` `/n8n*` | 308 → n8n subdomain `/` | (legacy bookmarks) |
-| `n8n.receipt-intelligence…` `/` | Edge Basic Auth only | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`) |
+| `n8n.receipt-intelligence…` `/` | Edge Basic Auth only | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`; proxy strips `Authorization` so n8n pre-login 401s do not re-challenge the browser) |
 
 The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
 
