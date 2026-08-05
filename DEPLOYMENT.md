@@ -160,7 +160,7 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 **Receipt Intelligence** is terminated by this repo's Caddy (same edge as pilot + apex) on two hostnames:
 
 - **`receipt-intelligence.roxanatapia.dev`** — public static gate at `/`, invites on `/invite*` and `/app*`, Basic Auth as the operator **Login** fallback for `/app`.
-- **`n8n.receipt-intelligence.roxanatapia.dev`** — n8n operator UI at **/** (edge Basic Auth only; no invites). Sibling sets `N8N_PATH=` (root) so login avoids n8n’s known path-prefix redirect bug. Keep `N8N_BASIC_AUTH_ACTIVE=false` so only edge Basic Auth challenges once.
+- **`n8n.receipt-intelligence.roxanatapia.dev`** — n8n operator UI at **/** (no edge Basic Auth — it loops with n8n’s pre-login `/rest` 401s in Chrome). Protected by n8n **owner** login; keep sibling `N8N_BASIC_AUTH_ACTIVE=false` and `N8N_PATH=` empty. Do not advertise this host publicly.
 
 Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API, n8n, and demo UX run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000`, `receipt-n8n:5678`, and `receipt-ux:8080`.
 
@@ -170,7 +170,7 @@ Create the shared Docker network once (`docker network create edge`); the Caddy 
 | `receipt-intelligence…` `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
 | `receipt-intelligence…` `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
 | `receipt-intelligence…` `/n8n*` | 308 → n8n subdomain `/` | (legacy bookmarks) |
-| `n8n.receipt-intelligence…` `/` | Edge Basic Auth only | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`; proxy strips `Authorization` so n8n pre-login 401s do not re-challenge the browser) |
+| `n8n.receipt-intelligence…` `/` | n8n owner login (no edge Basic Auth) | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`) |
 
 The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
 
@@ -201,7 +201,7 @@ curl -sk -o /dev/null -w "%{http_code}\n" \
 # python deploy/invite/mint.py --site receipt --ttl 72h --label smoke
 # → redeem the printed URL on the receipt host; expect Set-Cookie: receipt_invite=… then /app without Basic Auth
 
-# n8n subdomain: Basic Auth only (expect 401 without credentials)
+# n8n subdomain: no edge Basic Auth (expect 200 HTML / n8n login shell)
 curl -sk -o /dev/null -w "%{http_code}\n" \
   https://n8n.receipt-intelligence.roxanatapia.dev/
 
