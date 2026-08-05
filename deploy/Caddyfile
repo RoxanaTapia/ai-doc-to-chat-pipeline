@@ -70,8 +70,9 @@ roxanatapia.dev, www.roxanatapia.dev {
 # Hybrid gate: public / → receipt-gate; /app/* invite cookie or Basic Auth → receipt-ux:8080; /n8n* Basic Auth only.
 # Use handle_path /app/* (not /app*) so only the /app prefix is stripped — otherwise /app/static/*
 # is stripped to / and CSS never loads.
-# Same for /n8n/*: strip the prefix so n8n sees / and /assets/… (N8N_PATH=/n8n/ still set in
-# receipt-intelligence-demo for public URL generation). Plain handle /n8n* is flaky with n8n 2.x UI.
+# /n8n*: do NOT strip. Sibling sets N8N_PATH=/n8n/ so n8n serves under that prefix. handle_path
+# strip + N8N_PATH caused /n8n/n8n/ login redirects (404). Keep N8N_BASIC_AUTH_ACTIVE=false in the
+# sibling so edge basicauth is the only HTTP Basic layer (avoids a double-challenge loop).
 receipt-intelligence.roxanatapia.dev {
 	handle /invite* {
 		reverse_proxy invite:8090
@@ -79,7 +80,7 @@ receipt-intelligence.roxanatapia.dev {
 
 	redir /n8n /n8n/ 308
 
-	handle_path /n8n/* {
+	handle /n8n* {
 		import /etc/caddy/caddy-basicauth.conf
 		reverse_proxy receipt-n8n:5678
 	}
