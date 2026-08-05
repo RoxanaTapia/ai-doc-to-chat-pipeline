@@ -70,16 +70,13 @@ roxanatapia.dev, www.roxanatapia.dev {
 # Hybrid gate: public / → receipt-gate; /app/* invite cookie or Basic Auth → receipt-ux:8080.
 # n8n on its own host at / — avoids n8n's known path-prefix login redirect bug.
 # Sibling: N8N_PATH= empty, N8N_HOST=n8n.receipt-intelligence.roxanatapia.dev,
-# N8N_BASIC_AUTH_ACTIVE=false (edge basicauth only on the n8n host).
+# N8N_BASIC_AUTH_ACTIVE=false. No edge Basic Auth here: Chrome loops when Caddy
+# basicauth + n8n's pre-login /rest 401s share a host (same issue as yesterday on /n8n*).
+# Protect with n8n owner login; do not advertise this host publicly.
 # Use handle_path /app/* (not /app*) so only the /app prefix is stripped — otherwise /app/static/*
 # is stripped to / and CSS never loads.
 n8n.receipt-intelligence.roxanatapia.dev {
-	import /etc/caddy/caddy-basicauth.conf
-	# Drop edge Basic Auth before n8n. Otherwise the browser keeps Authorization on
-	# /rest/* calls; n8n's pre-login 401s make Chrome re-prompt forever.
-	reverse_proxy receipt-n8n:5678 {
-		header_up -Authorization
-	}
+	reverse_proxy receipt-n8n:5678
 }
 
 receipt-intelligence.roxanatapia.dev {
