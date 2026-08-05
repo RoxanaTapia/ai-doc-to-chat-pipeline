@@ -75,7 +75,11 @@ roxanatapia.dev, www.roxanatapia.dev {
 # is stripped to / and CSS never loads.
 n8n.receipt-intelligence.roxanatapia.dev {
 	import /etc/caddy/caddy-basicauth.conf
-	reverse_proxy receipt-n8n:5678
+	# Drop edge Basic Auth before n8n. Otherwise the browser keeps Authorization on
+	# /rest/* calls; n8n's pre-login 401s make Chrome re-prompt forever.
+	reverse_proxy receipt-n8n:5678 {
+		header_up -Authorization
+	}
 }
 
 receipt-intelligence.roxanatapia.dev {
