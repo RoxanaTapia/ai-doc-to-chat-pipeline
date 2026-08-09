@@ -132,10 +132,11 @@ Set `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` in `.env` (see `.env.example`
 
 ### Time-limited invites
 
-Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay + **Request an invite**). See [deploy/invite/README.md](deploy/invite/README.md).
+Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay + **Request an invite**). For production gates, also set `TURNSTILE_SECRET_KEY` (Cloudflare Turnstile; site key lives on gate HTML in roxanatapia-web). Operator notify defaults to redeem-only via `INVITE_NOTIFY_ON=redeem`. Local smoke without a widget: `TURNSTILE_ENABLED=false`. See [deploy/invite/README.md](deploy/invite/README.md).
 
 ```bash
-# Auto path: gate → Request an invite → POST /invite/request (emails visitor + notify)
+# Auto path: gate → Request an invite → POST /invite/request (emails visitor;
+#   operator notify on redeem by default)
 # Manual path:
 python deploy/invite/mint.py --ttl 72h --label client-acme
 ```
