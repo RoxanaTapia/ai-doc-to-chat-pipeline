@@ -141,7 +141,7 @@ Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay 
 python deploy/invite/mint.py --ttl 72h --label client-acme
 ```
 
-Invitees redeem via **I have an invite** or the signed URL. Operators use corner **Login** (basic auth). Details: [deploy/invite/README.md](deploy/invite/README.md).
+Invitees redeem via **I have an invite** or the signed URL. Operators use corner **Login** (basic auth). **Exit demo** / **Back to home** hits `/invite/exit` (clears the site invite cookie, redirects to public `/`); it does not clear browser Basic Auth. Details: [deploy/invite/README.md](deploy/invite/README.md).
 
 With the hybrid Caddyfile (public gate + app under `/app`):
 
@@ -168,7 +168,7 @@ Create the shared Docker network once (`docker network create edge`); the Caddy 
 | Host / path | Access | Upstream |
 |------|--------|----------|
 | `receipt-intelligence…` `/` | Public (no auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
-| `receipt-intelligence…` `/invite*` | Public (invite request / redeem) | Shared invite service (`invite:8090`) |
+| `receipt-intelligence…` `/invite*` | Public (request / redeem / exit) | Shared invite service (`invite:8090`) |
 | `receipt-intelligence…` `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
 | `receipt-intelligence…` `/n8n*` | 308 → n8n subdomain `/` | (legacy bookmarks) |
 | `n8n.receipt-intelligence…` `/` | n8n owner login (no edge Basic Auth) | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`) |

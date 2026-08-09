@@ -1247,7 +1247,7 @@ _init_session_state()
 _on_new_browser_session()
 _apply_presentation_mode_lock()
 
-# Sidebar IA: Generator → About → How to use → Cloud → developer controls
+# Sidebar IA: Generator → About → How to use → Exit demo / Cloud → developer controls
 st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
 
@@ -1291,6 +1291,9 @@ if _is_probably_streamlit_cloud():
         "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
         "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
     )
+else:
+    # No invite-gate signal in-app; show on local + VPS pilot (not Streamlit Cloud).
+    st.sidebar.link_button("Exit demo", "/invite/exit")
 
 # Developer controls stay below client-facing sections
 if _dev_toggle_allowed() or st.session_state.developer_mode:
