@@ -31,6 +31,11 @@ services:
       INVITE_REQUEST_TTL: ${INVITE_REQUEST_TTL:-72h}
       INVITE_NOTIFY_TO: ${INVITE_NOTIFY_TO:-hello@roxanatapia.dev}
       RECEIPT_INVITE_NOTIFY_TO: ${RECEIPT_INVITE_NOTIFY_TO:-}
+      # redeem (default) | request (legacy) | none — see deploy/invite/spam_guards.py
+      INVITE_NOTIFY_ON: ${INVITE_NOTIFY_ON:-redeem}
+      # Cloudflare Turnstile secret (site key lives on gate HTML in roxanatapia-web)
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_ENABLED: ${TURNSTILE_ENABLED:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

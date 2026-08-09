@@ -36,6 +36,15 @@ INVITE_NOTIFY_TO=hello@roxanatapia.dev   # shared notify unless overridden
 RECEIPT_INVITE_BASE_URL=https://receipt-intelligence.roxanatapia.dev
 # RECEIPT_INVITE_NOTIFY_TO=team@example.com  # optional; falls back to INVITE_NOTIFY_TO
 
+# Operator notify timing: redeem (default) | request (legacy) | none
+INVITE_NOTIFY_ON=redeem
+
+# Cloudflare Turnstile (server-side verify). Site key is public and lives on
+# gate HTML in roxanatapia-web — do not invent it here.
+TURNSTILE_SECRET_KEY=
+# Defaults to true when TURNSTILE_SECRET_KEY is set; set false for local smoke
+# TURNSTILE_ENABLED=false
+
 # SMTP (shared for both sites)
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -54,12 +63,23 @@ docker compose --env-file .env -p ai-doc-to-chat-pipeline \
 
 ## Request flow (visitors)
 
-1. Gate → **Request an invite** → email
-2. `POST /invite/request` resolves site from Host, mints a TTL token embedding the site claim, emails the visitor (branded per site), notifies the site's `notify_to` address
+1. Gate → **Request an invite** → email (Turnstile widget + honeypot on the form; sister repo)
+2. `POST /invite/request` resolves site from Host, checks honeypot / disposable domain / Turnstile, then mints a TTL token and emails the visitor (branded per site)
 3. Rate limit: 3 requests / hour per IP and per email (shared across sites)
 4. Visitor opens the link or pastes the code under **I have an invite**
+5. On successful redeem, operator notify email is sent (default `INVITE_NOTIFY_ON=redeem`)
 
 The browser response never includes the token.
+
+### Spam defenses (#124)
+
+| Check | Behavior |
+|-------|----------|
+| Cloudflare Turnstile | Required when enabled; missing/invalid → calm **400**, no mint/email/notify |
+| Honeypot (`company` / `website`) | Filled → **200** success-looking response, no mint/email/notify |
+| Disposable domains | Known throwaways → calm **400**, no mint/email/notify |
+| Operator notify | Default **redeem-only**; `request` = legacy per-request; `none` = off |
+| Structured logs | One JSON line per request/redeem attempt on stderr (`event`, `email`/`label`, `client_ip`, `user_agent`, `referer`, `site`, `outcome`, `http_status`) |
 
 ## Manual mint
 
@@ -76,13 +96,17 @@ python deploy/invite/mint.py --site receipt --base-url https://receipt-intellige
 
 ## Smoke-test (local / no SMTP)
 
-Start the server with a dummy secret:
+Start the server with a dummy secret and Turnstile off (no Cloudflare widget locally):
 
 ```bash
 cd deploy/invite
 INVITE_SECRET=localtestonly INVITE_BASE_URL=http://localhost:8090 \
-  RECEIPT_INVITE_BASE_URL=http://localhost:8090 python server.py &
+  RECEIPT_INVITE_BASE_URL=http://localhost:8090 \
+  TURNSTILE_ENABLED=false INVITE_NOTIFY_ON=none \
+  python server.py &
 ```
+
+With SMTP unset, `POST /invite/request` returns **503** (`smtp_unconfigured`) after spam checks — that is expected. Redeem / verify still work with minted tokens.
 
 Mint a receipt token:
 
