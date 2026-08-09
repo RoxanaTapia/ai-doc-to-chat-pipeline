@@ -47,15 +47,19 @@ def _request(
     method: str,
     path: str,
     host: str,
+    cookie: str | None = None,
 ) -> tuple[int, dict[str, str]]:
     conn = HTTPConnection(invite_server["host"], invite_server["port"], timeout=5)
     try:
-        conn.request(method, path, headers={"Host": host})
+        headers = {"Host": host}
+        if cookie:
+            headers["Cookie"] = cookie
+        conn.request(method, path, headers=headers)
         resp = conn.getresponse()
-        headers = {k.lower(): v for k, v in resp.getheaders()}
+        headers_out = {k.lower(): v for k, v in resp.getheaders()}
         # Drain body so connection can close cleanly.
         resp.read()
-        return resp.status, headers
+        return resp.status, headers_out
     finally:
         conn.close()
 
@@ -139,3 +143,42 @@ def test_clear_cookie_header_helper(monkeypatch: pytest.MonkeyPatch) -> None:
     # Instance method does not use self; exercise the Set-Cookie shape directly.
     header = invite_server_mod.Handler._clear_cookie_header(object(), cfg)  # type: ignore[arg-type]
     assert header == "pilot_invite=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
+
+
+def test_verify_missing_cookie_redirects_home(invite_server: dict) -> None:
+    """Empty/stale cookie name still matches Caddy; verify must not 401 the page."""
+    status, headers = _request(
+        invite_server,
+        method="GET",
+        path="/verify",
+        host="ai-doc-pilot.roxanatapia.dev",
+        cookie="pilot_invite=",
+    )
+    _assert_exit_clears(status, headers, cookie_name="pilot_invite")
+
+
+def test_verify_invalid_token_redirects_home(invite_server: dict) -> None:
+    status, headers = _request(
+        invite_server,
+        method="GET",
+        path="/verify",
+        host="ai-doc-pilot.roxanatapia.dev",
+        cookie="pilot_invite=not-a-valid-token",
+    )
+    _assert_exit_clears(status, headers, cookie_name="pilot_invite")
+
+
+def test_verify_valid_token_still_ok(invite_server: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INVITE_SECRET", "test-invite-secret-for-exit")
+    from tokens import mint
+
+    token = mint(3600, label="smoke", site="pilot")
+    status, headers = _request(
+        invite_server,
+        method="GET",
+        path="/verify",
+        host="ai-doc-pilot.roxanatapia.dev",
+        cookie=f"pilot_invite={token}",
+    )
+    assert status == 200
+    assert headers.get("x-invite-ok") == "1"

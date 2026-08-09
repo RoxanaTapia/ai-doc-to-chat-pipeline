@@ -148,6 +148,8 @@ Visitors and operators leave the invited session via **`GET` or `POST` `/invite/
 
 UI copy should say **Exit demo** or **Back to home**, not "Log out." Exit clears only the invite cookie; it does **not** clear browser Basic Auth credentials used by the operator **Login** fallback.
 
+If `/app` is hit with a **stale or invalid** invite cookie, Caddy still matches the cookie header and calls `forward_auth` → `/verify`. Verify now clears that cookie and **303**s to `/` (same as Exit) instead of returning a bare `invalid invite` page that blocked Login.
+
 ```bash
 # After a redeem smoke (cookie set), exit clears it and redirects home
 curl -si -H "Host: receipt-intelligence.roxanatapia.dev" \

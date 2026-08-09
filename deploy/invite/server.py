@@ -255,16 +255,18 @@ class Handler(BaseHTTPRequestHandler):
             site_cfg = self._resolved_site()
             token = self._token_from_cookie(site_cfg)
             if not token:
-                self._send(401, b"missing invite\n", "text/plain; charset=utf-8")
+                # Stale/empty cookie still matches Caddy *invite=*; clear and send
+                # to the gate instead of a bare 401 that blocks Basic Auth fallback.
+                self._exit(site_cfg, outcome="verify_missing")
                 return
             try:
                 payload = verify(token)
             except (RuntimeError, ValueError):
-                self._send(401, b"invalid invite\n", "text/plain; charset=utf-8")
+                self._exit(site_cfg, outcome="verify_invalid")
                 return
             # Token site must match resolved site.
             if payload.get("site", "pilot") != site_cfg.key:
-                self._send(401, b"invalid invite\n", "text/plain; charset=utf-8")
+                self._exit(site_cfg, outcome="verify_site_mismatch")
                 return
             self._send(200, b"ok\n", "text/plain; charset=utf-8", {"X-Invite-Ok": "1"})
             return
@@ -451,9 +453,13 @@ class Handler(BaseHTTPRequestHandler):
 
         respond(200, "Check your email", SUCCESS_MESSAGE, outcome="ok")
 
-    def _exit(self, site_cfg: SiteConfig) -> None:
-        """Clear the site invite cookie and return to that host's public home."""
-        self._log_exit(site=site_cfg.key, outcome="ok", http_status=303)
+    def _exit(self, site_cfg: SiteConfig, *, outcome: str = "ok") -> None:
+        """Clear the site invite cookie and return to that host's public home.
+
+        Also used when ``/verify`` fails under Caddy ``forward_auth``: a bare 401
+        was shown as the page and blocked the Basic Auth Login fallback.
+        """
+        self._log_exit(site=site_cfg.key, outcome=outcome, http_status=303)
         self.send_response(303)
         self.send_header("Location", "/")
         self.send_header("Set-Cookie", self._clear_cookie_header(site_cfg))
