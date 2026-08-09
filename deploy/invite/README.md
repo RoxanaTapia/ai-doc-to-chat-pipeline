@@ -142,6 +142,25 @@ curl -si "http://localhost:8090/invite/redeem?token=$TOKEN"
 # Expect: 303  Set-Cookie: pilot_invite=…
 ```
 
+### Exit demo
+
+Visitors and operators leave the invited session via **`GET` or `POST` `/invite/exit`**. The service clears the site invite cookie (`pilot_invite` or `receipt_invite`) and responds **303** to `/` (public gate / home). Caddy already treats `/invite*` as public, so no proxy change is needed.
+
+UI copy should say **Exit demo** or **Back to home**, not "Log out." Exit clears only the invite cookie; it does **not** clear browser Basic Auth credentials used by the operator **Login** fallback.
+
+```bash
+# After a redeem smoke (cookie set), exit clears it and redirects home
+curl -si -H "Host: receipt-intelligence.roxanatapia.dev" \
+  -H "Cookie: receipt_invite=$TOKEN" \
+  http://localhost:8090/invite/exit
+# Expect: 303 Location=/  Set-Cookie: receipt_invite=… (Max-Age=0 / expired)
+
+# Pilot (no Host → defaults to pilot)
+curl -si -H "Cookie: pilot_invite=$TOKEN" \
+  http://localhost:8090/invite/exit
+# Expect: 303 Location=/  Set-Cookie: pilot_invite=… (expired)
+```
+
 ## Revoke
 
 Rotate `INVITE_SECRET` and recreate the `invite` service. All outstanding tokens become invalid immediately.

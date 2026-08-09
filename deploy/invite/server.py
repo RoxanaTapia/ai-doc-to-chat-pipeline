@@ -115,7 +115,7 @@ def _structured_log(event: str, **fields: Any) -> None:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "InviteAuth/1.3"
+    server_version = "InviteAuth/1.4"
 
     def log_message(self, fmt: str, *args) -> None:
         # Quiet access-style lines for health/verify; structured logs are the paper trail.
@@ -186,6 +186,22 @@ class Handler(BaseHTTPRequestHandler):
             http_status=http_status,
         )
 
+    def _log_exit(
+        self,
+        *,
+        site: str,
+        outcome: str,
+        http_status: int,
+    ) -> None:
+        meta = self._request_meta()
+        _structured_log(
+            "invite_exit",
+            client_ip=meta["client_ip"],
+            site=site,
+            outcome=outcome,
+            http_status=http_status,
+        )
+
     def _resolved_site(self, data: dict | None = None) -> SiteConfig:
         host = self.headers.get("Host", "").strip()
         site_param = (data or {}).get("site") if data else None
@@ -196,6 +212,10 @@ class Handler(BaseHTTPRequestHandler):
             f"{site_cfg.cookie}={token}; Path=/; HttpOnly; Secure; SameSite=Lax; "
             f"Max-Age={COOKIE_MAX_AGE}"
         )
+
+    def _clear_cookie_header(self, site_cfg: SiteConfig) -> str:
+        """Expire the site invite cookie (same attributes as set, empty value)."""
+        return f"{site_cfg.cookie}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0"
 
     def _token_from_cookie(self, site_cfg: SiteConfig) -> str | None:
         raw = self.headers.get("Cookie", "")
@@ -256,6 +276,10 @@ class Handler(BaseHTTPRequestHandler):
             self._redeem(token, site_cfg)
             return
 
+        if path == "/invite/exit":
+            self._exit(self._resolved_site())
+            return
+
         status, body, ctype = _html_page(
             "Invite",
             "<p>Use the gate to <strong>Request an invite</strong> or "
@@ -277,6 +301,10 @@ class Handler(BaseHTTPRequestHandler):
             token = str(data.get("token") or data.get("code") or "")
             site_cfg = self._resolved_site(data)
             self._redeem(token, site_cfg)
+            return
+
+        if path == "/invite/exit":
+            self._exit(self._resolved_site(data))
             return
 
         self._send(404, b"not found\n", "text/plain; charset=utf-8")
@@ -422,6 +450,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         respond(200, "Check your email", SUCCESS_MESSAGE, outcome="ok")
+
+    def _exit(self, site_cfg: SiteConfig) -> None:
+        """Clear the site invite cookie and return to that host's public home."""
+        self._log_exit(site=site_cfg.key, outcome="ok", http_status=303)
+        self.send_response(303)
+        self.send_header("Location", "/")
+        self.send_header("Set-Cookie", self._clear_cookie_header(site_cfg))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _notify_redeem(self, site_cfg: SiteConfig, label: str | None) -> None:
         if not should_notify_on_redeem():
