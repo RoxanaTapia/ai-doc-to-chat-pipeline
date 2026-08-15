@@ -18,7 +18,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 ├── src/               Application code
 ├── configs/           Chunking, retrieval, and prompt tunables
 ├── tests/             pytest suite
-├── deploy/            Docker, Compose, Caddy
+├── deploy/            Docker, Compose (Caddy overlay for a dedicated VM)
 ├── .cursor/           Agent roles, rules, slash commands
 └── docs/              You are here
       product/         Architecture, walkthrough, sample NDA
@@ -38,7 +38,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/api/`](../src/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
 | [`configs/prompts.yaml`](../configs/prompts.yaml) | Grounded-answer prompt |
-| [`deploy/`](../deploy/) | Container stack and edge proxy |
+| [`deploy/`](../deploy/) | Container stack. Shared portfolio Caddy: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
 | [`docs/product/architecture.md`](product/architecture.md) | Single-VM deploy picture |
 | [`docs/operators/REPO-STRUCTURE.md`](operators/REPO-STRUCTURE.md) | Extra layout rules |
 

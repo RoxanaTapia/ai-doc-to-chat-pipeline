@@ -1,4 +1,11 @@
-# HTTPS reverse proxy overlay — run from the **repo root**:
+# HTTPS reverse proxy overlay. Single-product self-host, or VPS rollback.
+#
+# Portfolio VPS after cutover: Caddy/invite live in roxanatapia-edge.
+# This overlay stays for a dedicated PDF Q&A VM and for rollback.
+# Cutover (keep both demos live, reuse .env + cert volumes):
+#   https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md
+#
+# Single-product self-host, from the **repo root**:
 #
 #   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
 #     -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d

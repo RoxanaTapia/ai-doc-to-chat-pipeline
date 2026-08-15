@@ -1,0 +1,28 @@
+# Shared-host overlay. Caddy/invite run in roxanatapia-edge (ports 80/443).
+#
+# Create the network once on the VPS:
+#   docker network create edge
+#
+# From repo root, with the existing .env (do not rename keys):
+#   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+#     -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
+#
+# Do NOT also use deploy/docker-compose.caddy.yml on that host after cutover
+# (two Caddys). Keep the caddy overlay in git for rollback / a dedicated VM.
+#
+# Alias `app` is what the shared Caddyfile reverse_proxy targets (app:8501).
+# Cutover order: https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md
+
+services:
+  app:
+    ports: !override []
+    networks:
+      default: {}
+      edge:
+        aliases:
+          - app
+
+networks:
+  edge:
+    external: true
+    name: edge
