@@ -44,7 +44,7 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 
 - Write for a technical buyer in DEPLOYMENT; write for a business buyer in README.
 - Use placeholders (`YOUR_VPS_IP`, `demo.example.com`) until human provides real values.
-- Link README → DEPLOYMENT for setup; do not duplicate compose commands in README.
+- README is the shop window: one demo CTA (the live pilot), no deploy commands, no self-host hero. Operators start from `docs/README.md` and `DEPLOYMENT.md`.
 - Prefer `docs/product/` for client reads (including sample NDA) and `docs/operators/` for contributors.
 - Do not create a top-level `docs/samples/` folder (`samples/` is gitignored).
 - Keep milestone jargon out of client pages.

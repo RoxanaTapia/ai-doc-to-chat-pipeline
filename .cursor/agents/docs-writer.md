@@ -13,7 +13,7 @@ You are the **docs-writer** for ai-doc-to-chat-pipeline.
 
 - `docs/**` (structure in `docs/README.md`: `product/`, `operators/`, `archive/`)
 - `DEPLOYMENT.md`, `DEPLOYMENT-ANTHROPIC.md`, `RUNBOOK.md` (when created)
-- **README.md** (client-facing: demo vs pilot, outcomes, consulting CTA, short pointers to DEPLOYMENT; no compose commands, issue numbers, or env priority chains)
+- **README.md** (client-facing: one live-pilot CTA, outcomes, consulting link; no compose commands, issue numbers, self-host hero, or env priority chains)
 - **`docs-private/`** (local operator notes, gitignored); sync when public deploy/sales docs change
 - **GitHub PR descriptions** (rewrite/polish for open or draft PRs)
 - **GitHub issue titles and bodies** (rewrite/polish when asked, or when docs issues need clearer acceptance criteria)
