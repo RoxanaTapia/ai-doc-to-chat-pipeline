@@ -22,6 +22,8 @@ Uploaded files are processed in memory and never stored. Each session starts fre
 
 ## How an answer is grounded
 
+Each step exists to keep the answer inside the PDF you uploaded.
+
 ```mermaid
 flowchart LR
   A[Upload PDF] --> B[Extract]
@@ -32,16 +34,14 @@ flowchart LR
   F --> G[Cited answer]
 ```
 
-| Step | What happens |
-|------|----------------|
-| **Ingest** | PyMuPDF reads the PDF. Scanned pages go through OCR. Page numbers stay on every passage. |
-| **Chunk** | Text is split at section headers so clauses do not bleed across chunks. |
-| **Embed** | Local sentence-transformers. Vectors never leave the server. |
-| **Retrieve** | Hybrid search: dense (FAISS) plus BM25, fused with reciprocal rank fusion. |
-| **Rerank** | A cross-encoder scores the shortlist so the model sees the best passages first. |
-| **Cite or refuse** | The answer shows page and excerpt. If the document does not contain the answer, the system says so. |
-
-How that was tested: [pilot evaluation](docs/product/pilot-evaluation.md).
+| Step | Technique | Why it matters |
+|------|-----------|----------------|
+| **Ingest** | PyMuPDF, plus OCR on scanned pages | Text and page number travel together, so a citation can point at a real page. |
+| **Chunk** | Split at section headers | Nearby clauses stay separate. A question about Section 3 should not pull the end of Section 2. |
+| **Embed** | Local sentence-transformers | Search by meaning without sending the document to an outside embedding API. |
+| **Retrieve** | Hybrid search: FAISS + BM25, fused with RRF | Embeddings catch paraphrases. Keyword search catches exact terms such as section numbers. |
+| **Rerank** | Cross-encoder (`bge-reranker`) | A second pass reads the question and each passage together, so the model sees the best evidence first. |
+| **Cite or refuse** | Page + excerpt, or "not in the document" | You can check the source. If retrieval found too little, the system does not invent a clause. |
 
 ---
 

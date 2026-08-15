@@ -12,7 +12,7 @@ Start here when you want to understand the product, deploy it, or contribute. Do
 
 | If you are… | Read first | Then |
 |-------------|------------|------|
-| **Evaluating the product** | [How it works](product/architecture.md) | [Demo storyboard](product/demo-script.md), [Pilot evaluation](product/pilot-evaluation.md) |
+| **Evaluating the product** | [How it works](product/architecture.md) | [Demo storyboard](product/demo-script.md) |
 | **Deploying on a VPS** | [DEPLOYMENT.md](../DEPLOYMENT.md) | [Architecture](product/architecture.md) |
 | **Browsing as a buyer** | [README](../README.md) | [Live pilot](https://ai-doc-pilot.roxanatapia.dev/) + [sample NDA](product/sample-nda.pdf) |
 | **Shipping milestones** | [PROJECT-DIRECTION](operators/PROJECT-DIRECTION.md) | [ROADMAP](operators/ROADMAP.md), [AGENTS.md](../AGENTS.md) |
@@ -63,6 +63,5 @@ Docs sit inside a calm top-level tree. Product code in `src/`, self-host assets 
 
 - **Live pilot:** [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/)
 - **Sample upload:** [product/sample-nda.pdf](product/sample-nda.pdf)
-- **How retrieval was tested:** [product/pilot-evaluation.md](product/pilot-evaluation.md)
 - **Repo layout:** [REPO-STRUCTURE](operators/REPO-STRUCTURE.md) · [AGENTS.md](../AGENTS.md)
 - **Self-host (operators):** [DEPLOYMENT.md](../DEPLOYMENT.md)
