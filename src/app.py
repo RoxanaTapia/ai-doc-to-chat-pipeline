@@ -1,6 +1,5 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import fitz  # PyMuPDF (pymupdf package)
 import tempfile
 import threading
 import yaml
@@ -8,14 +7,9 @@ import time
 import hashlib
 import html
 import os
-import io
-import re
-from collections import defaultdict
 from pathlib import Path
 from dotenv import load_dotenv
 
-# LangChain imports for Milestone 3
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
@@ -26,22 +20,19 @@ from rag import (
     load_generation_config,
     resolve_llm_provider_name,
 )
-from ocr import is_likely_scanned_page as _is_likely_scanned_page, ocr_page_text as _ocr_page_text
-from retrieval_quality import (
+from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract_target_section
+from rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
+    assemble_context,
+    build_sources_payload,
     context_sufficient_for_query,
-    dedupe_similar_chunks,
-    filter_docs_overlapping_answer,
-    sort_source_docs,
 )
-from sectioning import (
-    annotate_chunk_sections,
-    apply_hard_section_context_filter,
-    apply_section_aware_retrieval,
-    split_documents_by_legal_headers,
-    limit_chunks_per_page,
-    chunk_on_section,
-    extract_target_section,
+from rag.ingestion import extract_pdf
+from rag.retrieval import (
+    RetrievalConfig,
+    build_bm25_index,
+    finalize_retrieval,
+    first_stage_retrieval,
 )
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from ui_theme import inject_theme
@@ -50,7 +41,6 @@ st.set_page_config(page_title="Document Q&A · Private RAG", layout="wide")
 APP_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
-TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
 
@@ -260,6 +250,23 @@ try:
     DEDUPE_PREFIX_CHARS = int(retrieval_cfg.get("dedupe_prefix_chars", 180))
     CONTEXT_SUFFICIENCY_GUARD = bool(retrieval_cfg.get("context_sufficiency_guard", True))
 
+    RETRIEVAL_CONFIG = RetrievalConfig(
+        top_k=TOP_K,
+        fetch_k=FETCH_K,
+        early_page_max=EARLY_PAGE_MAX,
+        bm25_fetch_k=BM25_FETCH_K,
+        rrf_k=RRF_K,
+        dense_weight=DENSE_WEIGHT,
+        bm25_weight=BM25_WEIGHT,
+        reranker_top_n=RERANKER_TOP_N,
+        section_aware_enabled=SECTION_AWARE_ENABLED,
+        section_aware_boost=SECTION_AWARE_BOOST,
+        section_aware_min_chunks=SECTION_AWARE_MIN_CHUNKS,
+        max_chunks_per_page=MAX_CHUNKS_PER_PAGE,
+        dedupe_similar_chunks=DEDUPE_SIMILAR_CHUNKS,
+        dedupe_prefix_chars=DEDUPE_PREFIX_CHARS,
+    )
+
     ui_cfg = rag_cfg.get("ui", {}) or {}
     SOURCES_DISPLAY_MAX = int(ui_cfg.get("sources_display_max", 3))
     SOURCE_PREVIEW_CHARS = int(ui_cfg.get("source_preview_chars", 280))
@@ -282,19 +289,6 @@ def finalize_progress(progress_bar, message: str) -> None:
         progress_bar.empty()
 
 
-def _readable_excerpt(text: str, max_chars: int) -> str:
-    """Trim chunk text at word or sentence boundaries for human-readable source previews."""
-    cleaned = " ".join((text or "").split())
-    if len(cleaned) <= max_chars:
-        return cleaned
-    snippet = cleaned[:max_chars]
-    for sep in (". ", "; ", ", ", " "):
-        cut = snippet.rfind(sep)
-        if cut > max_chars // 2:
-            return f"{snippet[: cut + len(sep)].strip()}…"
-    return f"{snippet.rstrip()}…"
-
-
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
 
 
@@ -305,26 +299,14 @@ def _build_sources_payload(
     answer: str | None = None,
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
-    target_section = extract_target_section(query) if query else None
-    ordered = sort_source_docs(retrieved_docs, target_section=target_section)
-    if answer:
-        ordered = filter_docs_overlapping_answer(ordered, answer)
-    payload = []
-    for chunk in ordered[:SOURCES_DISPLAY_MAX]:
-        similarity = chunk.metadata.get("similarity")
-        entry = {
-            "page": chunk.metadata.get("page", "N/A"),
-            "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
-            "preview": _readable_excerpt(chunk.page_content, SOURCE_PREVIEW_CHARS),
-        }
-        if target_section is not None:
-            entry["checklist_preview"] = _readable_excerpt(
-                chunk.page_content,
-                EVAL_CHECKLIST_PREVIEW_CHARS,
-            )
-            entry["on_section"] = chunk_on_section(chunk, target_section)
-        payload.append(entry)
-    return payload
+    return build_sources_payload(
+        retrieved_docs,
+        query=query,
+        answer=answer,
+        display_max=SOURCES_DISPLAY_MAX,
+        preview_chars=SOURCE_PREVIEW_CHARS,
+        checklist_preview_chars=EVAL_CHECKLIST_PREVIEW_CHARS,
+    )
 
 
 def _dev_panel_title(base: str, question_preview: str | None, *, fallback: str) -> str:
@@ -455,243 +437,11 @@ def _scroll_chat_to_bottom_if_requested() -> None:
     )
 
 
-def _assemble_context(raw_results: list[tuple[Document, float]], use_page_separators: bool) -> str:
-    """Build the exact context string that is fed to the generator."""
-    if use_page_separators:
-        chunks_with_pages = []
-        for doc, _score in raw_results:
-            page = doc.metadata.get("page", "?")
-            chunks_with_pages.append(f"─── Page {page} ───\nPage {page}: {doc.page_content}")
-        return "\n".join(chunks_with_pages)
-    return "\n\n".join(doc.page_content for doc, _score in raw_results)
-
-
-def _distance_to_ui_similarity(distance: float) -> float:
-    """
-    Convert vector distance to a bounded [0,1] similarity for UI display.
-    Lower distance -> higher similarity.
-    """
-    return 1.0 / (1.0 + max(distance, 0.0))
-
-
-def _normalize_scores(scores: list[float]) -> list[float]:
-    """Normalize arbitrary ranking scores to [0,1] for consistent UI display."""
-    if not scores:
-        return []
-    if len(scores) == 1:
-        return [1.0]
-    minimum = min(scores)
-    maximum = max(scores)
-    if maximum - minimum <= 1e-12:
-        return [1.0 for _ in scores]
-    return [(score - minimum) / (maximum - minimum) for score in scores]
-
-
-def _tokenize_for_bm25(text: str) -> list[str]:
-    """Simple lexical tokenizer used by BM25 ranking."""
-    return TOKEN_RE.findall((text or "").lower())
-
-
-def _doc_key(doc: Document) -> tuple:
-    """Stable key for merging dense and sparse retrieval results."""
-    stable_fingerprint = hashlib.blake2b(
-        doc.page_content[:300].encode("utf-8", errors="ignore"),
-        digest_size=12,
-    ).hexdigest()
-    return (
-        doc.metadata.get("page", "N/A"),
-        doc.metadata.get("start_index", "N/A"),
-        stable_fingerprint,
-    )
-
-
-def _ensure_bm25_index() -> tuple[object | None, str | None]:
-    """Build and cache BM25 index for current chunk set."""
-    if st.session_state.get("bm25_state") is not None:
-        state = st.session_state.bm25_state
-        if state.get("chunk_count") == len(st.session_state.chunks or []):
-            return state.get("index"), None
-
-    chunks = st.session_state.chunks or []
-    if not chunks:
-        return None, "No chunks available for BM25 indexing."
-
-    try:
-        from rank_bm25 import BM25Okapi
-    except ImportError:
-        return None, (
-            "Hybrid retrieval requires `rank-bm25`. "
-            "Install it with `pip install -r requirements.txt`."
-        )
-
-    tokenized_corpus = [_tokenize_for_bm25(doc.page_content) for doc in chunks]
-    bm25_index = BM25Okapi(tokenized_corpus)
-    st.session_state.bm25_state = {
-        "index": bm25_index,
-        "tokenized_corpus": tokenized_corpus,
-        "chunk_count": len(chunks),
-    }
-    return bm25_index, None
-
-
 @st.cache_resource(show_spinner=False)
 def _get_cross_encoder(model_name: str):
     """Cache cross-encoder reranker model."""
     from sentence_transformers import CrossEncoder
     return CrossEncoder(model_name)
-
-
-def _apply_reranker(
-    query: str,
-    candidates: list[tuple[Document, float]],
-    *,
-    top_n: int,
-    model_name: str,
-) -> tuple[list[tuple[Document, float]], str | None]:
-    """Second-stage reranking with cross-encoder on a candidate pool."""
-    if not candidates:
-        return [], None
-    try:
-        reranker = _get_cross_encoder(model_name)
-        effective_top_n = max(1, int(top_n))
-        limited_candidates = candidates[:effective_top_n]
-        pairs = [(query, doc.page_content[:2000]) for doc, _score in limited_candidates]
-        raw_scores = reranker.predict(pairs)
-        if hasattr(raw_scores, "tolist"):
-            score_values = [float(score) for score in raw_scores.tolist()]
-        else:
-            score_values = [float(score) for score in raw_scores]
-        normalized = _normalize_scores(score_values)
-        reranked = [
-            (doc, normalized_score)
-            for (doc, _original_score), normalized_score in zip(limited_candidates, normalized)
-        ]
-        reranked.sort(key=lambda item: item[1], reverse=True)
-
-        final_results = reranked[:TOP_K]
-        if len(final_results) < TOP_K:
-            seen_keys = {_doc_key(doc) for doc, _score in final_results}
-            for doc, score in candidates:
-                key = _doc_key(doc)
-                if key in seen_keys:
-                    continue
-                final_results.append((doc, score))
-                seen_keys.add(key)
-                if len(final_results) >= TOP_K:
-                    break
-        return final_results, None
-    except (ImportError, OSError, RuntimeError, ValueError) as exc:
-        return candidates[:TOP_K], (
-            f"Reranker unavailable ({exc}). Falling back to first-stage ranking."
-        )
-
-
-def _semantic_retrieval(
-    query: str,
-    *,
-    limit: int | None = None,
-) -> tuple[list[tuple[Document, float]], str, dict[str, int]]:
-    """Dense retrieval with early-page preference."""
-    effective_limit = max(1, int(limit or TOP_K))
-    candidate_results = st.session_state.vector_store.similarity_search_with_score(
-        query,
-        k=FETCH_K,
-    )
-
-    early_page_results = []
-    for doc, score in candidate_results:
-        page = doc.metadata.get("page")
-        if isinstance(page, int) and page <= EARLY_PAGE_MAX:
-            early_page_results.append((doc, score))
-
-    if early_page_results:
-        selected = early_page_results[:effective_limit]
-        mode = "semantic_early_page"
-    else:
-        selected = candidate_results[:effective_limit]
-        mode = "semantic_global_fallback"
-        st.info(
-            f"No matches found in pages <= {EARLY_PAGE_MAX}. "
-            "Showing best matches from all pages."
-        )
-    return [
-        (doc, _distance_to_ui_similarity(float(distance)))
-        for doc, distance in selected
-    ], mode, {
-        "dense_candidates": len(candidate_results),
-        "early_page_candidates": len(early_page_results),
-        "selected_before_rerank": len(selected),
-    }
-
-
-def _hybrid_rrf_retrieval(
-    query: str,
-    *,
-    limit: int | None = None,
-) -> tuple[list[tuple[Document, float]], str, str | None, dict[str, int]]:
-    """Hybrid retrieval using dense + BM25 with Reciprocal Rank Fusion."""
-    effective_limit = max(1, int(limit or TOP_K))
-    dense_results = st.session_state.vector_store.similarity_search_with_score(
-        query,
-        k=FETCH_K,
-    )
-    bm25_index, bm25_warning = _ensure_bm25_index()
-    if bm25_index is None:
-        semantic_results, semantic_mode, semantic_diag = _semantic_retrieval(query, limit=effective_limit)
-        hybrid_diag = {
-            **semantic_diag,
-            "sparse_candidates": 0,
-            "fused_candidates": len(semantic_results),
-        }
-        return semantic_results, f"{semantic_mode}_bm25_unavailable", bm25_warning, hybrid_diag
-
-    query_tokens = _tokenize_for_bm25(query)
-    if not query_tokens:
-        semantic_results, semantic_mode, semantic_diag = _semantic_retrieval(query, limit=effective_limit)
-        hybrid_diag = {
-            **semantic_diag,
-            "sparse_candidates": 0,
-            "fused_candidates": len(semantic_results),
-        }
-        return semantic_results, f"{semantic_mode}_empty_query_tokens", None, hybrid_diag
-
-    bm25_scores = bm25_index.get_scores(query_tokens)
-    top_sparse_indices = [
-        idx
-        for idx, _score in sorted(
-            enumerate(bm25_scores),
-            key=lambda item: item[1],
-            reverse=True,
-        )[:BM25_FETCH_K]
-    ]
-
-    fused_scores: dict[tuple, float] = defaultdict(float)
-    doc_map: dict[tuple, Document] = {}
-
-    for rank, (doc, _distance) in enumerate(dense_results, start=1):
-        key = _doc_key(doc)
-        doc_map[key] = doc
-        fused_scores[key] += DENSE_WEIGHT / (RRF_K + rank)
-
-    for rank, chunk_idx in enumerate(top_sparse_indices, start=1):
-        doc = st.session_state.chunks[chunk_idx]
-        key = _doc_key(doc)
-        doc_map[key] = doc
-        fused_scores[key] += BM25_WEIGHT / (RRF_K + rank)
-
-    ranked_keys = sorted(fused_scores, key=fused_scores.get, reverse=True)
-    top_candidates = [(doc_map[key], fused_scores[key]) for key in ranked_keys[:effective_limit]]
-    normalized_scores = _normalize_scores([score for _doc, score in top_candidates])
-    normalized_candidates = [
-        (doc, normalized_score)
-        for (doc, _original_score), normalized_score in zip(top_candidates, normalized_scores)
-    ]
-    return normalized_candidates[:effective_limit], "hybrid_rrf", bm25_warning, {
-        "dense_candidates": len(dense_results),
-        "sparse_candidates": len(top_sparse_indices),
-        "fused_candidates": len(ranked_keys),
-        "selected_before_rerank": len(top_candidates),
-    }
 
 
 def _format_elapsed_ms(elapsed_ms: float) -> str:
@@ -799,17 +549,45 @@ def _append_chat_message(
         _request_chat_scroll_to_bottom()
 
 
+def _ensure_bm25_index() -> tuple[object | None, str | None]:
+    """Build and cache BM25 index for the current chunk set."""
+    chunks = st.session_state.chunks or []
+    if st.session_state.get("bm25_state") is not None:
+        state = st.session_state.bm25_state
+        if state.get("chunk_count") == len(chunks):
+            return state.get("index"), None
+    index, warning = build_bm25_index(chunks)
+    if index is not None:
+        st.session_state.bm25_state = {"index": index, "chunk_count": len(chunks)}
+    return index, warning
+
+
+def _rerank_predict(pairs):
+    return _get_cross_encoder(RERANKER_MODEL_NAME).predict(pairs)
+
+
 def _run_first_stage_retrieval(
     query: str,
     *,
     candidate_limit: int,
 ) -> tuple[list[tuple[Document, float]], str, str | None, dict[str, int]]:
-    """Run the configured first-stage retrieval and return normalized candidates."""
-    if st.session_state.retrieval_strategy == "hybrid":
-        return _hybrid_rrf_retrieval(query, limit=candidate_limit)
-
-    semantic_results, mode, semantic_diag = _semantic_retrieval(query, limit=candidate_limit)
-    return semantic_results, mode, None, semantic_diag
+    bm25_index, bm25_warning = _ensure_bm25_index()
+    results, mode, warning, diag = first_stage_retrieval(
+        query,
+        strategy=st.session_state.retrieval_strategy,
+        vector_store=st.session_state.vector_store,
+        chunks=st.session_state.chunks or [],
+        bm25_index=bm25_index,
+        bm25_warning=bm25_warning,
+        config=RETRIEVAL_CONFIG,
+        candidate_limit=candidate_limit,
+    )
+    if diag.get("used_global_fallback"):
+        st.info(
+            f"No matches found in pages <= {EARLY_PAGE_MAX}. "
+            "Showing best matches from all pages."
+        )
+    return results, mode, warning, diag
 
 
 def _finalize_retrieval_candidates(
@@ -818,51 +596,21 @@ def _finalize_retrieval_candidates(
     candidate_pool: list[tuple[Document, float]],
     mode: str,
 ) -> tuple[list[tuple[Document, float]], str, str | None, float]:
-    """Apply optional reranker and section-aware routing; return final top-k results."""
-    reranker_warning: str | None = None
     rerank_elapsed_ms = 0.0
-    pool = candidate_pool
-
-    if st.session_state.enable_reranker:
+    rerank_predict = _rerank_predict if st.session_state.enable_reranker else None
+    if rerank_predict is not None:
         rerank_start = time.perf_counter()
-        pool, reranker_warning = _apply_reranker(
-            query,
-            candidate_pool,
-            top_n=RERANKER_TOP_N,
-            model_name=RERANKER_MODEL_NAME,
-        )
+    pool, mode, warning = finalize_retrieval(
+        query,
+        candidate_pool=candidate_pool,
+        mode=mode,
+        enable_reranker=st.session_state.enable_reranker,
+        rerank_predict=rerank_predict,
+        config=RETRIEVAL_CONFIG,
+    )
+    if rerank_predict is not None:
         rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
-        mode = f"{mode}_reranked"
-
-    section_warning: str | None = None
-    if SECTION_AWARE_ENABLED:
-        pool, section_warning = apply_section_aware_retrieval(
-            query,
-            pool,
-            top_k=TOP_K,
-            boost=SECTION_AWARE_BOOST,
-            min_matching=SECTION_AWARE_MIN_CHUNKS,
-        )
-        if section_warning:
-            mode = f"{mode}_section_aware"
-    else:
-        pool = pool[:TOP_K]
-
-    if MAX_CHUNKS_PER_PAGE > 0:
-        pool = limit_chunks_per_page(pool, top_k=TOP_K, max_per_page=MAX_CHUNKS_PER_PAGE)
-
-    if DEDUPE_SIMILAR_CHUNKS:
-        pool = dedupe_similar_chunks(
-            pool,
-            top_k=TOP_K,
-            prefix_chars=DEDUPE_PREFIX_CHARS,
-        )
-        mode = f"{mode}_deduped"
-
-    combined_warning = " · ".join(
-        part for part in (reranker_warning, section_warning) if part
-    ) or None
-    return pool[:TOP_K], mode, combined_warning, rerank_elapsed_ms
+    return pool, mode, warning, rerank_elapsed_ms
 
 
 def _ollama_recommended_models() -> list[str]:
@@ -1411,11 +1159,6 @@ if resolved_upload is not None:
         progress_bar = None
         try:
             progress_bar = st.progress(5, text=_CLIENT_COPY["progress_prepare"])
-            ocr_pages_used = 0
-            scanned_pages_detected = 0
-            ocr_pages_attempted = 0
-            ocr_warning: str | None = None
-
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                 tmp_file.write(file_bytes)
                 tmp_path = Path(tmp_file.name)
@@ -1426,25 +1169,9 @@ if resolved_upload is not None:
                 else _CLIENT_COPY["progress_extract"]
             ))
 
-            doc = fitz.open(str(tmp_path))
-            extracted_text = ""
-            page_docs = []
-            for page_num, page in enumerate(doc, start=1):
-                page_text = page.get_text("text") or ""
-                final_page_text = page_text
-                if st.session_state.enable_ocr and _is_likely_scanned_page(page_text):
-                    scanned_pages_detected += 1
-                    ocr_pages_attempted += 1
-                    ocr_text, ocr_error = _ocr_page_text(page)
-                    if ocr_error and ocr_warning is None:
-                        ocr_warning = ocr_error
-                    if ocr_text:
-                        final_page_text = ocr_text
-                        ocr_pages_used += 1
-                extracted_text += f"\n--- Page {page_num} ---\n"
-                extracted_text += final_page_text + "\n"
-                page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
-            doc.close()
+            extracted = extract_pdf(tmp_path, enable_ocr=st.session_state.enable_ocr)
+            page_docs = extracted.page_docs
+            extracted_text = extracted.preview_text
             progress_bar.progress(45, text=(
                 "Text extracted. Preparing chunking…"
                 if st.session_state.developer_mode
@@ -1458,10 +1185,10 @@ if resolved_upload is not None:
                 )
             _render_ocr_status(
                 enable_ocr=st.session_state.enable_ocr,
-                scanned_pages_detected=scanned_pages_detected,
-                ocr_pages_attempted=ocr_pages_attempted,
-                ocr_pages_used=ocr_pages_used,
-                ocr_warning=ocr_warning,
+                scanned_pages_detected=extracted.scanned_pages_detected,
+                ocr_pages_attempted=extracted.ocr_pages_attempted,
+                ocr_pages_used=extracted.ocr_pages_used,
+                ocr_warning=extracted.ocr_warning,
                 developer_mode=st.session_state.developer_mode,
             )
             if st.session_state.developer_mode and extracted_char_count > 0:
@@ -1477,24 +1204,12 @@ if resolved_upload is not None:
                 if st.session_state.developer_mode
                 else _CLIENT_COPY["progress_chunk"]
             ):
-                text_splitter = RecursiveCharacterTextSplitter(
+                chunks = chunk_pages(
+                    page_docs,
                     chunk_size=CHUNK_SIZE,
                     chunk_overlap=CHUNK_OVERLAP,
-                    length_function=len,
-                    add_start_index=True,
+                    split_on_legal_headers=SPLIT_ON_LEGAL_HEADERS,
                 )
-                docs_to_split = (
-                    split_documents_by_legal_headers(page_docs)
-                    if SPLIT_ON_LEGAL_HEADERS
-                    else page_docs
-                )
-                chunks = text_splitter.split_documents(docs_to_split)
-                page_texts = {
-                    doc.metadata["page"]: doc.page_content
-                    for doc in page_docs
-                    if isinstance(doc.metadata.get("page"), int)
-                }
-                annotate_chunk_sections(chunks, page_texts)
             progress_bar.progress(65, text=(
                 "Chunks created. Loading embedding model…"
                 if st.session_state.developer_mode
@@ -1756,7 +1471,7 @@ if query and query.strip() and chat_ready:
                     retrieved_docs = [doc for doc, _score in context_results]
                     st.session_state.last_query = query
                     st.session_state.last_retrieved_docs = retrieved_docs
-                    context = _assemble_context(
+                    context = assemble_context(
                         context_results,
                         use_page_separators=st.session_state.use_page_separators,
                     )

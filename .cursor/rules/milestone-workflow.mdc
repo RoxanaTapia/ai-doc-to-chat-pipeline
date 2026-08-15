@@ -36,10 +36,12 @@ Per issue caps: docs 1, infra 1–2, features 2–4. One logical change per comm
 
 ## PR body format
 
-Every PR **must** open with a **Main contribution** paragraph (2–4 sentences, plain language):
+PR **titles** are client-facing (no issue numbers, no `feat:` / `fix:` prefixes).
+
+Every PR **must** open with a **Main contribution** paragraph (2–4 sentences, plain language a buyer can read):
 
 - What this PR delivers and why it matters
-- What changes for the user, operator, or buyer
+- What changes for the person evaluating or using the product
 - Outcome focus, not a file list (details go in **Summary** bullets)
 
 ```markdown

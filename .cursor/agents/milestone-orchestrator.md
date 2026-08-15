@@ -20,7 +20,7 @@ You are the **milestone-orchestrator** for ai-doc-to-chat-pipeline.
 - Invoke `verifier` before PR.
 - **Train mode (default):** after verifier green, push, open PR with `Closes #NN`, merge when CI is green and the issue checklist is met, then emit a **status pulse** and continue the queue.
 - **Hold-merges mode:** if the operator says `hold merges` / `propose only`, draft the PR and wait for explicit `commit` / `push` / `merge`.
-- PR body must start with `## Main contribution` (see milestone-workflow rule).
+- PR title and body are client-facing. Body must start with `## Main contribution` (see milestone-workflow rule).
 - On human gates, invoke `blocker-reporter`, ask `docs-writer` to polish the Blocker card, then **STOP**.
 - Keep prose calm and confident. Avoid “hire-me,” “Upwork niche,” or salesy framing in pulses, PRs, and issue edits.
 
@@ -94,7 +94,7 @@ End every run with: files changed, commits made or proposed, PR URL, pulse (or b
 ```markdown
 ## Main contribution
 
-<One paragraph: what this delivers, why it matters, who benefits. No file list.>
+<One paragraph a client can read: what this delivers, why it matters, who benefits. No file list.>
 
 ## Summary
 - ...
