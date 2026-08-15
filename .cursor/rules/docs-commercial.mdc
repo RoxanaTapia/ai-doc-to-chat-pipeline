@@ -18,7 +18,7 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 | **DEPLOYMENT.md** | Client IT, technical buyers | Prerequisites → install → verify → troubleshoot |
 | **docs/product/** | Buyers / evaluators | Calm, clear, scannable, joy to read |
 | **docs/operators/**, **AGENTS.md** | Contributors | Issues, agents, workflow (warm + precise) |
-| **PR descriptions** | Reviewers | Outcome first (`## Main contribution`), short summary, clear test plan |
+| **PR titles and descriptions** | Clients and buyers who open the PR | Outcome first (`## Main contribution`), product language, no file laundry |
 | **GitHub issues** | Operators / agents | Outcome, scope, DoD checkboxes; light context |
 | **`docs-private/`** | Operator (local, gitignored) | Sales, switches, provider picks, full recording notes |
 
@@ -36,7 +36,7 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 ### PR / issue copy
 
 - **docs-writer** owns polish of PR bodies and issue titles/bodies (see `.cursor/agents/docs-writer.md`).
-- PRs must start with `## Main contribution`, then Summary, then Test plan.
+- PR titles and bodies are client-facing. Start with `## Main contribution`, then Summary, then Test plan. No issue numbers in the title.
 - Issue DoD checkboxes should map cleanly into the PR test plan.
 - Do not invent scope; do not close issues/PRs unless asked.
 

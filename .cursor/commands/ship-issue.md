@@ -14,7 +14,7 @@ Follow **train mode** in `AGENTS.md` unless the operator said `hold merges` / `p
 6. Specialists must **NOT** run `git commit`.
 7. Invoke **verifier**: `pytest tests/`; docker build only if Dockerfile/compose changed.
 8. Split into **1–2 granular commits** per ROADMAP; commit after verifier green (train mode).
-9. Open PR with **`## Main contribution`** first, then Summary, Test plan, `Closes #NN`.
+9. Open PR with a **client-facing title** and **`## Main contribution`** first, then Summary, Test plan, `Closes #NN`.
 10. **Train mode:** push, wait for CI green + checklist, merge, emit a **status pulse**, stop only on hard gates.
 11. **Hold-merges mode:** draft PR; wait for explicit `commit` / `push` / `merge`.
 

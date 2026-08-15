@@ -318,7 +318,7 @@ When stuck, invoke **blocker-reporter**, then ask **docs-writer** to polish into
 | **docs/operators/ROADMAP.md** | `docs-writer` | Milestone scope changes |
 | **docs/operators/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
 | **docs/README.md** | `docs-writer` | Docs structure / index |
-| **PR / issue prose** | `docs-writer` | Short warm Main contribution; issue Outcome + DoD |
+| **PR / issue prose** | `docs-writer` | Client-facing title and Main contribution; issue Outcome + DoD |
 | **Blocker cards** | `blocker-reporter` + `docs-writer` polish | Human gates |
 | **AGENTS.md** | Human + orchestrator | Train policy, issues, decision log |
 
