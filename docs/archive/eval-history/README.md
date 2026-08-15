@@ -1,5 +1,5 @@
-# Eval history (archive)
+# Eval history
 
-Older pilot-evaluation rounds (1–5). Kept for tuning archaeology.
+Rounds 1–5 of NDA retrieval tuning (May 2026, local Ollama). Archaeology only.
 
-For the current summary, see [product/pilot-evaluation.md](../../product/pilot-evaluation.md).
+Product map: [docs/README.md](../../README.md).

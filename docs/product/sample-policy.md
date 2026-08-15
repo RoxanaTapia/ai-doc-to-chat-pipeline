@@ -69,4 +69,4 @@ Contact `governance@northwind.example` (fictional address) for retention questio
 > 2. What happens to project working notes after a project closes?
 > 3. What rule applies when Legal issues a litigation hold?
 
-More on expected quality: [pilot evaluation](pilot-evaluation.md).
+Questions to try: [Walkthrough](demo-script.md).

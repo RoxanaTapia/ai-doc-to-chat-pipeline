@@ -1,98 +1,73 @@
-# AI Doc to Chat
+# Private PDF Q&A
 
-> Private, grounded answers from your PDFs, on infrastructure you control.
+> Grounded answers from a confidential PDF, with page citations, on infrastructure you control.
 
-[Live Pilot](https://ai-doc-pilot.roxanatapia.dev) · [Public Demo](https://ai-doc-to-chat-demo.streamlit.app) · [Deployment Guide](DEPLOYMENT.md) · [Docs](docs/README.md)
+Upload a policy, SOP, report, or contract. Ask in plain language. Every answer cites the page it used. Documents stay on **your server**.
 
-Upload a confidential PDF (policies, SOPs, reports, contracts, or internal handbooks), ask questions in plain language, and get sourced answers with page-level citations. Documents stay on **your server**. Local embeddings by default; choose a local LLM for air-gap pilots, or a fast API model for demos.
-
----
-
-## 🚀 Try it
-
-| | Where | What you get |
-|-|--------|--------------|
-| **Public demo** | [Streamlit Cloud](https://ai-doc-to-chat-demo.streamlit.app) | UI walkthrough (no login, no LLM) |
-| **Live pilot** | [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev) | Real answers, HTTPS, password-protected |
-| **Your deployment** | Your VPS or cloud | Full private stack under your control |
-
-The live pilot is password-protected. Credentials are not published here.
-[Request access on Upwork](https://www.upwork.com/freelancers/roxanadev) for a walkthrough, or once you have access use the [sample NDA](docs/product/sample-nda.pdf) or the [sample retention policy](docs/product/sample-policy.md) (export the markdown to PDF).
-
-**Demo video:** Coming after the thin API pass. Storyboard: [docs/product/demo-script.md](docs/product/demo-script.md).
-
-> **Privacy note:** Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot. For sensitive documents, [deploy your own instance](DEPLOYMENT.md).
+> **Takeaway:** This is a retrieval system, not a chatbot that guesses. If the document cannot answer, it says so.
 
 ---
 
-## 🔄 How it works
+## Try the pilot
+
+🟢 **Live** · <a href="https://ai-doc-pilot.roxanatapia.dev/" target="_blank" rel="noopener noreferrer"><strong>ai-doc-pilot.roxanatapia.dev</strong></a>
+
+- Request an invite on the gate, then upload a PDF and ask a question
+- Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
+- Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
+
+Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+
+---
+
+## How an answer is grounded
+
+Each step exists to keep the answer inside the PDF you uploaded.
 
 ```mermaid
 flowchart LR
-  A[Browser] --> B[Upload PDF]
-  B --> C[Extract text]
-  C --> D[Local embeddings]
-  D --> E[FAISS search]
-  E --> F[LLM on your stack]
-  F --> G[Sourced answer]
+  A[Upload PDF] --> B[Extract]
+  B --> C[Chunk]
+  C --> D[Embed locally]
+  D --> E[Hybrid search]
+  E --> F[Rerank]
+  F --> G[Cited answer]
 ```
 
-Everything runs on one VM. Your documents never leave your environment (self-host tier), or you can use a fast demo-tier LLM when latency matters. Details: [DEPLOYMENT.md](DEPLOYMENT.md) · [Architecture](docs/product/architecture.md).
+| Step | Technique | Why? |
+|------|-----------|------|
+| **Ingest** | PyMuPDF, plus OCR on scanned pages | PDFs mix digital text and scans. Page numbers stay on the passage so a citation is checkable. |
+| **Chunk** | Split at section headers | A sliding window glues neighboring clauses. Headers are the document's own boundaries. |
+| **Embed** | Local sentence-transformers | Search by meaning without sending the file to an outside embedding API. |
+| **Retrieve** | Hybrid search: FAISS + BM25, fused with RRF | Embeddings miss exact terms. Keyword search misses paraphrases. Fusion keeps both. |
+| **Rerank** | Cross-encoder (`bge-reranker`) | First-stage ranking is approximate. Re-score question and passage together before the LLM sees them. |
+| **Cite or refuse** | Page + excerpt, or "not in the document" | An answer you cannot open on a page is not grounded. No evidence means no invented clause. |
 
 ---
 
-## 🗂️ Repository layout
+## What it does well
 
-| Path | Role |
-|------|------|
-| `src/` | Application code (Streamlit UI; RAG under `src/rag/`) |
-| `docs/` | Product and operator docs ([index](docs/README.md)) |
-| `deploy/` | Docker, Compose, and Caddy assets for self-host |
-| `.cursor/` | Agent rules, specialists, and slash commands |
-| [`AGENTS.md`](AGENTS.md) | Contributor playbook (issues, agents, delivery train) |
+| Feature | In practice |
+|---------|-------------|
+| **Citations** | Page and excerpt on every answer |
+| **Model choice** | Ollama writes answers on your server. Anthropic is optional when you want quicker replies. Search and citations stay the same. |
+| **Private embeddings** | Vectors stay on your server |
+| **Honest refusals** | Says so when the PDF does not contain the answer |
+| **Document types** | Policies, SOPs, reports, contracts |
 
-To run your own instance, follow the [Deployment Guide](DEPLOYMENT.md). Full tree: [docs/operators/REPO-STRUCTURE.md](docs/operators/REPO-STRUCTURE.md).
+## Known limits
 
----
-
-## ✨ What it does well
-
-- **Policies, SOPs, reports, contracts, handbooks:** find rules, obligations, dates, and definitions in the PDF you uploaded
-- **Sourced answers:** every response cites the page and excerpt it used
-- **Private by design:** local embeddings; local LLM for air-gap, or a swappable API model for demos
-- **Auditable:** Docker Compose stack your IT team can review and reproduce
-
-## ⚠️ Known limits (evaluation pilot)
-
-- **Session-based:** re-upload after restart; no shared document library yet
-- **Read, don't calculate:** finds printed numbers; does not sum or verify math
-- **Single document per session:** not enterprise search across file stores
-- **Document Q&A, not a support bot:** answers questions about the uploaded PDF; does not integrate with CRM, email, or ticketing
-
----
-
-## 🤝 For teams evaluating a private stack
-
-> Teams that cannot paste confidential PDFs into a public chatbot need a stack they can run, audit, and own. That is the aim here.
-
-Typical path: pilot on a modest VM → validate answers on your own sample documents → harden for production with your IT team (auth, persistence, runbooks) when you are ready.
-
-**Get in touch:** [Upwork](https://www.upwork.com/freelancers/roxanadev) · [GitHub](https://github.com/RoxanaTapia)
-
----
-
-## 🛠️ Self-host
-
-Follow the [Deployment Guide](DEPLOYMENT.md). It covers VPS sizing, HTTPS with Caddy, basic auth, the Anthropic **demo tier**, and the Ollama **self-host tier**.
-
-Eval corpus: [sample NDA](docs/product/sample-nda.pdf) · [sample retention policy](docs/product/sample-policy.md) · [pilot evaluation](docs/product/pilot-evaluation.md).
-
-**What's next on this product:** a calm walkthrough video (thin `/health` + `/chat` API is ready). Deeper production (persistence, SSO, ops) lands when a pilot needs it. Full sequencing for contributors: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
+| Limit | In practice |
+|-------|-------------|
+| **Session only** | Re-upload after a restart; no shared library yet |
+| **One PDF** | Not search across a file store |
+| **No math** | Finds printed numbers; does not calculate |
+| **Q&A only** | No CRM, email, or ticketing |
 
 ---
 
 ## Stack
 
-Streamlit · LangChain · FAISS · sentence-transformers · PyMuPDF · Tesseract · Ollama · Docker
+PyMuPDF · FAISS · BM25 · bge-reranker · sentence-transformers · Streamlit · FastAPI · Ollama or Anthropic
 
-MIT licensed · Made by [Roxana Tapia](https://github.com/RoxanaTapia) · 2026
+MIT licensed · [Roxana Tapia](https://github.com/RoxanaTapia) · [Upwork](https://www.upwork.com/freelancers/roxanadev)

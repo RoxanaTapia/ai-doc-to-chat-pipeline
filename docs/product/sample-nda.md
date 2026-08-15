@@ -103,4 +103,4 @@ subject matter and supersedes all prior negotiations, representations, and agree
 > 2. What obligations does Section 3 impose on the Receiving Party?
 > 3. Does this agreement specify liquidated damages or a fixed financial penalty?
 
-More on expected quality: [pilot evaluation](../product/pilot-evaluation.md).
+Questions to try: [Walkthrough](demo-script.md).
