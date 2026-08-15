@@ -8,7 +8,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from retrieval_quality import (  # noqa: E402
+from rag.citations import (  # noqa: E402
     DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
     context_has_obligation_markers,
     context_sufficient_for_query,

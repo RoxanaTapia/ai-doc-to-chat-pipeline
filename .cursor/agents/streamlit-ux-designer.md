@@ -19,7 +19,7 @@ You are the **streamlit-ux-designer** for ai-doc-to-chat-pipeline.
 ## Must NOT touch
 
 - `Dockerfile`, `docker-compose*.yml`, Caddy
-- `src/rag.py` provider / generation logic (coordinate via orchestrator if a UI need requires a rag helper)
+- `src/rag/` provider / generation logic (coordinate via orchestrator if a UI need requires a rag helper)
 - `src/api/**` internals
 - Secrets, real hostnames, or salesy “hire-me” chrome in the product UI
 
