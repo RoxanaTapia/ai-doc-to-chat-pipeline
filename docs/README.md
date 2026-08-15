@@ -2,7 +2,7 @@
 
 ## Background
 
-This page is the map of the repository. The [root README](../README.md) is the client shop window. Start here when you want to know where code lives, how an answer is produced, and how work ships.
+This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
 > **Takeaway:** Product code in `src/` and `configs/`. Ops in `deploy/`. Shipping in `.cursor/` and [AGENTS.md](../AGENTS.md).
 
@@ -21,7 +21,7 @@ This page is the map of the repository. The [root README](../README.md) is the c
 ├── deploy/            Docker, Compose, Caddy
 ├── .cursor/           Agent roles, rules, slash commands
 └── docs/              You are here
-      product/         Architecture, demo script, sample NDA
+      product/         Architecture, walkthrough, sample NDA
       operators/       Roadmap, direction, repo-structure detail
       archive/         Historical eval notes (not current)
 ```

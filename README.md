@@ -43,6 +43,8 @@ flowchart LR
 | **Rerank** | Cross-encoder (`bge-reranker`) | First-stage ranking is approximate. Re-score question and passage together before the LLM sees them. |
 | **Cite or refuse** | Page + excerpt, or "not in the document" | An answer you cannot open on a page is not grounded. No evidence means no invented clause. |
 
+Each step is a module under [`src/rag/`](src/rag/). Map: [docs/README.md](docs/README.md).
+
 ---
 
 ## What it does well
