@@ -1,5 +1,7 @@
 # Production roadmap
 
+> **For clients:** start at the [root README](../../README.md). This page is contributor sequencing.
+
 ## Background
 
 For contributors and operators. Moves the pipeline from a **reference deployment** to a **demo-ready** private document Q&A product: fast cited answers on a walkthrough, then a thin API for integrations. Deeper production work (persist / SSO / ops) is client-triggered, not the default climb after M7.

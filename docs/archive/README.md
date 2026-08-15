@@ -1,17 +1,9 @@
 # Archive
 
-## Background
+Early local-Ollama evaluation rounds. Kept so we can see why hybrid search, rerank, and header chunking landed.
 
-Older evaluation write-ups and plans. Useful if you need the full history of retrieval tuning. Not required for a first read of the product.
-
-> **Takeaway:** For current quality, use [product/pilot-evaluation.md](../product/pilot-evaluation.md).
-
----
-
-## 📦 Contents
+Not a current scorecard for the live pilot. Start at the [root README](../../README.md) or the [docs map](../README.md).
 
 | Path | What it is |
 |------|------------|
-| [`eval-history/`](eval-history/) | Rounds 1–5 of NDA pilot evaluation (results + some plans) |
-
-Round-by-round files link to each other inside that folder. Historical rounds live only under `docs/archive/eval-history/`.
+| [`eval-history/`](eval-history/) | Rounds 1–5 on the sample NDA (May 2026) |

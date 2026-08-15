@@ -1,5 +1,7 @@
 # Project direction (operator guide)
 
+> **For clients:** start at the [root README](../../README.md). This page is contributor sequencing.
+
 ## Background
 
 How to finish this pipeline with Cursor discipline, code you understand, and a private document Q&A demo you can show without apologizing for latency.

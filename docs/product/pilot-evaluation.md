@@ -1,10 +1,12 @@
-# Pilot evaluation
+# Pilot evaluation (historical)
 
 ## Background
 
-Summary of how the RAG stack was tested on NDA-style contracts. Same three questions across rounds, with a gold standard for honesty and section alignment. Full round-by-round notes live in [`docs/archive/eval-history/`](../archive/eval-history/).
+May 2026 notes from local Ollama rounds on the sample NDA. Useful as a record of why hybrid search, rerank, and header chunking landed. Not a current scorecard for the live pilot.
 
-> **Takeaway:** Round 5 is the current bar: pass on the sample NDA for Q1–Q3, and solid honesty on a shorter unnumbered NDA.
+Round-by-round files: [`docs/archive/eval-history/`](../archive/eval-history/). Product map: [docs/README.md](../README.md).
+
+> **Takeaway:** These numbers are historical. Do not treat the latencies as what you will see today.
 
 ---
 
@@ -32,14 +34,14 @@ Sample document: [`sample-nda.pdf`](sample-nda.pdf)
 | **4** | Hard context filter, section-aware boost | Partial+ | Pass | Pass | Q2 on-section 1/1; Q3 honesty held |
 | **5** | Header-aware chunking, dedupe, context guard | Pass | Pass | Pass | Also works on 2-page unnumbered NDA |
 
-**Current bar (Round 5):** Q1–Q3 Pass on sample NDA · Q2/Q3 Pass on client-style 2-page NDA · ready for walkthrough demos.
+**Round 5 result (May 2026):** Q1–Q3 Pass on sample NDA · Q2/Q3 Pass on client-style 2-page NDA.
 
 ---
 
 ## ✅ Round 5 at a glance (latest)
 
-**Status:** Complete (May 2026)  
-**Stack:** Docker Compose · `llama3.1:8b` · hybrid · reranker · section metadata · hard context filter · header-aware chunking · dedupe · context sufficiency guard
+**When:** May 2026  
+**Stack then:** Docker Compose · `llama3.1:8b` · hybrid · reranker · section metadata · hard context filter · header-aware chunking · dedupe · context sufficiency guard
 
 ### Verdict
 
@@ -93,4 +95,4 @@ Q3 hedging is a small-model formatting quirk, not a hallucination. Larger models
 | Section-number questions + context purity | Sample NDA |
 | Obligation completeness + honesty on unnumbered layout | 2-page NDA |
 
-Storyboard: [demo-script.md](demo-script.md).
+Walkthrough: [demo-script.md](demo-script.md).

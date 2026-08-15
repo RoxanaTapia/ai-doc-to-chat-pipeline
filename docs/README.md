@@ -128,10 +128,21 @@ Specialists edit only what they own. They do not commit. The milestone orchestra
 
 ## Docs in this folder
 
-| Folder | What is here |
-|--------|----------------|
-| [`product/`](product/) | [Architecture](product/architecture.md), [demo storyboard](product/demo-script.md), [sample NDA](product/sample-nda.pdf) |
-| [`operators/`](operators/) | [Roadmap](operators/ROADMAP.md), [project direction](operators/PROJECT-DIRECTION.md), [repo structure](operators/REPO-STRUCTURE.md), [OCR testing](operators/testing-ocr.md) |
-| [`archive/`](archive/) | Early local-Ollama eval rounds. Historical only. |
+If you only want the product story, these three pages are enough:
+
+| Page | What you get |
+|------|----------------|
+| [Architecture](product/architecture.md) | What runs on the VM |
+| [Walkthrough](product/demo-script.md) | What a live session shows, plus sample questions |
+| [Sample NDA](product/sample-nda.pdf) | A ready PDF to upload |
+
+Contributor pages (sequencing and how-tos):
+
+| Page | What you get |
+|------|----------------|
+| [Roadmap](operators/ROADMAP.md) · [Project direction](operators/PROJECT-DIRECTION.md) | What ships next |
+| [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
+| [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
+| [Archive](archive/) | Early local-Ollama eval rounds. Historical only. |
 
 Self-host steps stay in [DEPLOYMENT.md](../DEPLOYMENT.md). Live pilot: [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/).

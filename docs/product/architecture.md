@@ -1,104 +1,57 @@
-# Architecture: single-VM pilot
+# Architecture
 
 ## Background
 
-For technical buyers and IT reviewers who want to see how the stack fits on one machine. Matches the Compose files in this repo (`deploy/docker-compose.yml` plus optional `deploy/docker-compose.caddy.yml` for HTTPS).
+How the live pilot runs on one machine. For the retrieval steps and module map, see [docs/README.md](../README.md). For install steps, see [DEPLOYMENT.md](../../DEPLOYMENT.md).
 
-> **Takeaway:** Browser traffic hits Caddy; Streamlit and Ollama stay internal. Documents live in memory for the session; only model weights persist on disk.
+> **Takeaway:** HTTPS at the edge. The app and the local model stay inside the VM. The PDF lives in memory for the session.
 
 ---
 
-## 🏗️ Stack overview
+## What runs where
 
-```text
-                    Internet (HTTPS :443, HTTP :80)
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │  Caddy                │
-                    │  TLS + basic auth     │
-                    └───────────┬───────────┘
-                                │ reverse_proxy → app:8501
-                                ▼
-                    ┌───────────────────────┐
-                    │  Streamlit app        │
-                    │  PDF → chunk → FAISS  │
-                    │  (in-process / RAM)   │
-                    └───────────┬───────────┘
-                                │ OLLAMA_HOST
-                                ▼
-                    ┌───────────────────────┐
-                    │  Ollama               │
-                    │  volume: ollama_models│
-                    └───────────────────────┘
+```mermaid
+flowchart LR
+  Browser --> Caddy
+  Caddy --> App
+  App --> Index[Session index]
+  App --> LLM[Ollama or Anthropic]
 ```
 
-With the Caddy overlay active, Streamlit and Ollama are **not** published to the host. Only ports `80` and `443` are exposed.
+| Piece | Role |
+|-------|------|
+| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. |
+| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. |
+| **Ollama** | Local model on the same VM, when that provider is selected. |
+| **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. |
+
+Embeddings always run on the server. Switching the writer (Ollama vs Anthropic) does not change search or citations.
 
 ---
 
-## 🧩 Services
-
-| Service | Image / build | Published ports | Role |
-|---------|---------------|-----------------|------|
-| `caddy` | `caddy:2.9.1-alpine` | `80`, `443` | TLS, basic auth, reverse proxy |
-| `app` | `deploy/Dockerfile` (this repo) | *(none with Caddy)* | UI, RAG, local embeddings |
-| `ollama` | `ollama/ollama:0.6.5` | *(internal)* | Local LLM; models on `ollama_models` |
-
-**Pilot start (HTTPS):**
-
-```bash
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d
-```
-
-For local work without HTTPS, use `deploy/docker-compose.yml` alone. Then `app` binds `8501` on the host.
-
-Full steps: [DEPLOYMENT.md](../../DEPLOYMENT.md).
-
----
-
-## 🔄 Data flow (one question)
+## One question
 
 ```mermaid
 sequenceDiagram
   participant U as Browser
-  participant A as Streamlit app
-  participant F as FAISS (in memory)
-  participant O as Ollama
+  participant A as App
+  participant I as Session index
+  participant M as Ollama or Anthropic
 
   U->>A: Upload PDF
-  A->>A: Extract text, chunk
-  A->>F: Build session index
-  U->>A: Ask question
-  A->>F: Retrieve relevant chunks
-  A->>O: Prompt with context
-  O-->>A: Grounded answer
-  A-->>U: Answer + page citations
+  A->>A: Extract, chunk, embed
+  A->>I: Build FAISS + BM25
+  U->>A: Ask
+  A->>I: Hybrid search, then rerank
+  A->>M: Prompt with passages
+  M-->>A: Answer
+  A-->>U: Answer + page excerpts
 ```
 
-1. Upload PDF → PyMuPDF (optional OCR) → text chunks → in-memory FAISS index.
-2. Ask a question → retrieval → context with page metadata.
-3. App calls Ollama on the Compose network → answer and source excerpts in the UI.
-
-Documents and vectors live in the app process for the session. Only Ollama model weights persist (`ollama_models` volume).
+Nothing is written to a document library. Restart the app and you upload again. Model weights on disk are the only durable data (Ollama volume).
 
 ---
 
-## 🌱 What comes later
+## What this pilot does not include yet
 
-Production rollouts often add persistent document storage, a thin REST API for integrations, and enterprise login, while keeping the same retrieval and generation core. Local Ollama stays the default for air-gapped or private hosts; a cloud LLM can be used for faster demos when procurement allows it.
-
-See [operators/ROADMAP.md](../operators/ROADMAP.md) for the phased plan.
-
----
-
-## ⚙️ Environment (pilot)
-
-| Variable | Purpose |
-|----------|---------|
-| `OLLAMA_HOST` | Ollama URL (e.g. `http://ollama:11434` in Compose) |
-| `USE_DUMMY_GENERATOR` | `false` for real generation |
-| `OLLAMA_MODEL` | Model tag (e.g. `phi3:mini` on CPU hosts) |
-| `SITE_ADDRESS` / `ACME_EMAIL` | Domain and email for Let's Encrypt |
-
-Full operator notes: [DEPLOYMENT.md](../../DEPLOYMENT.md#environment-variables).
+A shared library, SSO, and multi-project tenancy. Those wait for a real engagement. The retrieval core stays the same when they land.

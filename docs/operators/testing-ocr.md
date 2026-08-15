@@ -1,5 +1,7 @@
 # Testing OCR
 
+> **For clients:** scanned pages are handled automatically in the Docker pilot. This page is for contributors verifying that path.
+
 ## Background
 
 For contributors verifying scanned-PDF support. Two levels: fast unit tests (no Tesseract binary) and an integration check on the local Docker stack.
@@ -112,8 +114,4 @@ Answer cites the correct page
 | `"OCR failed on page: …"` | Tesseract binary absent | Check `deploy/Dockerfile` installs `tesseract-ocr` |
 | Answer is gibberish | Low scan quality | Cleaner scan; OCR depends on DPI and contrast |
 
----
-
-## ☁️ Streamlit Cloud
-
-Streamlit Cloud does not allow custom system packages like the `tesseract` binary. The app catches the missing dependency and shows a user-facing warning. OCR is available only in the Docker stack (local or VPS).
+OCR needs the Docker image (Tesseract is installed there). It is not available on Streamlit Cloud.
