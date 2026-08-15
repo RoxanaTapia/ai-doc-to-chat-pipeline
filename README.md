@@ -34,30 +34,35 @@ flowchart LR
   F --> G[Cited answer]
 ```
 
-| Step | Technique | Why it matters |
-|------|-----------|----------------|
-| **Ingest** | PyMuPDF, plus OCR on scanned pages | Text and page number travel together, so a citation can point at a real page. |
-| **Chunk** | Split at section headers | Nearby clauses stay separate. A question about Section 3 should not pull the end of Section 2. |
-| **Embed** | Local sentence-transformers | Search by meaning without sending the document to an outside embedding API. |
-| **Retrieve** | Hybrid search: FAISS + BM25, fused with RRF | Embeddings catch paraphrases. Keyword search catches exact terms such as section numbers. |
-| **Rerank** | Cross-encoder (`bge-reranker`) | A second pass reads the question and each passage together, so the model sees the best evidence first. |
-| **Cite or refuse** | Page + excerpt, or "not in the document" | You can check the source. If retrieval found too little, the system does not invent a clause. |
+| Step | Technique | Why? |
+|------|-----------|------|
+| **Ingest** | PyMuPDF, plus OCR on scanned pages | PDFs mix digital text and scans. Page numbers stay on the passage so a citation is checkable. |
+| **Chunk** | Split at section headers | A sliding window glues neighboring clauses. Headers are the document's own boundaries. |
+| **Embed** | Local sentence-transformers | Search by meaning without sending the file to an outside embedding API. |
+| **Retrieve** | Hybrid search: FAISS + BM25, fused with RRF | Embeddings miss exact terms. Keyword search misses paraphrases. Fusion keeps both. |
+| **Rerank** | Cross-encoder (`bge-reranker`) | First-stage ranking is approximate. Re-score question and passage together before the LLM sees them. |
+| **Cite or refuse** | Page + excerpt, or "not in the document" | An answer you cannot open on a page is not grounded. No evidence means no invented clause. |
 
 ---
 
 ## What it does well
 
-- **Policies, SOPs, reports, contracts:** find definitions, obligations, dates, and rules in the PDF you uploaded
-- **Sourced answers:** every response cites the page and excerpt it used
-- **Private by design:** local embeddings; local LLM for air-gap, or a swappable API model for demos
-- **Honest when empty:** refuses to invent a clause that is not in the document
+| Feature | In practice |
+|---------|-------------|
+| **Citations** | Page and excerpt on every answer |
+| **Model choice** | Local Ollama for air-gap, or a fast API model for demos. Same retrieval stack. |
+| **Private embeddings** | Vectors stay on your server |
+| **Honest refusals** | Says so when the PDF does not contain the answer |
+| **Document types** | Policies, SOPs, reports, contracts |
 
 ## Known limits
 
-- **Session-based:** re-upload after restart; no shared document library yet
-- **One PDF at a time:** not enterprise search across a file store
-- **Read, don't calculate:** finds printed numbers; does not sum or verify math
-- **Document Q&A:** answers questions about the uploaded file; does not connect to CRM, email, or ticketing
+| Limit | In practice |
+|-------|-------------|
+| **Session only** | Re-upload after a restart; no shared library yet |
+| **One PDF** | Not search across a file store |
+| **No math** | Finds printed numbers; does not calculate |
+| **Q&A only** | No CRM, email, or ticketing |
 
 ---
 
