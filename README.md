@@ -10,7 +10,7 @@ Upload a policy, SOP, report, or contract. Ask in plain language. Every answer c
 
 ## Try the pilot
 
-**[ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/)**
+🟢 **Live** · <a href="https://ai-doc-pilot.roxanatapia.dev/" target="_blank" rel="noopener noreferrer"><strong>ai-doc-pilot.roxanatapia.dev</strong></a>
 
 Real answers, HTTPS, invite-protected. [Request a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev). Once you have access, try the [sample NDA](docs/product/sample-nda.pdf).
 
