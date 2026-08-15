@@ -50,7 +50,7 @@ flowchart LR
 | Feature | In practice |
 |---------|-------------|
 | **Citations** | Page and excerpt on every answer |
-| **Model choice** | Local Ollama for air-gap, or a fast API model for demos. Same retrieval stack. |
+| **Model choice** | Ollama writes answers on your server. Anthropic is optional when you want quicker replies. Search and citations stay the same. |
 | **Private embeddings** | Vectors stay on your server |
 | **Honest refusals** | Says so when the PDF does not contain the answer |
 | **Document types** | Policies, SOPs, reports, contracts |
