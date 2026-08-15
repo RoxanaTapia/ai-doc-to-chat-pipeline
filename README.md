@@ -12,7 +12,9 @@ Upload a policy, SOP, report, or contract. Ask in plain language. Every answer c
 
 🟢 **Live** · <a href="https://ai-doc-pilot.roxanatapia.dev/" target="_blank" rel="noopener noreferrer"><strong>ai-doc-pilot.roxanatapia.dev</strong></a>
 
-Real answers, HTTPS, invite-protected. [Request a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev). Once you have access, try the [sample NDA](docs/product/sample-nda.pdf).
+- Request an invite on the gate, then upload a PDF and ask a question
+- Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
+- Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
 Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
 
