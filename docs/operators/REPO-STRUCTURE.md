@@ -16,14 +16,16 @@ Everything that runs the container stack lives under [`deploy/`](../../deploy/).
 deploy/
 ├── Dockerfile
 ├── docker-compose.yml
-├── docker-compose.caddy.yml
+├── docker-compose.caddy.yml         Single-product HTTPS, or VPS rollback
+├── docker-compose.shared-edge.yml   Portfolio VPS: alias `app` on network edge
 ├── Caddyfile
-└── invite/            Shared invite service (pilot + other sites)
+└── invite/                          Rollback copy; canonical is roxanatapia-edge
 ```
 
 - No root copies of Dockerfile, Compose, or Caddy files.
 - No stub files that say “Moved to `deploy/`…”.
-- Compose from the repo root: `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d`
+- Dedicated VM: `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d`
+- Portfolio VPS: app uses `docker-compose.shared-edge.yml`; Caddy lives in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
 
 Install narrative: [DEPLOYMENT.md](../../DEPLOYMENT.md).
 

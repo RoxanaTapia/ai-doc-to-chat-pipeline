@@ -6,7 +6,7 @@ For IT buyers and operators standing up a single-VM pilot: Docker Compose + Olla
 
 Architecture diagram: [docs/product/architecture.md](docs/product/architecture.md)
 
-> **Takeaway:** Two LLM tiers, one Compose app: **self-host** (Ollama, private / air-gap) and **demo** (Anthropic Haiku, low latency for recording). Start Ollama first for the default path, then bring up the app (and Caddy for HTTPS).
+> **Takeaway:** Two LLM tiers, one Compose app: **self-host** (Ollama, private / air-gap) and **demo** (Anthropic Haiku, low latency for recording). Start Ollama first for the default path, then bring up the app (and Caddy for HTTPS). On the portfolio VPS, Caddy lives in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge); keep using this repo's `.env` as-is.
 
 ---
 
@@ -115,7 +115,7 @@ docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
 
 ### 5. Start the full stack with HTTPS
 
-From the **repo root** (so `.env` is found and volume names stay stable):
+**Dedicated PDF Q&A VM** (this repo owns Caddy). From the **repo root**:
 
 ```bash
 docker compose --env-file .env -p ai-doc-to-chat-pipeline \
@@ -128,11 +128,18 @@ Expect: `ollama` **healthy** · `app` **Up** · `caddy` **Up**. Port 8501 is not
 
 Set `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` in `.env` (see `.env.example`) so you can omit `-p` later. Always pass `--env-file .env` when the first compose file lives under `deploy/`.
 
+**Portfolio VPS** (pilot + receipt + apex on one host): do not start this repo's Caddy overlay after cutover. Join `edge` with alias `app` and let [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) bind 80/443. Reuse this repo's `.env` (same key names). Ordered steps: [roxanatapia-edge CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md).
+
+```bash
+docker compose --env-file .env -p ai-doc-to-chat-pipeline \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
+```
+
 ### 6. Verify
 
 ### Time-limited invites
 
-Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay + **Request an invite**). For production gates, also set `TURNSTILE_SECRET_KEY` (Cloudflare Turnstile; site key lives on gate HTML in roxanatapia-web). Operator notify defaults to redeem-only via `INVITE_NOTIFY_ON=redeem`. Local smoke without a widget: `TURNSTILE_ENABLED=false`. See [deploy/invite/README.md](deploy/invite/README.md).
+Set `INVITE_SECRET` and SMTP settings in `.env` (required for the Caddy overlay + **Request an invite**). For production gates, also set `TURNSTILE_SECRET_KEY` (Cloudflare Turnstile; site key lives on gate HTML in roxanatapia-web). Operator notify defaults to redeem-only via `INVITE_NOTIFY_ON=redeem`. Local smoke without a widget: `TURNSTILE_ENABLED=false`. See [deploy/invite/README.md](deploy/invite/README.md). After cutover, mint from [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge); keep using this `.env`.
 
 ```bash
 # Auto path: gate → Request an invite → POST /invite/request (emails visitor;
@@ -156,14 +163,14 @@ curl -sk -o /dev/null -w "%{http_code}\n" -u demo:YOUR_PASSWORD https://YOUR_DOM
 
 Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a PDF, ask a question.
 
-**Apex landing** (`roxanatapia.dev`) is served from the same Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. Marketing sites and cutover steps: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
+**Apex landing** (`roxanatapia.dev`) is served by the shared Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. After cutover that process runs in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). Static files: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
-**Receipt Intelligence** is terminated by this repo's Caddy (same edge as pilot + apex) on two hostnames:
+**Receipt Intelligence** is terminated by the same shared Caddy (pilot + apex + receipt) on two hostnames. After cutover, that Caddy is [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge); this overlay remains for rollback. Hostnames:
 
 - **`receipt-intelligence.roxanatapia.dev`** — public static gate at `/`, invites on `/invite*` and `/app*`, Basic Auth as the operator **Login** fallback for `/app`.
 - **`n8n.receipt-intelligence.roxanatapia.dev`** — n8n operator UI at **/** (no edge Basic Auth — it loops with n8n’s pre-login `/rest` 401s in Chrome). Protected by n8n **owner** login; keep sibling `N8N_BASIC_AUTH_ACTIVE=false` and `N8N_PATH=` empty. Do not advertise this host publicly.
 
-Create the shared Docker network once (`docker network create edge`); the Caddy overlay attaches only the `caddy` service to it. Upstream API, n8n, and demo UX run in the sibling project [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its `docker-compose.shared-edge.yml` overlay, with stable aliases `receipt-api:8000`, `receipt-n8n:5678`, and `receipt-ux:8080`.
+Create the shared Docker network once (`docker network create edge`). Caddy (in this overlay, or in roxanatapia-edge after cutover) joins it. This app joins with alias `app` via `docker-compose.shared-edge.yml`. Upstream API, n8n, and demo UX run in [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its overlay, with stable aliases `receipt-api:8000`, `receipt-n8n:5678`, and `receipt-ux:8080`.
 
 | Host / path | Access | Upstream |
 |------|--------|----------|
@@ -173,9 +180,9 @@ Create the shared Docker network once (`docker network create edge`); the Caddy 
 | `receipt-intelligence…` `/n8n*` | 308 → n8n subdomain `/` | (legacy bookmarks) |
 | `n8n.receipt-intelligence…` `/` | n8n owner login (no edge Basic Auth) | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`) |
 
-The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). Mint a receipt token with `python deploy/invite/mint.py --site receipt`. Full contract and local smoke: [deploy/invite/README.md](deploy/invite/README.md).
+The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in this repo's `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). After cutover, mint from [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) (`python deploy/invite/mint.py --site receipt`); the env file path does not change. Contract: [deploy/invite/README.md](deploy/invite/README.md).
 
-Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate Caddy; otherwise the public gate returns 404. After pulling this repo's Caddy changes, recreate the edge with the same compose overlay as before (`docker-compose.yml` + `docker-compose.caddy.yml`) so `/invite*` and `/app*` forward_auth take effect. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo owns TLS and reverse-proxy routes only; it does **not** define receipt Compose services or workflows. Do not run a second Caddy from the receipt repo on this host.
+Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate Caddy; otherwise the public gate returns 404. Recreate Caddy from **roxanatapia-edge** after cutover (see [CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md)), or from this overlay for rollback. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo does **not** define receipt Compose services. Do not run a second Caddy from the receipt repo on this host.
 
 Cross-repo ship order:
 
@@ -312,7 +319,7 @@ Restart the app container after changing provider or key. Leave `LLM_PROVIDER` u
 |---------|-------------|-----|
 | `app` never starts | Ollama not healthy yet | `docker compose -f deploy/docker-compose.yml logs ollama` (wait for `healthy`) |
 | Connection refused on Ollama | Wrong host or app started too early | Use Compose; `OLLAMA_HOST` must be `http://ollama:11434`, not `localhost` |
-| `YOUR_VPS_IP:8501` accessible from internet | Caddy overlay not active | Use `-f deploy/docker-compose.caddy.yml`; confirm `caddy` is Up |
+| `YOUR_VPS_IP:8501` accessible from internet | Caddy / shared-edge overlay not active | Dedicated VM: use `-f deploy/docker-compose.caddy.yml`. Portfolio VPS: use `docker-compose.shared-edge.yml` and run Caddy from roxanatapia-edge |
 | **401** with correct password | Wrong hash in conf file | Re-run `./deploy/generate-caddy-auth.sh`, restart Caddy |
 | **401** on `/app` without password | Expected | Public gate is `/`; only `/app` requires basic auth |
 | Caddy restart loop: `email` parse error | Empty `ACME_EMAIL` inside container, or `{$VAR:you@…}` default | Pass `--env-file .env`; do not use an `@` in Caddy env defaults |

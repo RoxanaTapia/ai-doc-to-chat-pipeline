@@ -20,7 +20,7 @@ flowchart LR
 
 | Piece | Role |
 |-------|------|
-| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. |
+| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. On the portfolio VPS this process runs in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). |
 | **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. |
 | **Ollama** | Local model on the same VM, when that provider is selected. |
 | **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. |

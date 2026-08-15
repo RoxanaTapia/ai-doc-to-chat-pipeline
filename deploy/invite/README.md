@@ -4,6 +4,8 @@ HMAC-signed, time-limited invite tokens for `/app` on both the AI Doc pilot and 
 One service handles both sites; site is resolved per-request from the `Host` header.
 Caddy basic auth remains the operator **Login** fallback.
 
+On the portfolio VPS after cutover, mint from [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). This tree stays for a dedicated VM and for rollback. Env keys stay in this repo's `.env`.
+
 ## Supported sites
 
 | Key | Cookie | Default host | Product |
@@ -57,8 +59,12 @@ SMTP_TLS=true
 ## Start
 
 ```bash
+# Dedicated VM (this overlay):
 docker compose --env-file .env -p ai-doc-to-chat-pipeline \
   -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up -d --build
+
+# Portfolio VPS after cutover: invite runs in roxanatapia-edge.
+# https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md
 ```
 
 ## Request flow (visitors)
