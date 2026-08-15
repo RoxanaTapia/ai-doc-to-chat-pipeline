@@ -120,7 +120,7 @@ flowchart TD
 
 | Issue | Read / learn |
 |-------|----------------|
-| M7.8-1 | How `generate_answer()` in `src/rag.py` becomes a small provider protocol |
+| M7.8-1 | How `generate_answer()` in `src/rag/` becomes a small provider protocol |
 | M7.8-2 | How API keys stay in `.env`, never git; same RAG context, different backend |
 | M7.8-3 | Streamlit `st.write_stream` or generator pattern |
 | M7.8-4 | Product narrative ≠ code; eval corpus (NDA) ≠ market vertical |
@@ -178,7 +178,7 @@ Cited answers only help when Sources feels like an audit trail: short, ranked, a
 
 | Wave | Work | Agents | Parallel notes |
 |------|------|--------|----------------|
-| 1a ∥ 1b | **#80** display cap · **#83** section chunking | config + streamlit ∥ rag-core | YAML/UI vs `sectioning.py` |
+| 1a ∥ 1b | **#80** display cap · **#83** section chunking | config + streamlit ∥ rag-core | YAML/UI vs `src/rag/chunking.py` |
 | 2 | **#81** sort on-section → score | rag-core → streamlit | After #83 preferred |
 | 3 | **#82** answer-overlap + fallback | rag-core → streamlit | After #80 + #81 |
 | * | verifier | every issue | pytest green before PR |

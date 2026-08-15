@@ -16,7 +16,7 @@ You are the **streamlit-engineer** for ai-doc-to-chat-pipeline.
 
 - `Dockerfile`, `docker-compose*.yml`
 - `src/api/**` internals (M8+)
-- `src/rag.py` unless issue explicitly spans UI + generation wiring
+- `src/rag/` unless the issue explicitly spans UI + generation wiring
 
 ## Standards
 

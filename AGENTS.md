@@ -75,9 +75,9 @@ M7.96 ✅ → packaging (minus video) → #58 → #59 → #60 → #57 → [pause
 | Role (`name`) | Milestones | Owns | Must NOT touch |
 |---------------|------------|------|----------------|
 | `milestone-orchestrator` | All | Queue, branches, commits, PRs, **merges**, pulses | Direct app code edits |
-| `deploy-engineer` | M7, M7.96, M11 | `deploy/**` (Dockerfile, Compose, Caddy, scripts) | `src/app.py`, `src/rag.py` |
+| `deploy-engineer` | M7, M7.96, M11 | `deploy/**` (Dockerfile, Compose, Caddy, scripts) | `src/app.py`, `src/rag/` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
-| `rag-core-engineer` | M7.8, M7.95, M8, M9, M12 | `src/rag.py`, `src/sectioning.py`, `src/retrieval_quality.py`, `src/rag/**`, `src/api/**` | Streamlit layout polish, Docker |
+| `rag-core-engineer` | M7.8, M7.95, M8, M9, M12 | `src/rag/**`, `src/api/**` | Streamlit layout polish, Docker |
 | `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload/Sources payload wiring | Docker, FastAPI internals, visual redesigns |
 | `streamlit-ux-designer` | M7.9 UI polish | Layout, IA, microcopy, chat/sources readability | Docker, FastAPI, RAG providers |
 | `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose, **blocker card polish** | Python except docstrings |
@@ -158,9 +158,9 @@ Invoke by role name. Files live in `.cursor/agents/`.
 
 **Safe in parallel:** #56 docs-writer while #55 streamlit (different files).
 
-**Must be serial:** #53 → #54 → #55 (`src/rag.py`, `src/app.py`); #58 → #59 → #60; verifier last before PR.
+**Must be serial:** #53 → #54 → #55 (`src/rag/`, `src/app.py`); #58 → #59 → #60; verifier last before PR.
 
-**Do not parallelize** two agents on `src/rag.py`, `src/app.py`, or `README.md` in one issue.
+**Do not parallelize** two agents on `src/rag/`, `src/app.py`, or `README.md` in one issue.
 
 Only **milestone-orchestrator** runs `git commit`, push, and merge.
 

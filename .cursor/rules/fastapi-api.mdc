@@ -6,7 +6,7 @@ alwaysApply: false
 
 # FastAPI API (M8+)
 
-- Keep API thin: delegate to `src/rag/` (or `src/rag.py` until extracted).
+- Keep API thin: delegate to `src/rag/`.
 - Required routes: `GET /health`, `POST /chat` (context + query or document ref).
 - Expose OpenAPI at `/docs`; use Pydantic models for request/response.
 - No Streamlit imports in `src/api/`.

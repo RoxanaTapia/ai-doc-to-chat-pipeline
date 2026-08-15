@@ -21,7 +21,7 @@ You are the **config-guardian** for ai-doc-to-chat-pipeline.
 ## Standards
 
 - New env vars: empty value + comment in `.env.example`.
-- YAML keys must match what `src/rag.py` and `src/app.py` load.
+- YAML keys must match what `src/rag/` and `src/app.py` load.
 - Never commit real API keys or filled `.env`.
 
 ## Workflow

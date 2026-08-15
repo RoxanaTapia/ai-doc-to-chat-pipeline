@@ -8,7 +8,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from sectioning import (  # noqa: E402
+from rag.chunking import (  # noqa: E402
     annotate_chunk_sections,
     apply_hard_section_context_filter,
     apply_section_aware_retrieval,

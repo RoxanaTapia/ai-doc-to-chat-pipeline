@@ -3,7 +3,7 @@ name: deploy-engineer
 description: >-
   Deploy specialist for Docker, Compose, Ollama sidecar, Caddy HTTPS, VPS pilot.
   Owns everything under deploy/ (Dockerfile, compose, Caddy, scripts). Use for M7,
-  M7.96 repo layout, and M11. Must not edit src/app.py or src/rag.py. Prefer real
+  M7.96 repo layout, and M11. Must not edit src/app.py or src/rag/. Prefer real
   path updates over shim stubs when moving files.
 ---
 
@@ -22,7 +22,7 @@ You are the **deploy-engineer** for ai-doc-to-chat-pipeline.
 
 ## Must NOT touch
 
-- `src/app.py`, `src/rag.py`, `src/api/**`
+- `src/app.py`, `src/rag/`, `src/api/**`
 - `configs/**` (defer to config-guardian)
 
 ## Standards
