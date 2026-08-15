@@ -28,11 +28,13 @@ This page is the map of the repository. The [root README](../README.md) is the c
 
 | Path | Open it for |
 |------|-------------|
-| [`src/app.py`](../src/app.py) | Upload, chat UI, hybrid search, rerank, citations |
-| [`src/sectioning.py`](../src/sectioning.py) | Header-aware chunking and section routing |
-| [`src/retrieval_quality.py`](../src/retrieval_quality.py) | Dedupe, overlap filter, honesty guard |
+| [`src/app.py`](../src/app.py) | Upload, chat UI, session index |
+| [`src/rag/ingestion.py`](../src/rag/ingestion.py) | PDF → text + page numbers |
+| [`src/rag/chunking.py`](../src/rag/chunking.py) | Header-aware chunking and section routing |
+| [`src/rag/retrieval.py`](../src/rag/retrieval.py) | Hybrid search (FAISS + BM25 + RRF) and rerank |
+| [`src/rag/citations.py`](../src/rag/citations.py) | Page excerpts, overlap filter, honesty guard |
+| [`src/rag/generation.py`](../src/rag/generation.py) | Answer writing (Ollama or Anthropic) |
 | [`src/ocr.py`](../src/ocr.py) | Scanned-page OCR |
-| [`src/rag/`](../src/rag/) | Answer generation (Ollama or Anthropic) |
 | [`src/api/`](../src/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
 | [`configs/prompts.yaml`](../configs/prompts.yaml) | Grounded-answer prompt |
@@ -77,34 +79,36 @@ sequenceDiagram
 
 ### Code
 
-Most of the pipeline still lives in `src/app.py`. Helpers around it own chunking, quality, and generation. Tunables come from YAML, not hardcoded constants.
+Streamlit owns the session. Each retrieval step has its own module under `src/rag/`. Tunables come from YAML.
 
 ```mermaid
 flowchart TB
-  App["src/app.py · UI + retrieval"]
-  OCR["src/ocr.py"]
-  Section["src/sectioning.py"]
-  Quality["src/retrieval_quality.py"]
-  Gen["src/rag/ · Ollama or Anthropic"]
+  App["src/app.py · UI + session"]
+  Ingest["src/rag/ingestion.py"]
+  Chunk["src/rag/chunking.py"]
+  Retrieve["src/rag/retrieval.py"]
+  Cite["src/rag/citations.py"]
+  Gen["src/rag/generation.py"]
   Cfg["configs/config.yaml"]
   Prompts["configs/prompts.yaml"]
 
-  App --> OCR
-  App --> Section
-  App --> Quality
+  App --> Ingest
+  App --> Chunk
+  App --> Retrieve
+  App --> Cite
   App --> Gen
-  Cfg --> App
+  Cfg --> Retrieve
   Prompts --> Gen
 ```
 
 | Stage | Module | Role |
 |-------|--------|------|
-| Ingest | `app.py` + `ocr.py` | Read the PDF. Keep page numbers. OCR scanned pages. |
-| Chunk | `sectioning.py` | Split on section headers so clauses do not bleed. |
+| Ingest | `rag/ingestion.py` | Read the PDF. Keep page numbers. OCR scanned pages. |
+| Chunk | `rag/chunking.py` | Split on section headers so clauses do not bleed. |
 | Index | `app.py` | Embed locally. Build FAISS and BM25 for this session. |
-| Retrieve | `app.py` | Hybrid search (FAISS + BM25, RRF), then `bge-reranker`. |
-| Filter | `retrieval_quality.py` | Drop near-duplicates. Refuse when context is too thin. |
-| Generate | `src/rag/` | Write the answer from the shortlist only. |
+| Retrieve | `rag/retrieval.py` | Hybrid search (FAISS + BM25, RRF), then `bge-reranker`. |
+| Filter | `rag/citations.py` | Drop near-duplicates. Refuse when context is too thin. |
+| Generate | `rag/generation.py` | Write the answer from the shortlist only. |
 | Show | `app.py` | Page + excerpt under the reply. |
 
 The FastAPI app in `src/api/` exposes the same generation path as `/chat`. It does not replace the Streamlit retrieval loop.

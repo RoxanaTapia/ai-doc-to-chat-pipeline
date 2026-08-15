@@ -1,4 +1,4 @@
-"""RAG generation package: config loaders, LLM providers, and answer entrypoints."""
+"""Private PDF Q&A pipeline: ingest, chunk, retrieve, cite, generate."""
 
 from rag.config import (
     APP_ROOT,
