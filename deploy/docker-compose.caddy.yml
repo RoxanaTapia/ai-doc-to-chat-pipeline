@@ -34,10 +34,8 @@ services:
       INVITE_BIND: 0.0.0.0
       INVITE_PORT: "8090"
       INVITE_BASE_URL: ${INVITE_BASE_URL:-https://ai-doc-pilot.roxanatapia.dev}
-      RECEIPT_INVITE_BASE_URL: ${RECEIPT_INVITE_BASE_URL:-https://receipt-intelligence.roxanatapia.dev}
       INVITE_REQUEST_TTL: ${INVITE_REQUEST_TTL:-72h}
       INVITE_NOTIFY_TO: ${INVITE_NOTIFY_TO:-hello@roxanatapia.dev}
-      RECEIPT_INVITE_NOTIFY_TO: ${RECEIPT_INVITE_NOTIFY_TO:-}
       # redeem (default) | request (legacy) | none — see deploy/invite/spam_guards.py
       INVITE_NOTIFY_ON: ${INVITE_NOTIFY_ON:-redeem}
       # Cloudflare Turnstile secret (site key lives on gate HTML in roxanatapia-web)
@@ -68,14 +66,12 @@ services:
       # Static front doors from roxanatapia-web (clone/rsync to host paths first).
       - /srv/roxanatapia-web/sites/apex:/srv/roxanatapia-web/sites/apex:ro
       - /srv/roxanatapia-web/sites/pilot-gate:/srv/roxanatapia-web/sites/pilot-gate:ro
-      - /srv/roxanatapia-web/sites/receipt-gate:/srv/roxanatapia-web/sites/receipt-gate:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - app
       - invite
     # default: app + invite on the project network
-    # edge (external): receipt-api / receipt-n8n aliases from sibling compose
     networks:
       - default
       - edge
@@ -85,7 +81,6 @@ volumes:
   caddy_config:
 
 # Create once on the VPS: docker network create edge
-# Receipt stack joins the same network with aliases receipt-api / receipt-n8n.
 networks:
   edge:
     external: true

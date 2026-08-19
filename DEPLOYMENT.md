@@ -165,62 +165,12 @@ Open `https://YOUR_DOMAIN/` for the gate, then **Sign in** → `/app`. Upload a 
 
 **Apex landing** (`roxanatapia.dev`) is served by the shared Caddy process via static files under `/srv/roxanatapia-web/sites/apex`. After cutover that process runs in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). Static files: [roxanatapia-web deploy/CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md). Deploy those files on the VPS before reloading Caddy.
 
-**Receipt Intelligence** is terminated by the same shared Caddy (pilot + apex + receipt) on two hostnames. After cutover, that Caddy is [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge); this overlay remains for rollback. Hostnames:
+**Receipt Intelligence (portfolio shared host)** is served by the shared edge stack in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) after the portfolio cutover. This repo no longer owns receipt or n8n routing here. Follow:
 
-- **`receipt-intelligence.roxanatapia.dev`** — public static gate at `/`, invites on `/invite*` and `/app*`, Basic Auth as the operator **Login** fallback for `/app`.
-- **`n8n.receipt-intelligence.roxanatapia.dev`** — n8n operator UI at **/** (no edge Basic Auth — it loops with n8n’s pre-login `/rest` 401s in Chrome). Protected by n8n **owner** login; keep sibling `N8N_BASIC_AUTH_ACTIVE=false` and `N8N_PATH=` empty. Do not advertise this host publicly.
+- [roxanatapia-edge CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md) for the ordered VPS steps + rollback plan
+- [roxanatapia-edge README](https://github.com/RoxanaTapia/roxanatapia-edge) for the operator-facing run context
 
-Create the shared Docker network once (`docker network create edge`). Caddy (in this overlay, or in roxanatapia-edge after cutover) joins it. This app joins with alias `app` via `docker-compose.shared-edge.yml`. Upstream API, n8n, and demo UX run in [receipt-intelligence-demo](https://github.com/RoxanaTapia/receipt-intelligence-demo) via its overlay, with stable aliases `receipt-api:8000`, `receipt-n8n:5678`, and `receipt-ux:8080`.
-
-| Host / path | Access | Upstream |
-|------|--------|----------|
-| `receipt-intelligence…` `/` | Public (no auth) | Static HTML from `/srv/roxanatapia-web/sites/receipt-gate` |
-| `receipt-intelligence…` `/invite*` | Public (request / redeem / exit) | Shared invite service (`invite:8090`) |
-| `receipt-intelligence…` `/app*` | `receipt_invite` cookie + `forward_auth`, **or** edge Basic Auth | `receipt-ux:8080` (prefix stripped; health is `/app/health`) |
-| `receipt-intelligence…` `/n8n*` | 308 → n8n subdomain `/` | (legacy bookmarks) |
-| `n8n.receipt-intelligence…` `/` | n8n owner login (no edge Basic Auth) | `receipt-n8n:5678` (sibling `N8N_PATH=` + `N8N_BASIC_AUTH_ACTIVE=false`) |
-
-The same invite service covers both hosts. Set `RECEIPT_INVITE_BASE_URL` in this repo's `.env` (alongside the shared `INVITE_SECRET` / SMTP settings). After cutover, mint from [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) (`python deploy/invite/mint.py --site receipt`); the env file path does not change. Contract: [deploy/invite/README.md](deploy/invite/README.md).
-
-Gate HTML lives in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (`sites/receipt-gate`). On the VPS, run `cd /srv/roxanatapia-web && git pull` so that directory exists **before** you recreate Caddy; otherwise the public gate returns 404. Recreate Caddy from **roxanatapia-edge** after cutover (see [CUTOVER.md](https://github.com/RoxanaTapia/roxanatapia-edge/blob/main/CUTOVER.md)), or from this overlay for rollback. The apex portfolio tile links to the subdomain root and should land on that public gate. This repo does **not** define receipt Compose services. Do not run a second Caddy from the receipt repo on this host.
-
-Cross-repo ship order:
-
-1. DNS for `receipt-intelligence.roxanatapia.dev` **and** `n8n.receipt-intelligence.roxanatapia.dev` → this VPS
-2. receipt-intelligence-demo: shared-host compose (api + n8n joined to `edge`) with `N8N_HOST=n8n.receipt-intelligence.roxanatapia.dev`, empty `N8N_PATH`, matching `WEBHOOK_URL`
-3. Multi-site invite service live (receipt cookie + verify; see [deploy/invite/README.md](deploy/invite/README.md))
-4. VPS: `cd /srv/roxanatapia-web && git pull` (so `sites/receipt-gate` exists)
-5. This Caddy change (recreate the edge with the caddy overlay, receipt-gate mounted)
-6. VPS smoke (commands below)
-7. Portfolio tile in [roxanatapia-web](https://github.com/RoxanaTapia/roxanatapia-web) (subdomain root → public gate)
-
-```bash
-# Receipt public gate (no credentials): expect 200 HTML from sites/receipt-gate
-curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://receipt-intelligence.roxanatapia.dev/
-
-# App health: 401 without cookie or credentials, 200 with edge Basic Auth
-curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://receipt-intelligence.roxanatapia.dev/app/health
-curl -sk -o /dev/null -w "%{http_code}\n" \
-  -u demo:YOUR_PASSWORD https://receipt-intelligence.roxanatapia.dev/app/health
-
-# Optional invite path (cookie redeem is awkward to fully curl; mint then open redeem URL in a browser)
-# python deploy/invite/mint.py --site receipt --ttl 72h --label smoke
-# → redeem the printed URL on the receipt host; expect Set-Cookie: receipt_invite=… then /app without Basic Auth
-
-# n8n subdomain: no edge Basic Auth (expect 200 HTML / n8n login shell)
-curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://n8n.receipt-intelligence.roxanatapia.dev/
-
-# Legacy /n8n* redirects to the n8n subdomain (expect 308)
-curl -sk -o /dev/null -w "%{http_code}\n" \
-  https://receipt-intelligence.roxanatapia.dev/n8n/
-
-# Regression: pilot gate + apex still behave as today
-curl -sk -o /dev/null -w "%{http_code}\n" https://ai-doc-pilot.roxanatapia.dev/
-curl -sk -o /dev/null -w "%{http_code}\n" https://roxanatapia.dev/
-```
+Do not run a second Caddy from the receipt repo on this host.
 
 **IP-only mode** (`Caddyfile.ip`) still puts basic auth on the whole listener (no static gate). Use domain mode for the hybrid front door.
 

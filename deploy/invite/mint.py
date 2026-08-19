@@ -3,7 +3,6 @@
 
 Usage (repo root, INVITE_SECRET in env or .env):
   python deploy/invite/mint.py --ttl 72h --label client-acme
-  python deploy/invite/mint.py --site receipt --ttl 24h --label client-beta
 """
 
 from __future__ import annotations
@@ -35,22 +34,13 @@ def _load_dotenv() -> None:
             os.environ[key] = value
 
 
-def _default_base_url(site: str) -> str:
-    """Return the env-configured base URL for a site, with fallback."""
-    if site == "receipt":
-        return os.environ.get(
-            "RECEIPT_INVITE_BASE_URL", "https://receipt-intelligence.roxanatapia.dev"
-        )
-    return os.environ.get("INVITE_BASE_URL", "https://ai-doc-pilot.roxanatapia.dev")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Mint a time-limited invite")
     parser.add_argument(
         "--site",
         default="pilot",
         choices=VALID_SITES,
-        help="Target site: pilot (default) or receipt",
+        help="Target site: pilot (only option)",
     )
     parser.add_argument("--ttl", default="72h", help="TTL like 24h, 72h, 7d (default 72h)")
     parser.add_argument("--label", default="", help="Optional label stored in the token")
@@ -62,7 +52,9 @@ def main() -> int:
     args = parser.parse_args()
     _load_dotenv()
 
-    base = (args.base_url or _default_base_url(args.site)).rstrip("/")
+    base = (args.base_url or os.environ.get("INVITE_BASE_URL", "https://ai-doc-pilot.roxanatapia.dev")).rstrip(
+        "/"
+    )
 
     try:
         ttl = parse_ttl(args.ttl)
