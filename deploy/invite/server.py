@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Invite redeem, request-by-email, and forward_auth verify service.
 
-Serves both ai-doc-pilot and receipt-intelligence from a single process.
-Site is resolved per-request from the Host header (or explicit ``site`` POST
-field, falling back to pilot for backward compatibility).
+This repository is pilot-only after the edge cutover. Site is resolved per
+request from the Host header (defaulting to the pilot site).
 """
 
 from __future__ import annotations

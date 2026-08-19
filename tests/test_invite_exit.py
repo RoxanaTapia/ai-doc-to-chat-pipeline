@@ -20,10 +20,6 @@ def invite_server(monkeypatch: pytest.MonkeyPatch):
     """Start invite Handler on an ephemeral port with a loaded site registry."""
     monkeypatch.setenv("INVITE_SECRET", "test-invite-secret-for-exit")
     monkeypatch.setenv("INVITE_BASE_URL", "https://ai-doc-pilot.roxanatapia.dev")
-    monkeypatch.setenv(
-        "RECEIPT_INVITE_BASE_URL",
-        "https://receipt-intelligence.roxanatapia.dev",
-    )
 
     import server as invite_server_mod
     from sites import load_registry
@@ -106,24 +102,24 @@ def test_exit_get_pilot_unknown_host_defaults(invite_server: dict) -> None:
     _assert_exit_clears(status, headers, cookie_name="pilot_invite")
 
 
-def test_exit_get_receipt_host(invite_server: dict) -> None:
+def test_exit_get_unknown_host_defaults_to_pilot(invite_server: dict) -> None:
     status, headers = _request(
         invite_server,
         method="GET",
         path="/invite/exit",
-        host="receipt-intelligence.roxanatapia.dev",
+        host="unknown.example.test",
     )
-    _assert_exit_clears(status, headers, cookie_name="receipt_invite")
+    _assert_exit_clears(status, headers, cookie_name="pilot_invite")
 
 
-def test_exit_post_also_clears(invite_server: dict) -> None:
+def test_exit_post_also_clears_defaults_to_pilot(invite_server: dict) -> None:
     status, headers = _request(
         invite_server,
         method="POST",
         path="/invite/exit",
-        host="receipt-intelligence.roxanatapia.dev",
+        host="unknown.example.test",
     )
-    _assert_exit_clears(status, headers, cookie_name="receipt_invite")
+    _assert_exit_clears(status, headers, cookie_name="pilot_invite")
 
 
 def test_clear_cookie_header_helper(monkeypatch: pytest.MonkeyPatch) -> None:

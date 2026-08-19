@@ -1,4 +1,7 @@
-"""Site registry: maps pilot / receipt to per-site config loaded from env."""
+"""Site registry for the dedicated invite gate.
+
+This repository is pilot-only after the edge cutover.
+"""
 
 from __future__ import annotations
 
@@ -7,9 +10,8 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 PILOT = "pilot"
-RECEIPT = "receipt"
 
-VALID_SITES = (PILOT, RECEIPT)
+VALID_SITES = (PILOT,)
 
 
 @dataclass(frozen=True)
@@ -28,11 +30,7 @@ def load_registry() -> dict[str, SiteConfig]:
     pilot_base = os.environ.get("INVITE_BASE_URL", "https://ai-doc-pilot.roxanatapia.dev").rstrip(
         "/"
     )
-    receipt_base = os.environ.get(
-        "RECEIPT_INVITE_BASE_URL", "https://receipt-intelligence.roxanatapia.dev"
-    ).rstrip("/")
     shared_notify = os.environ.get("INVITE_NOTIFY_TO", "hello@roxanatapia.dev").strip()
-    receipt_notify = os.environ.get("RECEIPT_INVITE_NOTIFY_TO", "").strip() or shared_notify
 
     return {
         PILOT: SiteConfig(
@@ -43,15 +41,6 @@ def load_registry() -> dict[str, SiteConfig]:
             host_label="AI Doc pilot",
             access_phrase="Access to the AI Doc pilot is by invitation.",
             notify_to=shared_notify,
-        ),
-        RECEIPT: SiteConfig(
-            key=RECEIPT,
-            cookie="receipt_invite",
-            base_url=receipt_base,
-            product_name="Receipt Intelligence",
-            host_label="Receipt Intelligence",
-            access_phrase="Access to Receipt Intelligence is by invitation.",
-            notify_to=receipt_notify,
         ),
     }
 
@@ -76,8 +65,8 @@ def resolve_site(
     """
     Resolve the active site config using priority:
     1. Host header matched against configured base_url hostnames.
-    2. Explicit `site` field (pilot|receipt) from POST body.
-    3. Default: pilot (backward compatible).
+    2. Explicit `site` field (pilot) from POST body.
+    3. Default: pilot.
     """
     from_host = _host_to_site(host_header or "", registry)
     if from_host:

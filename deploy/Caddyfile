@@ -8,10 +8,8 @@
 # Cutover checklist: https://github.com/RoxanaTapia/roxanatapia-web/blob/main/deploy/CUTOVER.md
 # Apply only after those directories exist on the VPS (otherwise apex/gate 404).
 #
-# receipt-intelligence.roxanatapia.dev (when present below) proxies an external
-# compose project on Docker network edge (aliases receipt-api, receipt-n8n).
-# Upstream stack: https://github.com/RoxanaTapia/receipt-intelligence-demo
-# This repo does not own receipt compose internals. Operator notes: DEPLOYMENT.md.
+# Sibling services are cut over to the shared edge after cutover.
+# This dedicated VM overlay is pilot-only.
 #
 # Do not use {$ACME_EMAIL:you@example.com} — a default containing "@" breaks Caddy's
 # placeholder parser. ACME contact is optional; existing certs in caddy_data keep working.
@@ -61,62 +59,4 @@ roxanatapia.dev, www.roxanatapia.dev {
 
 	root * /srv/roxanatapia-web/sites/apex
 	file_server
-}
-
-# Receipt Intelligence (sibling stack on Docker network `edge`).
-# Upstream aliases (stable across recreate):
-#   receipt-api:8000 · receipt-n8n:5678 · receipt-ux:8080
-# Sibling must join `edge` via its shared-edge overlay — see receipt-intelligence-demo DEPLOYMENT.md.
-# Hybrid gate: public / → receipt-gate; /app/* invite cookie or Basic Auth → receipt-ux:8080.
-# n8n on its own host at / — avoids n8n's known path-prefix login redirect bug.
-# Sibling: N8N_PATH= empty, N8N_HOST=n8n.receipt-intelligence.roxanatapia.dev,
-# N8N_BASIC_AUTH_ACTIVE=false. No edge Basic Auth here: Chrome loops when Caddy
-# basicauth + n8n's pre-login /rest 401s share a host (same issue as yesterday on /n8n*).
-# Protect with n8n owner login; do not advertise this host publicly.
-# Use handle_path /app/* (not /app*) so only the /app prefix is stripped — otherwise /app/static/*
-# is stripped to / and CSS never loads.
-n8n.receipt-intelligence.roxanatapia.dev {
-	reverse_proxy receipt-n8n:5678 {
-		header_up Host {host}
-		header_up X-Forwarded-Host {host}
-		header_up X-Forwarded-Proto {scheme}
-		# SSE / long-lived editor push
-		flush_interval -1
-	}
-}
-
-receipt-intelligence.roxanatapia.dev {
-	handle /invite* {
-		reverse_proxy invite:8090
-	}
-
-	# Legacy /n8n* bookmarks → n8n subdomain root.
-	redir /n8n https://n8n.receipt-intelligence.roxanatapia.dev/ 308
-	redir /n8n/* https://n8n.receipt-intelligence.roxanatapia.dev/ 308
-
-	redir /app /app/ 308
-
-	handle_path /app/* {
-		@hasInviteCookie {
-			header Cookie *receipt_invite=*
-		}
-
-		handle @hasInviteCookie {
-			forward_auth invite:8090 {
-				uri /verify
-				copy_headers X-Invite-Ok
-			}
-			reverse_proxy receipt-ux:8080
-		}
-
-		handle {
-			import /etc/caddy/caddy-basicauth.conf
-			reverse_proxy receipt-ux:8080
-		}
-	}
-
-	handle {
-		root * /srv/roxanatapia-web/sites/receipt-gate
-		file_server
-	}
 }
