@@ -129,7 +129,7 @@ After each issue, you should answer **without opening Cursor**:
 |---|-------|-----------|-----------|
 | 53–56, 70–73, 80–83, 89–93 | M7.8–M7.96 | (shipped) | Demo tier, UI, Sources trust, repo clarity |
 
-**M7.96 note:** left `deploy/stable` on v0.8.0; advance only when you intentionally choose to.
+**Pin note:** `deploy/stable` and tag **v0.9.0** mark the post–edge-split tree (operator-approved in #144). Advance the pin only when you intentionally choose to.
 
 ---
 

@@ -193,7 +193,7 @@ GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to
 
 **Background**
 
-Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Agentic tooling (`.cursor/`, `AGENTS.md`) stays visible and intentional. Merge to **`main` only** — do **not** bump `deploy/stable` as part of this milestone (VPS/Cloud stay on v0.8.0 until you choose).
+Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Agentic tooling (`.cursor/`, `AGENTS.md`) stays visible and intentional. Merged to **`main` only** during the milestone; **`deploy/stable` / v0.9.0** advanced later after the portfolio edge cutover (operator-approved; see #144).
 
 > **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, ops in `deploy/` + `DEPLOYMENT.md`, agents in `.cursor/` + `AGENTS.md`.
 
@@ -220,7 +220,7 @@ Clients who open the GitHub repo should see a calm, professional layout. Deploy 
 | 3 | **#92** README + docs index | docs-writer | After paths final |
 | 4 | **#93** GitHub templates + pre-commit | config-guardian → docs-writer | Keep pre-commit |
 
-**Out of scope:** RAG/UI features, bumping `deploy/stable`, inventing new product scope.
+**Out of scope (for M7.96 itself):** RAG/UI features, bumping `deploy/stable` during that milestone, inventing new product scope.
 
 GitHub milestone: [M7.96 Repo clarity](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/10)
 
