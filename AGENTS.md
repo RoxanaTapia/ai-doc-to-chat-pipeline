@@ -50,7 +50,7 @@ Full detail: [docs/operators/ROADMAP.md](docs/operators/ROADMAP.md).
 ## 🎯 Current focus
 
 - **Ship next:** demo video (#57) last — thin M8 (#58–#60) shipped; need public walkthrough URL.
-- **Do not** bump `deploy/stable` unless the operator asks (VPS/Cloud stay on v0.8.0).
+- **Do not** bump `deploy/stable` unless the operator asks (live pin is **v0.9.0** as of Phase 3 close).
 - **Then pause** this repo for the Support MVP sibling unless a paid engagement needs more depth here.
 - **Later / on demand:** M8.5, M9–M11.
 
@@ -136,7 +136,7 @@ Invoke by role name. Files live in `.cursor/agents/`.
 | #92 M7.96-4 README + docs index | docs-writer | - | 1 | after #90 |
 | #93 M7.96-5 templates + pre-commit | config-guardian | docs-writer | 1 | after #92 |
 
-**Rule:** no root stub files (“Moved to deploy/…”). Update real paths. Do not ff `deploy/stable` in this milestone.
+**Rule:** no root stub files (“Moved to deploy/…”). Update real paths. `deploy/stable` was advanced to **v0.9.0** after the edge cutover (operator-approved; see #144).
 
 ### M8: Thin FastAPI contract (after packaging; before video)
 
