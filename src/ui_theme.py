@@ -149,15 +149,15 @@ section.main h1 {
 }
 
 [data-testid="stSidebar"] .app-sidebar-links {
-  margin: 0 0 0.35rem 0;
+  margin: 0.1rem 0 0.15rem 0;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  min-height: 1.75rem;
+  justify-content: flex-start;
+  min-height: 1.5rem;
 }
 
-[data-testid="stSidebar"] .app-sidebar-links--top {
-  margin: 0 0 0.55rem 0;
+[data-testid="stSidebar"] .app-sidebar-links--under-generator {
+  margin: 0.05rem 0 0.2rem 0;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github {
