@@ -34,7 +34,7 @@ Operator direction and sequencing live in [docs/operators/PROJECT-DIRECTION.md](
 | **M7.9** | Interface polish | ✅ Shipped (#70–#73) |
 | **M7.95** | Sources trust | ✅ Shipped (#80–#83) |
 | **M7.96** | Repo clarity (deploy/ consolidation, no shims) | ✅ Shipped (#89–#93) · **main only** |
-| **Packaging** | Calm product framing (pilot + Cloud links; video URL later) | Soft pass after M7.96 |
+| **Packaging** | Calm product framing (invite pilot link; video URL later) | Soft pass after M7.96 |
 | **M8** | Thin FastAPI `/health`, `/chat`, OpenAPI | Next (#58–#60) |
 | **Video (#57)** | Walkthrough linked from README | **Last** after thin M8 |
 | **M8.5** | Eval report export | Optional (#61) |

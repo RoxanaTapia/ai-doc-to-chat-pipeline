@@ -114,4 +114,4 @@ Answer cites the correct page
 | `"OCR failed on page: …"` | Tesseract binary absent | Check `deploy/Dockerfile` installs `tesseract-ocr` |
 | Answer is gibberish | Low scan quality | Cleaner scan; OCR depends on DPI and contrast |
 
-OCR needs the Docker image (Tesseract is installed there). It is not available on Streamlit Cloud.
+OCR needs the Docker image (Tesseract is installed there). Local venv without system Tesseract will not OCR scanned pages.

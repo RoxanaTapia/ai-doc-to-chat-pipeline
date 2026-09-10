@@ -98,7 +98,7 @@ After each issue, you should answer **without opening Cursor**:
 | Phase | Milestones | “I’d use it / I’d show it” test |
 |-------|------------|----------------------------------|
 | **0** | M7 ✅ | You trust deploy; you don’t trust speed on VPS Ollama |
-| **1** | M7.8 → packaging | README looks calm; pilot + Cloud links clear |
+| **1** | M7.8 → packaging | README looks calm; invite pilot link clear |
 | **2** | Thin M8 | You’d call `/chat` from curl in a proposal |
 | **2b** | Video (#57) | You’d show a colleague the walkthrough |
 | **2c** | M8.5 (optional) | You’d send an eval report for a retrieval audit |
@@ -238,6 +238,7 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 | Support MVP / n8n CRM bot | Separate later project |
 | Commit / merge | Train mode in AGENTS.md (orchestrator merges when green) |
 | Demo video order | **Last** after thin M8 (#57) | Not a blocker for packaging or M8 |
+| Streamlit Community Cloud | **Retired.** Invite pilot only; no public dummy Cloud app |
 
 ---
 

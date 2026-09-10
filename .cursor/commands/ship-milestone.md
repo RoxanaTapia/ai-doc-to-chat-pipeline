@@ -34,7 +34,7 @@ End with a phase-complete pulse after thin M8 + video.
 
 - **M7:** ✅ HTTPS pilot, DEPLOYMENT.md, Compose (shipped)
 - **M7.8:** Swappable LLM, Anthropic demo tier, streaming, recordable walkthrough
-- **Portfolio packaging:** Calm README hero, pilot + Cloud links, 16:9 thumbnail story (video URL deferred)
+- **Portfolio packaging:** Calm README hero, invite pilot link, 16:9 thumbnail story (video URL deferred)
 - **M8 (thin):** `/health`, `/chat`, OpenAPI; modest `src/rag/` extract (not a large rewrite gate)
 - **Video (#57):** Link in README **after** thin M8
 - **M8.5:** Eval export (optional / secondary after thin M8)
