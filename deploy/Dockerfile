@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY configs/ configs/
 COPY src/ src/
 COPY .streamlit/config.toml .streamlit/
+# Walkthrough sample for sidebar download (no separate static host needed).
+COPY docs/product/sample-nda.pdf docs/product/sample-nda.pdf
 
 EXPOSE 8501
 

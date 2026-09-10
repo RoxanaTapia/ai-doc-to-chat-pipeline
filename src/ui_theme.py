@@ -98,6 +98,103 @@ section.main h1 {
   font-size: 0.92rem;
   line-height: 1.5;
 }
+
+/* Sidebar: short pitch + steps, not a wall of prose */
+[data-testid="stSidebar"] .app-sidebar-block {
+  margin: 0.35rem 0 0.85rem 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--app-paper) 88%, var(--app-ink));
+  border: 1px solid color-mix(in srgb, var(--app-ink) 8%, transparent);
+}
+
+[data-testid="stSidebar"] .app-sidebar-pitch {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--app-slate);
+}
+
+[data-testid="stSidebar"] .app-sidebar-steps {
+  margin: 0 0 1.15rem 0;
+  padding: 0;
+}
+
+[data-testid="stSidebar"] .app-sidebar-step {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  margin: 0 0 0.4rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--app-ink);
+}
+
+[data-testid="stSidebar"] .app-sidebar-step:last-child {
+  margin-bottom: 0;
+}
+
+[data-testid="stSidebar"] .app-sidebar-step-n {
+  flex: 0 0 1.55rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+[data-testid="stSidebar"] .app-sidebar-meta {
+  margin: 0;
+  padding-top: 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--app-muted);
+}
+
+[data-testid="stSidebar"] .app-sidebar-links {
+  margin: 0.1rem 0 0.15rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 1.5rem;
+}
+
+[data-testid="stSidebar"] .app-sidebar-links--under-generator {
+  margin: 0.05rem 0 0.2rem 0;
+}
+
+[data-testid="stSidebar"] .app-sidebar-github {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-muted);
+  text-decoration: none;
+  padding: 0.35rem;
+  border-radius: 0.35rem;
+}
+
+[data-testid="stSidebar"] .app-sidebar-github:hover {
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--app-ink) 6%, transparent);
+  text-decoration: none;
+}
+
+[data-testid="stSidebar"] .app-sidebar-github svg {
+  display: block;
+  opacity: 0.9;
+}
+
+/* Client pilot: hide Streamlit Deploy + toolbar chrome (looks like a prototype). */
+.stAppDeployButton,
+[data-testid="stAppDeployButton"],
+[data-testid="stToolbar"] {
+  display: none !important;
+}
+
+#MainMenu {
+  visibility: hidden;
+}
+
+footer {
+  visibility: hidden;
+}
 """
 
 
