@@ -977,41 +977,35 @@ _init_session_state()
 _on_new_browser_session()
 _apply_presentation_mode_lock()
 
-# Sidebar IA: Generator → About → How to use → Exit demo → developer controls
+# Sidebar IA: Generator → compact pitch/steps → Exit → developer controls
 st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
 
-with st.sidebar.expander("About", expanded=False):
-    st.markdown(
-        """
-        Private document Q&A for confidential PDFs — policies, SOPs,
-        reports, contracts, and internal handbooks.
+_github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
+st.sidebar.markdown(
+    f"""
+    <div class="app-sidebar-block">
+      <p class="app-sidebar-pitch">
+        Private PDF Q&amp;A with <strong>page Sources</strong> you can check.
+        One file per session — on infrastructure you control.
+      </p>
+      <ul class="app-sidebar-steps">
+        <li><span class="app-sidebar-step-n">1</span><span>Upload a PDF</span></li>
+        <li><span class="app-sidebar-step-n">2</span><span>Wait for <strong>ready</strong></span></li>
+        <li><span class="app-sidebar-step-n">3</span><span>Ask — Sources opens under the answer</span></li>
+      </ul>
+      <p class="app-sidebar-meta">
+        Tip: name a section (e.g. Section 3) when you can.
+        <a href="{_github}" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-        Upload one file, ask in plain language, and verify answers under
-        **Sources** (page-level citations). Processing runs on the
-        infrastructure you control; sessions do not keep a lasting library.
-
-        Digital PDFs work best; scanned pages can use OCR when needed.
-        """
-    )
-    st.caption(
-        "[Project on GitHub](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline)"
-    )
-    if st.session_state.developer_mode:
-        st.caption(
-            "Stack: Python · LangChain · FAISS · Streamlit · OCR · Ollama"
-        )
-
-with st.sidebar.expander("How to use", expanded=False):
-    st.markdown(
-        """
-        1. Upload a PDF (policy, SOP, report, or contract).
-        2. Wait for the green **ready** message.
-        3. Ask a question; **Sources** opens under the answer so you can check the page.
-
-        Naming a section in your question often improves retrieval.
-        Scanned pages use OCR when little text is extractable.
-        """
+if st.session_state.developer_mode:
+    st.sidebar.caption(
+        "Stack: Python · LangChain · FAISS · Streamlit · OCR · Ollama"
     )
 
 # Invite cookie clear → public gate. No-op locally without the invite proxy.

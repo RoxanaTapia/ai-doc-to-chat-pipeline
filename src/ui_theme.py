@@ -98,6 +98,66 @@ section.main h1 {
   font-size: 0.92rem;
   line-height: 1.5;
 }
+
+/* Sidebar: short pitch + steps, not a wall of prose */
+[data-testid="stSidebar"] .app-sidebar-block {
+  margin: 0.35rem 0 0.85rem 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--app-paper) 88%, var(--app-ink));
+  border: 1px solid color-mix(in srgb, var(--app-ink) 8%, transparent);
+}
+
+[data-testid="stSidebar"] .app-sidebar-pitch {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--app-slate);
+}
+
+[data-testid="stSidebar"] .app-sidebar-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-testid="stSidebar"] .app-sidebar-steps li {
+  display: flex;
+  gap: 0.55rem;
+  align-items: baseline;
+  margin: 0 0 0.4rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--app-ink);
+}
+
+[data-testid="stSidebar"] .app-sidebar-steps li:last-child {
+  margin-bottom: 0;
+}
+
+[data-testid="stSidebar"] .app-sidebar-step-n {
+  flex: 0 0 1.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--app-muted);
+}
+
+[data-testid="stSidebar"] .app-sidebar-meta {
+  margin: 0.65rem 0 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--app-muted);
+}
+
+[data-testid="stSidebar"] .app-sidebar-meta a {
+  color: var(--app-accent);
+  text-decoration: none;
+}
+
+[data-testid="stSidebar"] .app-sidebar-meta a:hover {
+  text-decoration: underline;
+}
 """
 
 
