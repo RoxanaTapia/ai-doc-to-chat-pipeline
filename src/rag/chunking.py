@@ -15,6 +15,17 @@ SECTION_IN_QUERY_RE = re.compile(r"section\s+(\d+)", re.IGNORECASE)
 SECTION_SYMBOL_RE = re.compile(r"§\s*(\d+)")
 # Line-anchored: mid-sentence "defined in Section 1" must not become a header.
 SECTION_LABEL_RE = re.compile(r"(?im)^\s*section\s+(\d+)\b")
+# Walkthrough / eval Q1 without "Section 1": still route to the definition clause.
+DEFINITION_QUERY_RE = re.compile(
+    r"(?i)(?:"
+    r"how is\b.{0,80}\bdefined"
+    r"|what(?:'s| is)\s+confidential information\b"
+    r"|definition of\s+confidential information"
+    r")"
+)
+_OBLIGATION_HINT_RE = re.compile(
+    r"(?i)\b(obligat|shall not|must not|duties|prohibit|requirements)\b"
+)
 
 _SKIP_TITLE_PREFIXES = (
     "Note to",
@@ -37,7 +48,7 @@ _NUMBERED_LINE_RE = re.compile(r"^\s*\d+\.\s+")
 
 
 def extract_target_section(query: str) -> str | None:
-    """Parse target section from queries like 'Section 3' or '§3'."""
+    """Parse target section from 'Section 3', '§3', or a definition-style Q1."""
     text = query or ""
     match = SECTION_IN_QUERY_RE.search(text)
     if match:
@@ -45,6 +56,8 @@ def extract_target_section(query: str) -> str | None:
     match = SECTION_SYMBOL_RE.search(text)
     if match:
         return match.group(1)
+    if DEFINITION_QUERY_RE.search(text) and not _OBLIGATION_HINT_RE.search(text):
+        return "1"
     return None
 
 

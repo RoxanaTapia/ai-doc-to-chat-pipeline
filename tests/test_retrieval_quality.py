@@ -10,6 +10,7 @@ if str(SRC_DIR) not in sys.path:
 
 from rag.citations import (  # noqa: E402
     DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
+    build_sources_payload,
     context_has_obligation_markers,
     context_sufficient_for_query,
     dedupe_similar_chunks,
@@ -183,3 +184,42 @@ def test_filter_docs_overlapping_answer_empty_answer_returns_original() -> None:
     ]
     assert filter_docs_overlapping_answer(docs, "") is docs
     assert filter_docs_overlapping_answer(docs, "   ") is docs
+
+
+def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
+    definition = Document(
+        page_content=(
+            "1. Definition of Confidential Information\n"
+            '"Confidential Information" means any information disclosed by the '
+            "Disclosing Party that has commercial value and is labeled Confidential."
+        ),
+        metadata={"page": 1, "similarity": 0.7},
+    )
+    oral = Document(
+        page_content=(
+            "5. Oral Disclosures\nAny oral disclosure of Confidential Information "
+            "must be confirmed in writing within ten business days."
+        ),
+        metadata={"page": 2, "similarity": 0.95},
+    )
+    duties = Document(
+        page_content=(
+            "3. Obligations of the Receiving Party\nThe Receiving Party shall "
+            "hold all Confidential Information in strict confidence."
+        ),
+        metadata={"page": 2, "similarity": 0.9},
+    )
+    payload = build_sources_payload(
+        [oral, duties, definition],
+        query="What's confidential information?",
+        answer=(
+            "Confidential Information is defined in Section 1 as information "
+            "disclosed by the Disclosing Party that has commercial value."
+        ),
+        display_max=3,
+        preview_chars=280,
+    )
+    assert len(payload) == 1
+    assert payload[0]["page"] == 1
+    assert payload[0]["on_section"] is True
+    assert "means any information" in payload[0]["preview"]

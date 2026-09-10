@@ -107,6 +107,18 @@ def test_extract_target_section_parses_common_patterns() -> None:
     assert extract_target_section("liquidated damages?") is None
 
 
+def test_extract_target_section_infers_definition_walkthrough() -> None:
+    assert extract_target_section("What's confidential information?") == "1"
+    assert extract_target_section("What is confidential information?") == "1"
+    assert extract_target_section(
+        "How is Confidential Information defined?"
+    ) == "1"
+    assert extract_target_section("Who are the parties to this agreement?") is None
+    assert extract_target_section(
+        "What obligations apply to confidentiality?"
+    ) is None
+
+
 def test_find_section_headers_on_numbered_clauses() -> None:
     headers = find_section_headers(NDA_PAGE_1)
     assert [item[1] for item in headers] == ["1", "2"]
