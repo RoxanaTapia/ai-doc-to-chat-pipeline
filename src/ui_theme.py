@@ -116,7 +116,7 @@ section.main h1 {
 }
 
 [data-testid="stSidebar"] .app-sidebar-steps {
-  margin: 0 0 0.85rem 0;
+  margin: 0 0 1.15rem 0;
   padding: 0;
 }
 
@@ -142,18 +142,22 @@ section.main h1 {
 
 [data-testid="stSidebar"] .app-sidebar-meta {
   margin: 0;
-  padding-top: 0.15rem;
+  padding-top: 0.35rem;
   font-size: 0.82rem;
   line-height: 1.4;
   color: var(--app-muted);
 }
 
 [data-testid="stSidebar"] .app-sidebar-links {
-  margin: 0;
+  margin: 0 0 0.35rem 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 2.4rem;
+  justify-content: flex-end;
+  min-height: 1.75rem;
+}
+
+[data-testid="stSidebar"] .app-sidebar-links--top {
+  margin: 0 0 0.55rem 0;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github {
