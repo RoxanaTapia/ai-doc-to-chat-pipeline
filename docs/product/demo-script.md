@@ -20,7 +20,7 @@ flowchart LR
 
 1. **Gate.** Request an invite, then open the app.
 2. **Upload.** Use the [sample NDA](sample-nda.pdf), or export the [sample policy](sample-policy.md) to PDF. Do not upload real company files on the shared pilot.
-3. **Ask.** A question the document can answer. Open **Sources** and check the page.
+3. **Ask.** A question the document can answer. **Sources** opens under the answer — check that the page matches the clause.
 4. **Refuse.** A question the document does not answer. The app should say so, not invent a clause.
 
 Uploaded files stay in memory for the session. Each visit starts fresh.
@@ -31,10 +31,11 @@ Uploaded files stay in memory for the session. Each visit starts fresh.
 
 ### Sample NDA
 
-1. Who are the parties to this agreement?
-2. What is the term or duration?
-3. What obligations apply to confidentiality?
-4. Does this agreement specify liquidated damages? (It does not.)
+1. What's confidential information? (or: How is Confidential Information defined in Section 1?)
+2. What obligations does Section 3 impose on the Receiving Party?
+3. Does this agreement specify liquidated damages? (It does not.)
+
+Sources for question 1 should stay on the definition clause (page 1), not neighboring duties or oral-disclosure text.
 
 ### Sample retention policy
 

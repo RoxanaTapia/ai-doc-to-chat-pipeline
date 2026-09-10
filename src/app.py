@@ -58,7 +58,7 @@ _CLIENT_COPY = {
     "chat_waiting": "Upload a PDF to start asking questions.",
     "doc_ready": (
         "**{name}** is ready. Ask in plain language; "
-        "open **Sources** under each answer to check the page."
+        "**Sources** opens under the latest answer so you can check the page."
     ),
     "doc_indexing": "Indexing **{name}**…",
     "doc_cleared": "Document cleared. Upload a PDF when you want to continue.",
@@ -303,11 +303,12 @@ def _render_sources_panel(
     *,
     developer_mode: bool,
     title: str = "Sources",
+    expanded: bool = False,
 ) -> None:
     """Render page + excerpt audit trail in a client-friendly expander."""
     if not sources:
         return
-    with st.expander(title, expanded=False):
+    with st.expander(title, expanded=expanded):
         st.caption("Page and short excerpt from the document — verify against the answer.")
         blocks: list[str] = []
         for source in sources:
@@ -1006,7 +1007,7 @@ with st.sidebar.expander("How to use", expanded=False):
         """
         1. Upload a PDF (policy, SOP, report, or contract).
         2. Wait for the green **ready** message.
-        3. Ask a question; open **Sources** under the answer to check the page.
+        3. Ask a question; **Sources** opens under the answer so you can check the page.
 
         Naming a section in your question often improves retrieval.
         Scanned pages use OCR when little text is extractable.
@@ -1299,6 +1300,15 @@ _render_document_status(
 )
 
 # Chat history UI (persists across reruns)
+latest_sources_idx = next(
+    (
+        idx
+        for idx in range(len(st.session_state.messages) - 1, -1, -1)
+        if st.session_state.messages[idx].get("role") == "assistant"
+        and st.session_state.messages[idx].get("sources")
+    ),
+    None,
+)
 for msg_idx, message in enumerate(st.session_state.messages):
     turn_label = f"turn {msg_idx // 2 + 1}"
 
@@ -1314,6 +1324,7 @@ for msg_idx, message in enumerate(st.session_state.messages):
                     message["sources"],
                     developer_mode=st.session_state.developer_mode,
                     title=_sources_panel_title(message),
+                    expanded=msg_idx == latest_sources_idx,
                 )
             if st.session_state.developer_mode and message.get("sources"):
                 _render_source_checklist(

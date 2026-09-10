@@ -263,6 +263,10 @@ def build_sources_payload(
     ordered = sort_source_docs(retrieved_docs, target_section=target_section)
     if answer:
         ordered = filter_docs_overlapping_answer(ordered, answer)
+    if target_section:
+        on_section = [doc for doc in ordered if chunk_on_section(doc, target_section)]
+        if on_section:
+            ordered = on_section
     payload = []
     for chunk in ordered[:display_max]:
         similarity = chunk.metadata.get("similarity")
