@@ -1036,15 +1036,15 @@ st.sidebar.markdown(
       </p>
       <div class="app-sidebar-steps">
         <div class="app-sidebar-step">
-          <span class="app-sidebar-step-n">1</span>
+          <span class="app-sidebar-step-n" aria-hidden="true">1️⃣</span>
           <span>Upload a PDF</span>
         </div>
         <div class="app-sidebar-step">
-          <span class="app-sidebar-step-n">2</span>
+          <span class="app-sidebar-step-n" aria-hidden="true">2️⃣</span>
           <span>Wait for <strong>ready</strong></span>
         </div>
         <div class="app-sidebar-step">
-          <span class="app-sidebar-step-n">3</span>
+          <span class="app-sidebar-step-n" aria-hidden="true">3️⃣</span>
           <span>Ask — Sources opens under the answer</span>
         </div>
       </div>

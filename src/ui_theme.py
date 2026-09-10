@@ -135,11 +135,9 @@ section.main h1 {
 }
 
 [data-testid="stSidebar"] .app-sidebar-step-n {
-  flex: 0 0 1.15rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--app-muted);
+  flex: 0 0 1.55rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 [data-testid="stSidebar"] .app-sidebar-meta {
