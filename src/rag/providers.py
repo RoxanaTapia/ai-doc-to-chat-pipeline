@@ -53,7 +53,7 @@ def _format_prompt(template: str, context: str, query: str) -> str:
 
 
 def _dummy_response() -> str:
-    """Placeholder text for UI-demo / Streamlit Cloud (no local LLM)."""
+    """Placeholder text for UI / test dummy mode (no local LLM)."""
     return DUMMY_UI_RESPONSE
 
 

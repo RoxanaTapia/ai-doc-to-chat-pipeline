@@ -1,8 +1,8 @@
 # =============================================
 # AI Doc-to-Chat Pipeline - Production Dependencies
 # =============================================
-# Tested on Python 3.12+ (recommended for Streamlit Cloud).
-# Perfect for modern hardware: Apple Silicon (M-series), Linux, Windows, and Streamlit Community Cloud.
+# Tested on Python 3.12+ (VPS, Docker, and local).
+# Perfect for modern hardware: Apple Silicon (M-series), Linux, and Windows.
 # Uses latest stable packages as of February 2026.
 
 # Core framework & UI

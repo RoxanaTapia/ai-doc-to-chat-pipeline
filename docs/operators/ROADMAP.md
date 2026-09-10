@@ -10,7 +10,7 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 
 **Positioning:** private **document Q&A** for confidential PDFs (contracts, policies, SOPs, reports, internal KB exports), not legal-only. LLM backend is swappable: local Ollama (air-gap) or Anthropic/OpenAI (speed for demos and pilots).
 
-**Streamlit Cloud** = UI-only marketing demo (dummy generation). **Live pilot** = real RAG on your VPS. **M7.8** = demo-quality generation so the walkthrough is recordable.
+**Live pilot** = real RAG behind the invite gate on your VPS. **M7.8** = demo-quality generation so the walkthrough is recordable. Streamlit Community Cloud is not a supported marketing surface.
 
 ---
 
@@ -23,7 +23,7 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | **M7.9** | Interface polish | Calm client UI | ✅ Done |
 | **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | ✅ Done |
 | **M7.96** | Repo clarity | Professional layout; deploy assets under `deploy/` (no shims) | ✅ Done (main only) |
-| **Packaging** | Calm product framing | Clear pilot + Cloud links; video URL later | Soft pass after M7.96 |
+| **Packaging** | Calm product framing | Clear invite-pilot link; video URL later | Soft pass after M7.96 |
 | **M8** | Thin FastAPI contract | OpenAPI `/health`, `/chat` | **Ship next** |
 | **Video (#57)** | Published walkthrough | Link in README | **Last** after thin M8 |
 | **M8.5** | Eval harness export | Before/after retrieval report | Optional |
@@ -57,7 +57,7 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | Phase | Milestones | Outcome you can stand behind |
 |-------|------------|------------------------------|
 | **0. Shipped** | M7 ✅ | Reproducible private pilot on one VM; live URL; deployment guide |
-| **1. Demo & trust** | **M7.8** → **packaging** | Fast, cited answers; calm README; clear pilot + Cloud links |
+| **1. Demo & trust** | **M7.8** → **packaging** | Fast, cited answers; calm README; clear invite-pilot link |
 | **2. Thin API** | **M8** | Not Streamlit-only: `/health`, `/chat`, OpenAPI |
 | **2b. Walkthrough** | **Video (#57)** | Published demo linked from README (last) |
 | **2c. Optional** | **M8.5** eval | Reproducible retrieval report for audits |
@@ -136,7 +136,7 @@ GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 
 **Target:** part-time · **4 issues** · primary `streamlit-ux-designer` · serial on `src/app.py`
 
-Calm, elegant client UI for confidential document Q&A. Progressive polish only; preserve Generator status, ready-state, Sources, Cloud dummy banner, and developer diagnostics.
+Calm, elegant client UI for confidential document Q&A. Progressive polish only; preserve Generator status, ready-state, Sources, and developer diagnostics.
 
 | Issue | Outcome | GitHub |
 |-------|---------|--------|
@@ -231,7 +231,7 @@ GitHub milestone: [M7.96 Repo clarity](https://github.com/RoxanaTapia/ai-doc-to-
 | Item | Outcome |
 |------|---------|
 | Thumbnail story | Calm 16:9 still (upload → cited answer) |
-| README framing | Private document Q&A; pilot + Cloud links obvious |
+| README framing | Private document Q&A; invite pilot link obvious |
 | Honest tiers | Demo (API LLM) vs self-host (Ollama) stated once |
 | Video link | Deferred to [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) (after thin M8) |
 

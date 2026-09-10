@@ -91,25 +91,6 @@ _CLIENT_COPY = {
 }
 
 
-def _is_probably_streamlit_cloud() -> bool:
-    """Best-effort detection for Streamlit Cloud hosted runtimes.
-
-    Streamlit Cloud does not set a single authoritative env var, so we check
-    a cascade of signals:
-    1. Explicit opt-in/opt-out via IS_STREAMLIT_CLOUD (operator sets in app secrets).
-    2. Legacy sharing-mode markers that older Streamlit versions occasionally set.
-    3. HOME=/home/appuser — Streamlit Cloud runs the app as the 'appuser' user;
-       this is the most reliable passive signal available.
-    """
-    explicit = os.getenv("IS_STREAMLIT_CLOUD")
-    if explicit is not None:
-        return explicit.lower() not in ("0", "false", "no")
-    legacy_markers = ("STREAMLIT_SHARING_MODE", "STREAMLIT_RUNTIME", "STREAMLIT_CLOUD")
-    if any(os.getenv(m) for m in legacy_markers):
-        return True
-    return os.getenv("HOME", "").rstrip("/") == "/home/appuser"
-
-
 def _presentation_mode() -> str:
     """
     Return 'client' or 'developer'.
@@ -967,10 +948,10 @@ def _init_session_state() -> None:
         "developer_mode": _presentation_mode() == "developer",
         "enable_ocr": True,
         "use_page_separators": True,
-        # Local: Ollama by default. Cloud: dummy only (no local Ollama). Env overrides either way.
+        # Local / VPS: Ollama by default. Set USE_DUMMY_GENERATOR=true for UI placeholder tests.
         "dummy_generator_only": _env_bool(
             "USE_DUMMY_GENERATOR",
-            _is_probably_streamlit_cloud(),
+            False,
         ),
         "bm25_state": None,
         "retrieval_strategy": (
@@ -995,7 +976,7 @@ _init_session_state()
 _on_new_browser_session()
 _apply_presentation_mode_lock()
 
-# Sidebar IA: Generator → About → How to use → Exit demo / Cloud → developer controls
+# Sidebar IA: Generator → About → How to use → Exit demo → developer controls
 st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
 
@@ -1032,16 +1013,8 @@ with st.sidebar.expander("How to use", expanded=False):
         """
     )
 
-if _is_probably_streamlit_cloud():
-    st.sidebar.info(
-        "**UI demo only** — no LLM on this host. "
-        "Chat responses are placeholders.\n\n"
-        "[Live pilot](https://ai-doc-pilot.roxanatapia.dev) · "
-        "[Deploy your own](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/blob/main/DEPLOYMENT.md)"
-    )
-else:
-    # No invite-gate signal in-app; show on local + VPS pilot (not Streamlit Cloud).
-    st.sidebar.link_button("Exit demo", "/invite/exit")
+# Invite cookie clear → public gate. No-op locally without the invite proxy.
+st.sidebar.link_button("Exit demo", "/invite/exit")
 
 # Developer controls stay below client-facing sections
 if _dev_toggle_allowed() or st.session_state.developer_mode:

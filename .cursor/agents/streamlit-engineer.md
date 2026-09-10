@@ -21,7 +21,7 @@ You are the **streamlit-engineer** for ai-doc-to-chat-pipeline.
 ## Standards
 
 - `st.session_state` for chat and index state.
-- Respect `_is_probably_streamlit_cloud()` dummy defaults.
+- Prefer explicit `USE_DUMMY_GENERATOR` / `LLM_PROVIDER` for dummy mode (no Cloud host detection).
 - Spinners, expanders for developer mode; client-friendly captions when off.
 - Follow pythonic-rag-streamlit rule.
 
