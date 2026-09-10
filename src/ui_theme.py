@@ -149,8 +149,11 @@ section.main h1 {
 }
 
 [data-testid="stSidebar"] .app-sidebar-links {
-  margin: 0.45rem 0 0.15rem 0;
-  text-align: center;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github {
@@ -159,7 +162,7 @@ section.main h1 {
   justify-content: center;
   color: var(--app-muted);
   text-decoration: none;
-  padding: 0.25rem;
+  padding: 0.35rem;
   border-radius: 0.35rem;
 }
 
