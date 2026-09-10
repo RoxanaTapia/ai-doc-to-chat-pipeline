@@ -149,27 +149,29 @@ section.main h1 {
 }
 
 [data-testid="stSidebar"] .app-sidebar-links {
-  margin: 0.55rem 0 0.35rem 0;
+  margin: 0.45rem 0 0.15rem 0;
+  text-align: center;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
-  line-height: 1.3;
+  justify-content: center;
   color: var(--app-muted);
   text-decoration: none;
+  padding: 0.25rem;
+  border-radius: 0.35rem;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github:hover {
   color: var(--app-ink);
+  background: color-mix(in srgb, var(--app-ink) 6%, transparent);
   text-decoration: none;
 }
 
 [data-testid="stSidebar"] .app-sidebar-github svg {
-  flex: 0 0 auto;
-  opacity: 0.85;
+  display: block;
+  opacity: 0.9;
 }
 
 /* Client pilot: hide Streamlit Deploy + toolbar chrome (looks like a prototype). */
