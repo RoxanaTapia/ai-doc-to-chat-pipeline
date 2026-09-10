@@ -37,7 +37,15 @@ from rag.retrieval import (
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from ui_theme import inject_theme
 
-st.set_page_config(page_title="Document Q&A · Private RAG", layout="wide")
+st.set_page_config(
+    page_title="Document Q&A · Private RAG",
+    layout="wide",
+    menu_items={
+        "Get Help": None,
+        "Report a bug": None,
+        "About": None,
+    },
+)
 APP_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
@@ -108,6 +116,25 @@ def _dev_toggle_allowed() -> bool:
     return _env_bool("APP_ALLOW_DEV_TOGGLE", False)
 
 
+def _human_model_label(provider: str, model: str) -> str:
+    """Buyer-facing model name; keep API ids out of the sidebar caption."""
+    raw = (model or "").strip()
+    if provider == "anthropic":
+        lower = raw.lower()
+        if "haiku-4-5" in lower or lower.startswith("claude-haiku-4-5"):
+            return "Claude Haiku 4.5"
+        if "haiku" in lower:
+            return "Claude Haiku"
+        if "sonnet" in lower:
+            return "Claude Sonnet"
+        if "opus" in lower:
+            return "Claude Opus"
+        return "Claude"
+    if provider == "ollama":
+        return raw or "local model"
+    return raw or provider
+
+
 def _active_generator_label(dummy_mode: bool) -> str:
     """Calm caption for the active generation backend (no secrets)."""
     provider = resolve_llm_provider_name(dummy_mode=dummy_mode)
@@ -115,12 +142,20 @@ def _active_generator_label(dummy_mode: bool) -> str:
         return "Dummy · UI placeholder (no LLM)"
     settings = load_generation_config()
     if provider == "anthropic":
-        model = settings.get("anthropic_model") or ""
-        return f"Anthropic · {model}" if model else "Anthropic"
+        model_id = str(settings.get("anthropic_model") or "")
+        return f"Anthropic · {_human_model_label(provider, model_id)}"
     if provider == "ollama":
-        model = settings.get("model") or ""
-        return f"Ollama · {model}" if model else "Ollama"
+        model_id = str(settings.get("model") or "")
+        return f"Ollama · {_human_model_label(provider, model_id)}"
     return provider
+
+
+def _sample_nda_bytes() -> bytes | None:
+    """Bytes for the walkthrough sample NDA, if present in the repo."""
+    path = APP_ROOT / "docs" / "product" / "sample-nda.pdf"
+    if not path.is_file():
+        return None
+    return path.read_bytes()
 
 
 def _inject_demo_styles() -> None:
@@ -977,9 +1012,19 @@ _init_session_state()
 _on_new_browser_session()
 _apply_presentation_mode_lock()
 
-# Sidebar IA: Generator → compact pitch/steps → Exit → developer controls
+# Sidebar IA: Generator → compact pitch/steps → sample → Exit → developer controls
 st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
+if st.session_state.developer_mode:
+    _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
+    _dev_settings = load_generation_config()
+    _dev_model = (
+        _dev_settings.get("anthropic_model")
+        if _dev_provider == "anthropic"
+        else _dev_settings.get("model")
+    )
+    if _dev_model:
+        st.sidebar.caption(f"API id: `{_dev_model}`")
 
 _github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
 st.sidebar.markdown(
@@ -989,11 +1034,20 @@ st.sidebar.markdown(
         Private PDF Q&amp;A with <strong>page Sources</strong> you can check.
         One file per session — on infrastructure you control.
       </p>
-      <ul class="app-sidebar-steps">
-        <li><span class="app-sidebar-step-n">1</span><span>Upload a PDF</span></li>
-        <li><span class="app-sidebar-step-n">2</span><span>Wait for <strong>ready</strong></span></li>
-        <li><span class="app-sidebar-step-n">3</span><span>Ask — Sources opens under the answer</span></li>
-      </ul>
+      <div class="app-sidebar-steps">
+        <div class="app-sidebar-step">
+          <span class="app-sidebar-step-n">1</span>
+          <span>Upload a PDF</span>
+        </div>
+        <div class="app-sidebar-step">
+          <span class="app-sidebar-step-n">2</span>
+          <span>Wait for <strong>ready</strong></span>
+        </div>
+        <div class="app-sidebar-step">
+          <span class="app-sidebar-step-n">3</span>
+          <span>Ask — Sources opens under the answer</span>
+        </div>
+      </div>
       <p class="app-sidebar-meta">
         Tip: name a section (e.g. Section 3) when you can.
         <a href="{_github}" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -1002,6 +1056,17 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+_sample_nda = _sample_nda_bytes()
+if _sample_nda is not None:
+    st.sidebar.download_button(
+        label="Download sample NDA",
+        data=_sample_nda,
+        file_name="sample-nda.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        help="Fictional sample for the walkthrough. Do not upload real company files on the shared pilot.",
+    )
 
 if st.session_state.developer_mode:
     st.sidebar.caption(

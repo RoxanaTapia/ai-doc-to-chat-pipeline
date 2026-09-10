@@ -118,10 +118,9 @@ section.main h1 {
 [data-testid="stSidebar"] .app-sidebar-steps {
   margin: 0;
   padding: 0;
-  list-style: none;
 }
 
-[data-testid="stSidebar"] .app-sidebar-steps li {
+[data-testid="stSidebar"] .app-sidebar-step {
   display: flex;
   gap: 0.55rem;
   align-items: baseline;
@@ -131,7 +130,7 @@ section.main h1 {
   color: var(--app-ink);
 }
 
-[data-testid="stSidebar"] .app-sidebar-steps li:last-child {
+[data-testid="stSidebar"] .app-sidebar-step:last-child {
   margin-bottom: 0;
 }
 
@@ -157,6 +156,21 @@ section.main h1 {
 
 [data-testid="stSidebar"] .app-sidebar-meta a:hover {
   text-decoration: underline;
+}
+
+/* Client pilot: hide Streamlit Deploy + toolbar chrome (looks like a prototype). */
+.stAppDeployButton,
+[data-testid="stAppDeployButton"],
+[data-testid="stToolbar"] {
+  display: none !important;
+}
+
+#MainMenu {
+  visibility: hidden;
+}
+
+footer {
+  visibility: hidden;
 }
 """
 

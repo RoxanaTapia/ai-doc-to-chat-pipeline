@@ -19,7 +19,7 @@ flowchart LR
 ```
 
 1. **Gate.** Request an invite, then open the app.
-2. **Upload.** Use the [sample NDA](sample-nda.pdf), or export the [sample policy](sample-policy.md) to PDF. Do not upload real company files on the shared pilot.
+2. **Upload.** Download the sample NDA from the sidebar, or use [sample-nda.pdf](sample-nda.pdf) / export the [sample policy](sample-policy.md). Do not upload real company files on the shared pilot.
 3. **Ask.** A question the document can answer. **Sources** opens under the answer — check that the page matches the clause.
 4. **Refuse.** A question the document does not answer. The app should say so, not invent a clause.
 
