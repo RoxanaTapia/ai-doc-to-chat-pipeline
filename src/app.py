@@ -1014,10 +1014,11 @@ _apply_presentation_mode_lock()
 
 _github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
 
-# Sidebar IA: GitHub → Generator → pitch/steps → sample → Exit → developer
+# Sidebar IA: Generator → GitHub → model → pitch/steps → sample → Exit → developer
+st.sidebar.markdown("**Generator**")
 st.sidebar.markdown(
     f"""
-    <div class="app-sidebar-links app-sidebar-links--top">
+    <div class="app-sidebar-links app-sidebar-links--under-generator">
       <a class="app-sidebar-github"
          href="{_github}"
          target="_blank"
@@ -1040,8 +1041,6 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-st.sidebar.markdown("**Generator**")
 st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
 if st.session_state.developer_mode:
     _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
