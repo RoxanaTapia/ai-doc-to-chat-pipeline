@@ -49,5 +49,3 @@ python-dotenv>=1.2.1                       # .env support for API keys
 langchain-anthropic>=0.3.0                 # Claude models (M7.8 demo / video tier)
 langchain-ollama                           # Local Ollama integration (safest local start)
 ollama                                     # Ollama Python client
-
-# Dev / CI extras: pip install -r requirements-dev.txt
