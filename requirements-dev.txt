@@ -1,0 +1,4 @@
+# Dev / CI extras. Runtime stays in requirements.txt.
+pytest>=8.0.0
+ruff>=0.12.11
+pre-commit>=4.0.0

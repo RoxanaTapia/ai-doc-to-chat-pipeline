@@ -18,7 +18,7 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 
 | Milestone | Goal | Proof of done | Priority |
 |-----------|------|---------------|----------|
-| **M7** | Reference deployment | Live HTTPS pilot + `DEPLOYMENT.md` | ✅ Done |
+| **M7** | Reference deployment | Live HTTPS pilot | ✅ Done |
 | **M7.8** | Demo-ready tier | Swappable LLM, streaming, recordable walkthrough | ✅ Done |
 | **M7.9** | Interface polish | Calm client UI | ✅ Done |
 | **M7.95** | Sources trust | Fewer, ranked, answer-overlapping citations | ✅ Done |
@@ -195,7 +195,7 @@ GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to
 
 Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Agentic tooling (`.cursor/`, `AGENTS.md`) stays visible and intentional. Merged to **`main` only** during the milestone; **`deploy/stable` / v0.9.0** advanced later after the portfolio edge cutover (operator-approved; see #144).
 
-> **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, ops in `deploy/` + `DEPLOYMENT.md`, agents in `.cursor/` + `AGENTS.md`.
+> **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, app containers in `deploy/`, agents in `.cursor/` + `AGENTS.md`. HTTPS lives in roxanatapia-edge.
 
 **Target:** part-time · **5 issues** · primary `docs-writer` + `deploy-engineer`
 

@@ -1,7 +1,14 @@
+# Build context is the repo root. The image copies requirements.txt,
+# configs/, src/, .streamlit/config.toml, and docs/product/sample-nda.pdf.
+
+# VCS / editor
 .git
 .github
-.devcontainer
 .cursor
+.vscode
+.idea
+
+# Local environments
 .venv
 venv/
 __pycache__/
@@ -11,25 +18,27 @@ __pycache__/
 htmlcov/
 .coverage
 
+# Secrets
 .env
 .env.*
 !.env.example
 
+# Streamlit local extras (keep the committed theme config)
 .streamlit/*
 !.streamlit/config.toml
+
+# Runtime leftovers
 data/
 samples/
 uploaded/
-*.pdf
-!docs/product/sample-nda.pdf
 *.faiss
 *.index
 .huggingface/
 .cache/
 
-*.md
-!DEPLOYMENT.md
+# Tests are not needed at runtime
+tests/
 
-Dockerfile
-.dockerignore
-docker-compose*.yml
+# Client PDFs stay out; the walkthrough sample is copied into the image
+*.pdf
+!docs/product/sample-nda.pdf

@@ -4,30 +4,25 @@
 
 Operator addendum. The friendly map is [docs/README.md](../README.md). This page only records layout rules that are easy to break.
 
-> **Takeaway:** Product in `src/` and `configs/`. Ops in `deploy/`. Agents stay visible in `.cursor/` and [AGENTS.md](../../AGENTS.md).
+> **Takeaway:** Product in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites are not this repo.
 
 ---
 
 ## Deploy assets
 
-Everything that runs the container stack lives under [`deploy/`](../../deploy/). `.dockerignore` stays at the repo root because the build context is the repo root.
+The image and Compose files live under [`deploy/`](../../deploy/). `.dockerignore` stays at the repo root because the build context is the repo root.
 
 ```text
 deploy/
 ├── Dockerfile
-├── docker-compose.yml
-├── docker-compose.caddy.yml         Single-product HTTPS, or VPS rollback
-├── docker-compose.shared-edge.yml   Portfolio VPS: alias `app` on network edge
-├── Caddyfile
-└── invite/                          Rollback copy; canonical is roxanatapia-edge
+├── docker-compose.yml              app + ollama (+ api profile)
+└── docker-compose.shared-edge.yml  Live VPS: alias `app` on network `edge`
 ```
 
-- No root copies of Dockerfile, Compose, or Caddy files.
-- No stub files that say “Moved to `deploy/`…”.
-- Dedicated VM: `docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.caddy.yml up --build -d`
-- Portfolio VPS: app uses `docker-compose.shared-edge.yml`; Caddy lives in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
-
-Install narrative: [DEPLOYMENT.md](../../DEPLOYMENT.md).
+- No root copies of Dockerfile or Compose files.
+- No stub files that say “Moved to …”.
+- No Caddyfile or invite service here. Canonical HTTPS: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
+- Local and VPS commands: [running.md](running.md).
 
 ---
 
