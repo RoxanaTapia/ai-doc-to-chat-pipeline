@@ -24,15 +24,7 @@ Uploaded files are processed in memory and never stored. Each session starts fre
 
 Each step exists to keep the answer inside the PDF you uploaded.
 
-```mermaid
-flowchart LR
-  A[Upload PDF] --> B[Extract]
-  B --> C[Chunk]
-  C --> D[Embed locally]
-  D --> E[Hybrid search]
-  E --> F[Rerank]
-  F --> G[Cited answer]
-```
+Upload PDF → Extract → Chunk → Embed locally → Hybrid search → Rerank → Cited answer
 
 | Step | Technique | Why? |
 |------|-----------|------|
