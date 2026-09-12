@@ -50,6 +50,4 @@ langchain-anthropic>=0.3.0                 # Claude models (M7.8 demo / video ti
 langchain-ollama                           # Local Ollama integration (safest local start)
 ollama                                     # Ollama Python client
 
-# Development / testing extras (optional, uncomment for local dev)
-# pytest>=8.0.0                            # Unit tests
-# ruff>=0.6.0                              # Linting & formatting
+# Dev / CI extras: pip install -r requirements-dev.txt

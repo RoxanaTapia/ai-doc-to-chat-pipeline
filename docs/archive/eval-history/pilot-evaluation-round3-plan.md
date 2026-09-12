@@ -132,7 +132,7 @@ Week C — VPS demo
 | Round 3 observed results | [pilot-evaluation-round3.md](pilot-evaluation-round3.md) |
 | Round 4+ (retrieval tuning) | Append after reranker / section filter |
 | Config deltas | `configs/config.yaml`, `configs/prompts.yaml` |
-| VPS checklist | `DEPLOYMENT.md` |
+| VPS checklist | `docs/operators/running.md` |
 | Demo script | `docs/demo-script.md` (M7-7) |
 
 ---

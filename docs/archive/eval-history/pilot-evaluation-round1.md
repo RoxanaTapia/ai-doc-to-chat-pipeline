@@ -4,7 +4,7 @@
 
 This document records an **honest evaluation** of the reference stack on a realistic document type — not a marketing scorecard. It shows what the pilot does well today, where answers need human review, and how we test before a client engagement.
 
-Architecture and deployment: [architecture.md](../../product/architecture.md) · [DEPLOYMENT.md](../../../DEPLOYMENT.md)
+Architecture: [architecture.md](../../product/architecture.md). Operator run notes: [running.md](../../operators/running.md).
 
 ---
 
@@ -216,7 +216,7 @@ A serious buyer should ask: *“Can we run the same three question types on our 
 | Hybrid retrieval (semantic + BM25) | Available |
 | Source previews in chat | Working |
 | Local Ollama generation | Working |
-| HTTPS + basic auth deployment | Documented ([DEPLOYMENT.md](../DEPLOYMENT.md)); VPS validation next |
+| HTTPS + basic auth deployment | Documented in operator run notes; VPS validation next |
 | Persistent document library | Planned ([ROADMAP.md](ROADMAP.md) M9) |
 | API / agents / SSO | Planned (M8–M10) |
 

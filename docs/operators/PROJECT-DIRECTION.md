@@ -80,7 +80,7 @@ After each issue, you should answer **without opening Cursor**:
 | **UI** | `src/app.py` | What happens on upload → index → chat? |
 | **RAG** | `src/rag/` | How does context get built before the LLM? |
 | **Config** | `configs/config.yaml`, `.env` | What knob changes retrieval vs generation? |
-| **Deploy** | `docker-compose*.yml`, `DEPLOYMENT.md` | How does a request reach Ollama or API LLM? |
+| **Deploy** | `deploy/docker-compose.yml`, [running.md](running.md) | How does a request reach Ollama or the API LLM? |
 
 **Per-issue learning habit (15 min after merge, optional)**
 
@@ -113,7 +113,7 @@ After each issue, you should answer **without opening Cursor**:
 
 **Milestones:** M7 (#33–#39)
 
-**Shipped:** Docker, Compose, Caddy, live pilot, DEPLOYMENT, architecture, demo storyboard.
+**Shipped:** Docker, Compose, live HTTPS pilot (Caddy now in roxanatapia-edge), architecture, demo storyboard.
 
 **Learnings:** Retrieval + citations are the core IP. CPU Ollama is an option, not the walkthrough default.
 

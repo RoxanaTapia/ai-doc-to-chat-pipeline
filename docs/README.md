@@ -4,7 +4,7 @@
 
 This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
-> **Takeaway:** Product code in `src/` and `configs/`. Ops in `deploy/`. Shipping in `.cursor/` and [AGENTS.md](../AGENTS.md).
+> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites live in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
 
 ---
 
@@ -14,15 +14,14 @@ This page is the map of the repository. The [root README](../README.md) is the p
 .
 ├── README.md          Client overview and live pilot
 ├── AGENTS.md          How Cursor agents ship issues
-├── DEPLOYMENT.md      Self-host and VPS notes
 ├── src/               Application code
 ├── configs/           Chunking, retrieval, and prompt tunables
 ├── tests/             pytest suite
-├── deploy/            Docker, Compose (Caddy overlay for a dedicated VM)
+├── deploy/            App image + Compose (Ollama; optional API)
 ├── .cursor/           Agent roles, rules, slash commands
 └── docs/              You are here
       product/         Architecture, walkthrough, sample NDA
-      operators/       Roadmap, direction, repo-structure detail
+      operators/       Roadmap, how to run the stack, layout rules
       archive/         Historical eval notes (not current)
 ```
 
@@ -38,8 +37,8 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/api/`](../src/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
 | [`configs/prompts.yaml`](../configs/prompts.yaml) | Grounded-answer prompt |
-| [`deploy/`](../deploy/) | Container stack. Shared portfolio Caddy: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
-| [`docs/product/architecture.md`](product/architecture.md) | Single-VM deploy picture |
+| [`deploy/`](../deploy/) | App + Ollama Compose. Public HTTPS: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
+| [`docs/product/architecture.md`](product/architecture.md) | What runs on the VM vs at the edge |
 | [`docs/operators/REPO-STRUCTURE.md`](operators/REPO-STRUCTURE.md) | Extra layout rules |
 
 ---
@@ -50,7 +49,7 @@ Two layers: the running services, then the Python modules that do the retrieval 
 
 ### Runtime
 
-The browser never talks to the index or the model directly. Caddy terminates HTTPS. Streamlit holds the session (PDF, chunks, FAISS) in memory. The LLM is either Ollama on the same VM or Anthropic when that provider is selected.
+The browser never talks to the index or the model directly. Caddy (in the edge repo) terminates HTTPS. Streamlit holds the session (PDF, chunks, FAISS) in memory. The LLM is either Ollama on the same VM or Anthropic when that provider is selected.
 
 ```mermaid
 flowchart LR
@@ -136,17 +135,18 @@ If you only want the product story, these three pages are enough:
 
 | Page | What you get |
 |------|----------------|
-| [Architecture](product/architecture.md) | What runs on the VM |
+| [Architecture](product/architecture.md) | What runs on the VM vs at the edge |
 | [Walkthrough](product/demo-script.md) | What a live session shows, plus sample questions |
 | [Sample NDA](product/sample-nda.pdf) | A ready PDF to upload |
 
-Contributor pages (sequencing and how-tos):
+Contributor pages:
 
 | Page | What you get |
 |------|----------------|
 | [Roadmap](operators/ROADMAP.md) · [Project direction](operators/PROJECT-DIRECTION.md) | What ships next |
+| [Running the stack](operators/running.md) | Local Compose and the live overlay |
 | [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
 | [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
 | [Archive](archive/) | Early local-Ollama eval rounds. Historical only. |
 
-Self-host steps stay in [DEPLOYMENT.md](../DEPLOYMENT.md). Live pilot: [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/).
+Live pilot: [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/).

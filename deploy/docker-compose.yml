@@ -1,3 +1,8 @@
+# App + Ollama (+ optional api profile). Public HTTPS is not this file.
+# Local: docker compose -f deploy/docker-compose.yml up --build -d
+# Live VPS overlay: docker-compose.shared-edge.yml
+# Operator notes: docs/operators/running.md
+
 services:
   ollama:
     image: ollama/ollama:0.6.5

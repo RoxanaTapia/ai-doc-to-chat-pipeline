@@ -1,6 +1,6 @@
 ---
 description: Deployment and commercial documentation. Clear, client-facing prose.
-globs: docs/**,DEPLOYMENT*.md,RUNBOOK.md,README.md
+globs: docs/**,README.md
 alwaysApply: false
 ---
 
@@ -15,8 +15,8 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 | Doc | Audience | Tone |
 |-----|----------|------|
 | **README.md** | Clients, buyers, casual visitors | Outcomes, privacy, pilot path. No issue numbers or deploy commands |
-| **DEPLOYMENT.md** | Client IT, technical buyers | Prerequisites → install → verify → troubleshoot |
 | **docs/product/** | Buyers / evaluators | Calm, clear, scannable, joy to read |
+| **docs/operators/running.md** | Operators | Local Compose and the live overlay. Not a client install guide |
 | **docs/operators/**, **AGENTS.md** | Contributors | Issues, agents, workflow (warm + precise) |
 | **PR titles and descriptions** | Clients and buyers who open the PR | Outcome first (`## Main contribution`), product language, no file laundry |
 | **GitHub issues** | Operators / agents | Outcome, scope, DoD checkboxes; light context |
@@ -42,9 +42,9 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 
 ## Rules
 
-- Write for a technical buyer in DEPLOYMENT; write for a business buyer in README.
+- Write for a business buyer in README. Operator run commands stay in `docs/operators/running.md`.
 - Use placeholders (`YOUR_VPS_IP`, `demo.example.com`) until human provides real values.
-- README is the shop window: one demo CTA (the live pilot), no deploy commands, no self-host hero. Operators start from `docs/README.md` and `DEPLOYMENT.md`.
+- README is the shop window: one demo CTA (the live pilot), no deploy commands, no self-host hero. Operators start from `docs/README.md`.
 - Prefer `docs/product/` for client reads (including sample NDA) and `docs/operators/` for contributors.
 - Do not create a top-level `docs/samples/` folder (`samples/` is gitignored).
 - Keep milestone jargon out of client pages.

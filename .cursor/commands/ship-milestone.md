@@ -32,7 +32,7 @@ End with a phase-complete pulse after thin M8 + video.
 
 ## Milestone definitions of done
 
-- **M7:** ✅ HTTPS pilot, DEPLOYMENT.md, Compose (shipped)
+- **M7:** ✅ HTTPS pilot, Compose (shipped)
 - **M7.8:** Swappable LLM, Anthropic demo tier, streaming, recordable walkthrough
 - **Portfolio packaging:** Calm README hero, invite pilot link, 16:9 thumbnail story (video URL deferred)
 - **M8 (thin):** `/health`, `/chat`, OpenAPI; modest `src/rag/` extract (not a large rewrite gate)

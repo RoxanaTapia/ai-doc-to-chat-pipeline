@@ -2,7 +2,7 @@
 
 ## Background
 
-How the live pilot runs on one machine. For the retrieval steps and module map, see [docs/README.md](../README.md). For install steps, see [DEPLOYMENT.md](../../DEPLOYMENT.md).
+How the live pilot is split across two repos. For the retrieval steps and module map, see [docs/README.md](../README.md).
 
 > **Takeaway:** HTTPS at the edge. The app and the local model stay inside the VM. The PDF lives in memory for the session.
 
@@ -18,14 +18,16 @@ flowchart LR
   App --> LLM[Ollama or Anthropic]
 ```
 
-| Piece | Role |
-|-------|------|
-| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. On the portfolio VPS this process runs in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). |
-| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. |
-| **Ollama** | Local model on the same VM, when that provider is selected. |
-| **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. |
+| Piece | Role | Where it lives |
+|-------|------|----------------|
+| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. | [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
+| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. | This repo (`src/`, `deploy/`) |
+| **Ollama** | Local model on the same VM, when that provider is selected. | This repo's Compose |
+| **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. | Env on the host |
 
 Embeddings always run on the server. Switching the writer (Ollama vs Anthropic) does not change search or citations.
+
+The app container joins Docker network `edge` as alias `app` via [`deploy/docker-compose.shared-edge.yml`](../../deploy/docker-compose.shared-edge.yml). Operator commands: [running.md](../operators/running.md).
 
 ---
 

@@ -1,6 +1,4 @@
-# =====================================
-# Python / Bytecode / Packaging
-# =====================================
+# Python / packaging
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,53 +8,42 @@ dist/
 build/
 *.egg
 
-# =====================================
-# Virtual environments & secrets
-# =====================================
+# Virtual environments and secrets
 .env
 .env.local
 .env.*
 !.env.example
-deploy/caddy-basicauth.conf
-deploy/certs/
 .venv
 venv/
 ENV/
 
-# =====================================
-# Streamlit configuration & secrets
-# =====================================
-.streamlit/secrets.toml
-.streamlit/config.toml  # only if it contains secrets/keys
-# Ignore project-level Streamlit folder (themes, local config).streamlit/             
+# Legacy HTTPS leftovers (Caddy now lives in roxanatapia-edge)
+deploy/caddy-basicauth.conf
+deploy/certs/
 
-# =====================================
-# Vector stores & embeddings (critical for RAG)
-# =====================================
-*.faiss                 # Local FAISS index files — large & regeneratable
+# Streamlit
+.streamlit/secrets.toml
+
+# Vector stores
+*.faiss
 *.index
 index.faiss
 index.pkl
-chroma/                 # If/when using Chroma as alternative
+chroma/
 *.chroma
 
-# =====================================
-# Data & test files (don't commit client PDFs or large samples)
-# =====================================
+# Client documents (keep the walkthrough sample)
 data/
 samples/
 uploaded/
-*.pdf                   # Optional: comment out if you want to include small demo PDFs
+*.pdf
+!docs/product/sample-nda.pdf
 
-# =====================================
-# Hugging Face / model caches
-# =====================================
+# Model caches
 .huggingface/
 .cache/huggingface/
 
-# =====================================
-# Editor-specific — track rules, agents, commands; ignore rest of .cursor/
-# =====================================
+# Cursor: track rules, agents, commands; ignore the rest
 .cursor/*
 !.cursor/README.md
 !.cursor/rules/
@@ -68,18 +55,16 @@ uploaded/
 .vscode/
 .idea/
 
-# =====================================
-# Testing & linting caches (add later when you write tests)
-# =====================================
+# Test / lint caches
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
 
-# Private operator notes (sales / deployment — not for repo)
+# Private operator notes
 docs-private/
 
-# OS / temp files
+# OS / temp
 .DS_Store
 Thumbs.db
 *.log

@@ -1,15 +1,16 @@
 ---
-description: Docker Compose, Dockerfile, Caddy, and VPS deploy conventions for Ollama pilot
+description: Docker Compose and Dockerfile conventions for the app + Ollama stack
 globs: deploy/**
 alwaysApply: false
 ---
 
-# Docker & deploy (M7, M11)
+# Docker & deploy
 
 - Pin base image tags; prefer Python 3.12+ for the Streamlit app.
 - In Compose, set `OLLAMA_HOST=http://ollama:11434` (service name, not localhost).
 - Self-host profile: `USE_DUMMY_GENERATOR=false`.
-- Persist Ollama models via a named volume; document `ollama pull` as a one-time/init step.
+- Persist Ollama models via a named volume; document `ollama pull` in `docs/operators/running.md`.
 - Do not bake secrets into images; use env files excluded from git.
-- Expose Streamlit on 8501 internally; prefer Caddy/reverse proxy for public HTTPS.
+- Expose Streamlit on 8501 for local Compose. On the live VPS, use `docker-compose.shared-edge.yml` so only the edge Caddy publishes 80/443.
 - Healthcheck Ollama before app depends on it when possible.
+- Do not add a Caddyfile or invite service here. Those live in roxanatapia-edge.

@@ -75,12 +75,12 @@ M7.96 ✅ → packaging (minus video) → #58 → #59 → #60 → #57 → [pause
 | Role (`name`) | Milestones | Owns | Must NOT touch |
 |---------------|------------|------|----------------|
 | `milestone-orchestrator` | All | Queue, branches, commits, PRs, **merges**, pulses | Direct app code edits |
-| `deploy-engineer` | M7, M7.96, M11 | `deploy/**` (Dockerfile, Compose, Caddy, scripts) | `src/app.py`, `src/rag/` |
+| `deploy-engineer` | M7, M7.96, M11 | `deploy/**` (Dockerfile, app Compose, shared-edge overlay) | `src/app.py`, `src/rag/` |
 | `config-guardian` | M7–M12 | `configs/**`, `.env.example` | Application logic |
 | `rag-core-engineer` | M7.8, M7.95, M8, M9, M12 | `src/rag/**`, `src/api/**` | Streamlit layout polish, Docker |
 | `streamlit-engineer` | Feature UI wiring | `src/app.py` session/chat/upload/Sources payload wiring | Docker, FastAPI internals, visual redesigns |
 | `streamlit-ux-designer` | M7.9 UI polish | Layout, IA, microcopy, chat/sources readability | Docker, FastAPI, RAG providers |
-| `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, `DEPLOYMENT*.md`, **README**, PR/issue prose, **blocker card polish** | Python except docstrings |
+| `docs-writer` | M7, M7.8, M10–M12 | `docs/**`, **README**, PR/issue prose, **blocker card polish** | Python except docstrings |
 | `verifier` | All | Runs pytest/ruff; `tests/**` fixes only | Feature implementation |
 | `blocker-reporter` | All | Blocker summaries (structured) | Code changes |
 
@@ -314,7 +314,7 @@ When stuck, invoke **blocker-reporter**, then ask **docs-writer** to polish into
 | File | Owner | Update when |
 |------|-------|-------------|
 | **README.md** | `docs-writer` | Phase changes; video link (client-facing) |
-| **DEPLOYMENT.md** | `docs-writer` + `deploy-engineer` | LLM provider setup, Compose |
+| **docs/operators/running.md** | `docs-writer` + `deploy-engineer` | Local Compose and the live overlay |
 | **docs/operators/ROADMAP.md** | `docs-writer` | Milestone scope changes |
 | **docs/operators/PROJECT-DIRECTION.md** | Human + orchestrator | Phase order, operator habits |
 | **docs/README.md** | `docs-writer` | Docs structure / index |
