@@ -4,7 +4,6 @@ import tempfile
 import threading
 import yaml
 import time
-import html
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -28,6 +27,17 @@ from session_upload import (
     _set_indexed_doc_stats,
     _set_processed_document,
 )
+from sources_panel import (
+    _build_sources_payload,
+    _dev_panel_title,
+    _question_preview,
+    _remember_response_timing,
+    _render_answer_timing,
+    _render_eval_context_panel,
+    _render_source_checklist,
+    _render_sources_panel,
+    _sources_panel_title,
+)
 from rag import (
     generate_answer,
     generate_answer_stream,
@@ -38,7 +48,6 @@ from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract
 from rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
     assemble_context,
-    build_sources_payload,
     context_sufficient_for_query,
 )
 from rag.ingestion import extract_pdf
@@ -218,125 +227,6 @@ def finalize_progress(progress_bar, message: str) -> None:
         progress_bar.empty()
 
 
-EVAL_CHECKLIST_PREVIEW_CHARS = 80
-
-
-def _build_sources_payload(
-    retrieved_docs: list[Document],
-    *,
-    query: str | None = None,
-    answer: str | None = None,
-) -> list[dict]:
-    """Create a compact serializable source payload per assistant answer."""
-    return build_sources_payload(
-        retrieved_docs,
-        query=query,
-        answer=answer,
-        display_max=SOURCES_DISPLAY_MAX,
-        preview_chars=SOURCE_PREVIEW_CHARS,
-        checklist_preview_chars=EVAL_CHECKLIST_PREVIEW_CHARS,
-    )
-
-
-def _dev_panel_title(base: str, question_preview: str | None, *, fallback: str) -> str:
-    """Unique expander label per turn (Streamlit 1.54 has no expander key=)."""
-    preview = (question_preview or "").strip()
-    if preview:
-        return f"{base} — {_question_preview(preview, 40)}"
-    return f"{base} — {fallback}"
-
-
-def _render_sources_panel(
-    sources: list[dict],
-    *,
-    developer_mode: bool,
-    title: str = "Sources",
-    expanded: bool = False,
-) -> None:
-    """Render page + excerpt audit trail in a client-friendly expander."""
-    if not sources:
-        return
-    with st.expander(title, expanded=expanded):
-        st.caption("Page and short excerpt from the document — verify against the answer.")
-        blocks: list[str] = []
-        for source in sources:
-            page = source.get("page", "N/A")
-            preview = html.escape(source.get("preview") or "")
-            meta = ""
-            if developer_mode and source.get("score") != "N/A":
-                meta = (
-                    f' <span class="app-source-meta">· relevance '
-                    f"{html.escape(str(source['score']))}</span>"
-                )
-            blocks.append(
-                '<div class="app-source-item">'
-                f'<div class="app-source-page">Page {html.escape(str(page))}{meta}</div>'
-                f'<blockquote class="app-source-quote">{preview}</blockquote>'
-                "</div>"
-            )
-        st.markdown("".join(blocks), unsafe_allow_html=True)
-
-
-def _on_section_label(on_section: bool | None) -> str:
-    if on_section is True:
-        return "Yes"
-    if on_section is False:
-        return "No"
-    return "N/A"
-
-
-def _render_source_checklist(
-    sources: list[dict],
-    *,
-    target_section: str | None = None,
-    title: str = "Source checklist (eval)",
-) -> None:
-    """Dev-only Round 4 eval aid: page, ~80 char excerpt, on-section Y/N per source."""
-    if not sources:
-        return
-    with st.expander(title, expanded=False):
-        if target_section:
-            st.caption(
-                f"Target section: **{target_section}** · auto-tag is heuristic — "
-                "confirm manually when scoring."
-            )
-        else:
-            st.caption("No section in question — on-section column shows N/A.")
-        for source_idx, source in enumerate(sources, start=1):
-            preview = source.get("checklist_preview") or source.get("preview", "")
-            st.markdown(
-                f"{source_idx}. **Page {source['page']}** · "
-                f"on-section {_on_section_label(source.get('on_section'))}  \n"
-                f"> {preview}"
-            )
-        if target_section:
-            on_count = sum(1 for source in sources if source.get("on_section") is True)
-            st.caption(
-                f"Auto on-section count: **{on_count}/{len(sources)}** "
-                "(Round 4 bar: ≥3/5 on-section for Q1 and Q2)."
-            )
-
-
-def _render_eval_context_panel(
-    eval_context: str,
-    *,
-    target_section: str | None = None,
-    chunk_count: int | None = None,
-    title: str = "Exact context fed to LLM",
-) -> None:
-    """Dev-only: persisted exact context for retrieval vs generation diagnosis."""
-    with st.expander(title, expanded=False):
-        st.code(eval_context, language="text")
-        chunk_note = f" • {chunk_count} chunks" if chunk_count else ""
-        st.caption(f"• {len(eval_context)} chars{chunk_note} · top-k={TOP_K}")
-        if target_section == "3":
-            st.info(
-                "Round 4 Q2 diagnostic: if return/destroy or termination language "
-                "appears **in this context**, retrieval is likely at fault; "
-                "if Section 3 duties are here but missing from the answer, "
-                "generation is likely at fault."
-            )
-
 
 def _request_chat_scroll_to_bottom() -> None:
     """After a new assistant turn, scroll main pane to the latest message."""
@@ -373,74 +263,6 @@ def _get_cross_encoder(model_name: str):
     from sentence_transformers import CrossEncoder
     return CrossEncoder(model_name)
 
-
-def _format_elapsed_ms(elapsed_ms: float) -> str:
-    """Format milliseconds as a short human-readable duration."""
-    seconds = max(0.0, elapsed_ms / 1000.0)
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    minutes = int(seconds // 60)
-    rem = int(round(seconds % 60))
-    if rem == 60:
-        minutes += 1
-        rem = 0
-    return f"{minutes}m {rem}s" if rem else f"{minutes}m"
-
-
-def _response_timing_caption(
-    *,
-    total_ms: float,
-    retrieval_ms: float = 0.0,
-    generation_ms: float = 0.0,
-    developer_mode: bool = False,
-) -> str:
-    """Build a caption showing how long the last answer took."""
-    total_label = _format_elapsed_ms(total_ms)
-    if not developer_mode:
-        return f"Answered in {total_label}"
-    parts = []
-    if retrieval_ms > 0:
-        parts.append(f"retrieval {_format_elapsed_ms(retrieval_ms)}")
-    if generation_ms > 0:
-        parts.append(f"generation {_format_elapsed_ms(generation_ms)}")
-    if parts:
-        return f"Answered in {total_label} ({' · '.join(parts)})"
-    return f"Answered in {total_label}"
-
-
-def _remember_response_timing(timing: dict[str, float] | None) -> None:
-    """Persist last response timing for the status line above chat input."""
-    if timing and timing.get("total_ms", 0) > 0:
-        st.session_state.last_response_timing = timing
-
-
-def _question_preview(text: str, max_len: int = 52) -> str:
-    """Short label for Sources expander — ties excerpts to the question asked."""
-    one_line = " ".join((text or "").split())
-    if len(one_line) <= max_len:
-        return one_line
-    return one_line[: max_len - 1].rstrip() + "…"
-
-
-def _sources_panel_title(message: dict) -> str:
-    preview = message.get("for_question")
-    if preview:
-        return f"Sources — {preview}"
-    return "Sources — this answer"
-
-
-def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bool) -> None:
-    """Quiet timing cue under the answer (not inside the answer body)."""
-    if not timing or timing.get("total_ms", 0) <= 0:
-        return
-    st.caption(
-        _response_timing_caption(
-            total_ms=timing["total_ms"],
-            retrieval_ms=timing.get("retrieval_ms", 0.0),
-            generation_ms=timing.get("generation_ms", 0.0),
-            developer_mode=developer_mode,
-        )
-    )
 
 
 def _append_chat_message(
@@ -1104,6 +926,7 @@ for msg_idx, message in enumerate(st.session_state.messages):
                             message.get("for_question"),
                             fallback=turn_label,
                         ),
+                        top_k=TOP_K,
                     )
 
 st.markdown('<div id="chat-scroll-anchor"></div>', unsafe_allow_html=True)
@@ -1412,6 +1235,8 @@ if query and query.strip() and chat_ready:
             retrieved_docs,
             query=query,
             answer=assistant_message,
+            display_max=SOURCES_DISPLAY_MAX,
+            preview_chars=SOURCE_PREVIEW_CHARS,
         )
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
