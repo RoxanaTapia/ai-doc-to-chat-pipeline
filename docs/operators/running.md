@@ -34,15 +34,23 @@ Host venv instead of Docker for the UI: `pip install -r requirements.txt` then `
 
 ## Live pilot (portfolio VPS)
 
-Caddy and invites run in `roxanatapia-edge`. This app joins Docker network `edge` as alias `app`:
+[roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) terminates TLS and runs the invite gate. This app does not. Join Docker network `edge` and leave ports 80 and 443 alone.
 
 ```bash
+docker network create edge   # once; ignore the error if it already exists
+
 docker compose --env-file .env -p ai-doc-to-chat-pipeline \
   -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 ```
 
-Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Edge Compose still reads `/root/ai-doc-to-chat-pipeline/.env` for invite and TLS keys. Those keys are not in this repo's `.env.example`. **Do not overwrite the server `.env` with the example file.**
+Expect: `ollama` healthy, `app` up, **no** `caddy` service. The host does not publish 8501.
 
-After a pull, `deploy/invite/` and this repo's Caddy overlay are gone. Mint and Caddy reloads happen in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge). Confirm the edge stack is up and that this project is not running a second Caddy.
+| Alias | Port | Role |
+|-------|------|------|
+| `app` | 8501 | PDF Q&A (Streamlit) |
 
-Streamlit serves under `/app` (`baseUrlPath` in `.streamlit/config.toml`) because the public gate owns `/`.
+Caddy forwards `/app*` to `app:8501` and **keeps** the `/app` prefix. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`). The public gate owns `/`.
+
+Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Edge Compose uses `-p roxanatapia-edge` and reads `/root/ai-doc-to-chat-pipeline/.env` for invite and TLS keys. Those keys are not in this repo's `.env.example`. **Do not overwrite the server `.env` with the example file.**
+
+Mint and Caddy reloads happen in roxanatapia-edge. Confirm that stack is up before recreating `app`.

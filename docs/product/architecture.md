@@ -27,7 +27,7 @@ flowchart LR
 
 Embeddings always run on the server. Switching the writer (Ollama vs Anthropic) does not change search or citations.
 
-The app container joins Docker network `edge` as alias `app` via [`deploy/docker-compose.shared-edge.yml`](../../deploy/docker-compose.shared-edge.yml). Operator commands: [running.md](../operators/running.md).
+The app container joins Docker network `edge` as alias `app` (port 8501) via [`deploy/docker-compose.shared-edge.yml`](../../deploy/docker-compose.shared-edge.yml). Caddy forwards `/app*` to that alias and keeps the prefix, because Streamlit serves under `/app`. Operator commands: [running.md](../operators/running.md).
 
 ---
 

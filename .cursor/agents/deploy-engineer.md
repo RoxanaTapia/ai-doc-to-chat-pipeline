@@ -41,5 +41,5 @@ You are the **deploy-engineer** for ai-doc-to-chat-pipeline.
 ## Blockers: escalate to orchestrator
 
 - VPS provider/size unknown
-- Domain missing for HTTPS (#38)
+- A change would require Caddy, TLS, or invite keys in this repo (those live in roxanatapia-edge)
 - GPU vs CPU model choice affecting compose resources

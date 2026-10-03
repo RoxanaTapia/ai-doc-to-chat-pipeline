@@ -1,13 +1,18 @@
-# Join the portfolio VPS edge network. Caddy and invites run in roxanatapia-edge.
+# Shared-host overlay. Another process (roxanatapia-edge Caddy) owns 80/443.
 #
-# Create once on the host: docker network create edge
+# Create the network once on the VPS:
+#   docker network create edge
 #
 # From repo root:
 #   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
 #     -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 #
-# Alias `app` is what the edge Caddyfile reverse_proxy targets (app:8501).
-# Do not publish 8501 on that host. Operator notes: docs/operators/running.md
+# This repo has no Caddy service. Do not start one on the portfolio VPS.
+#
+# Stable alias for the edge Caddyfile: app:8501
+# Caddy forwards /app* to that alias and keeps the /app prefix
+# (Streamlit baseUrlPath). Do not publish 8501 on that host.
+# Operator notes: docs/operators/running.md
 
 services:
   app:

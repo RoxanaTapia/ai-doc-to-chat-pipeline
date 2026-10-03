@@ -341,7 +341,7 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
                               └── LLM (Ollama | Anthropic | OpenAI)
 ```
 
-**Today:** M7–M7.96 shipped (Streamlit + swappable LLM + FAISS per session; deploy under `deploy/`). **Next:** packaging → thin M8 → video last.
+**Today:** M7–M7.96 shipped (Streamlit + swappable LLM + FAISS per session; deploy under `deploy/`). Live HTTPS is [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge), alias `app:8501`. **Next:** packaging → thin M8 → video last.
 
 Client-readable diagram: [product/architecture.md](../product/architecture.md).
 
