@@ -39,7 +39,7 @@ Prefer the train-mode card (orchestrator may ask **docs-writer** to polish):
 |-------|-----------------|
 | VPS | Hetzner CX32 vs DO CPU |
 | Model | phi3:mini vs llama3.1:8b |
-| HTTPS | Wait for domain vs IP + basic auth |
+| HTTPS | Owned by roxanatapia-edge. Do not add Caddy or TLS keys here. |
 | SSO (M10) | Entra ID vs Cloudflare Access |
 | Engine (M7.8) | Ollama vs Anthropic API (demo tier) |
 
