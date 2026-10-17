@@ -25,6 +25,7 @@ from page_copy import (
     _render_sidebar_footer,
     _render_sidebar_pitch,
     booking_url,
+    should_show_starter_chips,
 )
 from rag import (
     generate_answer,
@@ -38,6 +39,7 @@ from rag.citations import (
     assemble_context,
     context_sufficient_for_query,
     is_insufficient_answer,
+    visitor_refusal_answer,
 )
 from rag.ingestion import extract_pdf
 from rag.retrieval import (
@@ -62,8 +64,11 @@ from session_upload import (
     _set_dev_index_logs,
     _set_indexed_doc_stats,
     _set_processed_document,
+    mark_sample_preload_failed,
+    page_text_counts,
     paint_status,
     preload_sample_nda,
+    render_sample_preload_error,
 )
 from sources_panel import (
     _build_sources_payload,
@@ -224,8 +229,12 @@ except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError, ValueEr
 
 
 @st.cache_resource(show_spinner=False)
-def get_embeddings(model_name: str) -> HuggingFaceEmbeddings:
+def get_embeddings(model_name: str):
     """Cache embedding model to avoid repeated heavy initialization."""
+    if _env_bool("USE_STUB_EMBEDDINGS", False):
+        from langchain_core.embeddings import FakeEmbeddings
+
+        return FakeEmbeddings(size=32)
     return HuggingFaceEmbeddings(model_name=model_name)
 
 
@@ -249,11 +258,14 @@ def get_sample_nda_index(
         split_on_legal_headers=header_split,
     )
     store = FAISS.from_documents(chunks, get_embeddings(model_name))
+    text_pages, blank_pages = page_text_counts(extracted.page_docs)
     return {
         "bytes": path.read_bytes(),
         "chunks": chunks,
         "vector_store": store,
         "pages": len(extracted.page_docs),
+        "text_pages": text_pages,
+        "blank_pages": blank_pages,
         "chars": len(extracted.preview_text.strip()),
         "hash": hashlib.sha256(path.read_bytes()).hexdigest(),
     }
@@ -630,9 +642,11 @@ if preload_sample_nda():
             reused_index=True,
             header_split=SPLIT_ON_LEGAL_HEADERS,
             chunks=len(cached["chunks"]),
+            text_pages=cached.get("text_pages"),
+            blank_pages=cached.get("blank_pages"),
         )
-    except (OSError, ValueError, RuntimeError):
-        pass
+    except (OSError, ValueError, RuntimeError, ImportError):
+        mark_sample_preload_failed()
 
 _render_client_hero(hide_sidebar=not _show_sidebar)
 
@@ -677,13 +691,13 @@ if prev_uploader_had_file and not curr_uploader_has_file:
 st.session_state._uploader_widget_had_file = curr_uploader_has_file
 
 extracted_text = ""
-status_slot = st.empty()
 resolved_upload = _resolve_upload(uploaded_file)
 _render_document_status(
     uploaded_file=uploaded_file,
     resolved_upload=resolved_upload,
     slot=status_slot,
 )
+render_sample_preload_error()
 
 if resolved_upload is not None:
     file_bytes, file_name = resolved_upload
@@ -699,6 +713,8 @@ if resolved_upload is not None:
             reused_index=True,
             header_split=SPLIT_ON_LEGAL_HEADERS,
             chunks=prev.get("chunks"),
+            text_pages=prev.get("text_pages"),
+            blank_pages=prev.get("blank_pages"),
         )
     else:
         tmp_path = None
@@ -728,6 +744,7 @@ if resolved_upload is not None:
             )
 
             extracted_char_count = len(extracted_text.strip())
+            text_pages, blank_pages = page_text_counts(page_docs)
             if st.session_state.developer_mode:
                 st.caption(
                     f"Extraction: **{len(page_docs)}** pages · "
@@ -779,6 +796,8 @@ if resolved_upload is not None:
                     chars=extracted_char_count,
                     reused_index=False,
                     header_split=SPLIT_ON_LEGAL_HEADERS,
+                    text_pages=text_pages,
+                    blank_pages=blank_pages,
                 )
                 paint_status(
                     status_slot,
@@ -834,6 +853,8 @@ if resolved_upload is not None:
                     reused_index=False,
                     header_split=SPLIT_ON_LEGAL_HEADERS,
                     chunks=len(chunks),
+                    text_pages=text_pages,
+                    blank_pages=blank_pages,
                 )
                 paint_status(status_slot, "ready", _ready_message(file_name))
 
@@ -868,7 +889,7 @@ with st.form("ask_form", clear_on_submit=True, border=False):
     )
 query = typed.strip() if submitted and typed else None
 
-if chat_ready:
+if chat_ready and should_show_starter_chips(st.session_state.messages):
     st.markdown(
         '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
         unsafe_allow_html=True,
@@ -921,7 +942,7 @@ if query and query.strip() and chat_ready:
             unsafe_allow_html=True,
         )
         timer_thread = None
-        if script_ctx is not None:
+        if script_ctx is not None and st.session_state.developer_mode:
             timer_thread = threading.Thread(
                 target=_thinking_timer_loop,
                 daemon=True,
@@ -1161,7 +1182,7 @@ if query and query.strip() and chat_ready:
         paint_status(status_slot, "error", reason)
         st.rerun()
     else:
-        assistant_message = (
+        assistant_message = visitor_refusal_answer(
             st.session_state.last_answer
             or "I could not generate an answer at this time. Please try again."
         )
@@ -1194,7 +1215,8 @@ elif query is not None:
 # Newest answer first so the last reply stays on screen without iframe scroll.
 turns = _paired_turns(st.session_state.messages)
 indexed_stats = st.session_state.get("indexed_doc_stats") or {}
-page_count = int(indexed_stats.get("pages") or 0)
+page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
+any_blank_pages = int(indexed_stats.get("blank_pages") or 0) > 0
 pdf_bytes = st.session_state.get("uploaded_pdf_bytes")
 assistant_count = sum(
     1 for message in st.session_state.messages if message.get("role") == "assistant"
@@ -1211,6 +1233,7 @@ for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
         timing=assistant_msg.get("timing"),
         developer_mode=st.session_state.developer_mode,
         page_count=page_count,
+        any_blank_pages=any_blank_pages,
         pdf_bytes=pdf_bytes,
         card_key=str(len(turns) - turn_idx),
     )

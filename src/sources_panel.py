@@ -19,6 +19,8 @@ from rag.citations import (
 _HEADING_RE = re.compile(r"^#{1,6}\s+")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 _SKIP_HEADINGS = frozenset({"summary", "details"})
+_EMPHASIS_RE = re.compile(r"(\*\*|__)(.*?)\1|([*_])(.*?)\3")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
 
@@ -43,6 +45,36 @@ def split_answer_headline(answer: str) -> tuple[str, str]:
         if len(parts) == 2 and len(parts[0]) <= 120:
             return parts[0].strip(), parts[1].strip()
     return headline, remainder
+
+
+def strip_headline_markup(text: str) -> str:
+    """Drop markdown emphasis so the big one-liner reads as plain type."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return ""
+    previous = None
+    while previous != cleaned:
+        previous = cleaned
+        cleaned = _EMPHASIS_RE.sub(lambda match: match.group(2) or match.group(4) or "", cleaned)
+    return cleaned.strip()
+
+
+def headline_number_in_quote(headline: str, quote: str) -> bool:
+    """False when the one-liner names a number the quote does not contain."""
+    numbers = _NUMBER_RE.findall(headline or "")
+    if not numbers:
+        return True
+    haystack = quote or ""
+    return all(number in haystack for number in numbers)
+
+
+def display_answer_parts(answer: str, quote: str = "") -> tuple[str, str]:
+    """Headline plus body, with markup stripped and a quote-number safety net."""
+    headline, body = split_answer_headline(answer)
+    headline = strip_headline_markup(headline)
+    if quote and headline and not headline_number_in_quote(headline, quote):
+        return "", strip_headline_markup(answer)
+    return headline, body
 
 
 def _build_sources_payload(
@@ -131,7 +163,7 @@ def _render_inline_sources(
     pdf_bytes: bytes | None = None,
     card_key: str = "0",
 ) -> None:
-    """Page badge and quote; click the quote to see the highlighted page."""
+    """Page badge and quote; Show page opens the highlighted page."""
     if not sources:
         return
     visible = sources if expanded else sources[:1]
@@ -168,6 +200,7 @@ def _render_answer_card(
     timing: dict[str, float] | None = None,
     developer_mode: bool = False,
     page_count: int = 0,
+    any_blank_pages: bool = False,
     pdf_bytes: bytes | None = None,
     card_key: str = "0",
 ) -> None:
@@ -183,16 +216,19 @@ def _render_answer_card(
             f'<p class="app-answer-headline">{html.escape(INSUFFICIENT_CONTEXT_ANSWER)}</p>',
             unsafe_allow_html=True,
         )
+        note = checked_all_pages_note(page_count, any_blank=any_blank_pages)
         st.markdown(
-            f'<p class="app-no-sources">{html.escape(checked_all_pages_note(page_count))}</p>',
+            f'<p class="app-no-sources">{html.escape(note)}</p>',
             unsafe_allow_html=True,
         )
     else:
-        headline, body = split_answer_headline(answer)
-        st.markdown(
-            f'<p class="app-answer-headline">{html.escape(headline)}</p>',
-            unsafe_allow_html=True,
-        )
+        quote = (sources[0].get("preview") if sources else "") or ""
+        headline, body = display_answer_parts(answer, quote)
+        if headline:
+            st.markdown(
+                f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                unsafe_allow_html=True,
+            )
         if body:
             st.markdown(body)
         if sources:

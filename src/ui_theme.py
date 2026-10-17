@@ -42,7 +42,7 @@ html, body, [class*="css"], .stApp, button, input, textarea {
 section.main .block-container {
   padding-top: 3.25rem;
   padding-bottom: 5rem;
-  max-width: 720px;
+  max-width: 860px;
 }
 
 section.main h1 {
@@ -84,7 +84,7 @@ section.main h1 {
   border: 1px solid var(--app-line);
   background: var(--app-panel);
   color: var(--app-slate);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -106,7 +106,7 @@ section.main h1 {
 .app-lock__line {
   margin: 0.45rem 0 0 0;
   max-width: 28rem;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.45;
   color: var(--app-slate);
 }
@@ -115,7 +115,7 @@ section.main h1 {
   display: inline-flex;
   align-items: center;
   gap: var(--app-space);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.4;
   margin: 0;
   padding: 0;
@@ -138,7 +138,7 @@ section.main h1 {
 }
 
 .app-own-pdf {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
 }
 
 div[data-testid="stVerticalBlock"]:has(.app-own-pdf) button {
@@ -166,7 +166,7 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="stTextInput"
 }
 
 .app-chips-label {
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   color: var(--app-muted);
   margin: 0.15rem 0 0.35rem 0;
 }
@@ -228,7 +228,7 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
 
 .app-answer-q {
   margin: 0 0 0.55rem 0;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.35;
   color: var(--app-muted);
 }
@@ -265,7 +265,7 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) .app-answer-he
   border-radius: 8px;
   background: var(--app-accent-soft);
   color: var(--app-accent);
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -294,14 +294,14 @@ button.app-quote-btn {
 
 .app-no-sources {
   margin: 0.45rem 0 0 0;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--app-muted);
 }
 
 .app-timing {
   margin: 0.4rem 0 0 0;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   line-height: 1.3;
   font-weight: 400;
   color: var(--app-muted);
@@ -327,7 +327,7 @@ button.app-quote-btn {
   margin-top: 2.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--app-line);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--app-muted);
 }
 
@@ -402,7 +402,7 @@ button.app-quote-btn {
 
 [data-testid="stSidebar"] .app-sidebar-model {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: var(--app-muted);
 }
 

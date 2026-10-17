@@ -10,6 +10,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from langchain_core.documents import Document  # noqa: E402
+
 from page_copy import (  # noqa: E402
     _CLIENT_COPY,
     BOOKING_URL_ENV,
@@ -18,12 +20,29 @@ from page_copy import (  # noqa: E402
     checked_all_pages_note,
     privacy_badge_for_provider,
     privacy_line_for_provider,
+    sample_preload_error_copy,
     should_preload_sample,
+    should_show_booking,
+    should_show_starter_chips,
 )
 from page_preview import highlight_rects, page_index, render_highlighted_page  # noqa: E402
 from rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer  # noqa: E402
-from sources_panel import split_answer_headline  # noqa: E402
+from session_upload import page_text_counts  # noqa: E402
+from sources_panel import (  # noqa: E402
+    display_answer_parts,
+    split_answer_headline,
+    strip_headline_markup,
+)
 from ui_theme import _HIDE_SIDEBAR_CSS, _THEME_CSS  # noqa: E402
+
+SECTION_4_SENTENCE = (
+    "This Agreement shall remain in effect for a period of three (3) years "
+    "from the date of signing."
+)
+GOVERNING_LAW_QUOTE = (
+    "This Agreement shall be governed by the laws of Spain. "
+    "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+)
 
 SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
@@ -57,7 +76,8 @@ def test_anthropic_badge_never_says_private_local_or_offline() -> None:
     assert "offline" not in lowered
     assert privacy_badge_for_provider("dummy") == label
     assert privacy_badge_for_provider("openai") == label
-    assert privacy_badge_for_provider("ollama") == "Runs offline"
+    assert privacy_badge_for_provider("ollama") == "Runs on this server"
+    assert "offline" not in privacy_badge_for_provider("ollama").lower()
 
 
 def test_refusal_sentinel_is_unchanged() -> None:
@@ -69,9 +89,11 @@ def test_refusal_sentinel_is_unchanged() -> None:
 
 
 def test_checked_all_pages_note() -> None:
-    assert checked_all_pages_note(4) == "Checked all 4 pages"
-    assert checked_all_pages_note(1) == "Checked the whole page"
-    assert checked_all_pages_note(0) == "Checked the document"
+    assert checked_all_pages_note(3) == "Searched all 3 pages"
+    assert checked_all_pages_note(1) == "Searched the whole page"
+    assert checked_all_pages_note(0) == "Searched the document"
+    assert checked_all_pages_note(3, any_blank=True) == "Searched the document"
+    assert checked_all_pages_note(1, any_blank=True) == "Searched the document"
 
 
 def test_should_preload_sample_only_on_first_paint() -> None:
@@ -81,19 +103,24 @@ def test_should_preload_sample_only_on_first_paint() -> None:
     assert not should_preload_sample(own_pdf_mode=False, has_upload=False, is_indexed=True)
 
 
-def test_booking_cta_is_blank_safe(monkeypatch) -> None:
+def test_booking_cta_hides_when_blank(monkeypatch) -> None:
     monkeypatch.delenv(BOOKING_URL_ENV, raising=False)
     empty = booking_cta("")
-    assert empty["prompt"] == "Want this on your documents?"
-    assert empty["action"] == "Book a 15-min call."
     assert empty["href"] is None
+    assert empty["prompt"] == ""
+    assert empty["action"] == ""
+    assert not should_show_booking("")
+    assert not should_show_booking("  ")
     assert booking_url("") == ""
     assert booking_url("  ") == ""
 
-    filled = booking_cta("https://cal.example/demo")
-    assert filled["href"] == "https://cal.example/demo"
-    monkeypatch.setenv(BOOKING_URL_ENV, "https://cal.example/from-env")
-    assert booking_url() == "https://cal.example/from-env"
+    filled = booking_cta("https://www.upwork.com/freelancers/roxanadev")
+    assert filled["href"] == "https://www.upwork.com/freelancers/roxanadev"
+    assert filled["prompt"] == "Want this on your documents?"
+    assert filled["action"] == "Message me on Upwork."
+    assert should_show_booking("https://www.upwork.com/freelancers/roxanadev")
+    monkeypatch.setenv(BOOKING_URL_ENV, "https://www.upwork.com/freelancers/roxanadev")
+    assert booking_url() == "https://www.upwork.com/freelancers/roxanadev"
 
 
 def test_split_answer_headline_prefers_short_first_line() -> None:
@@ -115,6 +142,10 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "--app-accent: #3d4fd8" in _THEME_CSS
     assert "sans-serif" in _THEME_CSS
     assert "app-typing-dots" in _THEME_CSS
+    assert "max-width: 860px" in _THEME_CSS
+    assert "0.72rem" not in _THEME_CSS
+    assert "0.78rem" not in _THEME_CSS
+    assert "0.82rem" not in _THEME_CSS
 
 
 def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
@@ -125,7 +156,72 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
 
 def test_booking_env_is_documented() -> None:
     example = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
-    assert "DEMO_BOOKING_URL=" in example
+    assert "DEMO_BOOKING_URL=https://www.upwork.com/freelancers/roxanadev" in example
+    assert "cal.com" not in example.lower()
+    assert "calendar" not in example.lower()
+
+
+def test_starter_chips_hide_after_first_answer() -> None:
+    assert should_show_starter_chips([])
+    assert should_show_starter_chips([{"role": "user", "content": "How long?"}])
+    assert not should_show_starter_chips(
+        [
+            {"role": "user", "content": "How long?"},
+            {"role": "assistant", "content": "3 years"},
+        ]
+    )
+
+
+def test_sample_preload_error_offers_retry() -> None:
+    copy = sample_preload_error_copy()
+    assert copy["error"] == "Could not load the sample NDA."
+    assert copy["retry"] == "Use sample NDA"
+
+    import session_upload
+    from session_upload import mark_sample_preload_failed, render_sample_preload_error
+
+    class _State(dict):
+        def __getattr__(self, name):
+            try:
+                return self[name]
+            except KeyError as exc:
+                raise AttributeError(name) from exc
+
+        def __setattr__(self, name, value):
+            self[name] = value
+
+    fake = _State()
+    previous = session_upload.st.session_state
+    session_upload.st.session_state = fake
+    try:
+        mark_sample_preload_failed()
+        assert fake.sample_preload_failed is True
+        assert fake.doc_status == "error"
+        assert "sample NDA" in fake.doc_status_detail
+        assert callable(render_sample_preload_error)
+    finally:
+        session_upload.st.session_state = previous
+
+
+def test_page_text_counts_ignore_blank_pages() -> None:
+    docs = [
+        Document(page_content="Section 4 - Term", metadata={"page": 1}),
+        Document(page_content="   ", metadata={"page": 2}),
+        Document(page_content="Spain / Madrid", metadata={"page": 3}),
+    ]
+    text_pages, blank_pages = page_text_counts(docs)
+    assert text_pages == 2
+    assert blank_pages == 1
+
+
+def test_headline_strips_markdown_emphasis() -> None:
+    assert strip_headline_markup("**3 years**") == "3 years"
+    headline, body = display_answer_parts("**3 years**\n\nThe term runs from signing.")
+    assert headline == "3 years"
+    assert "signing" in body
+    fallback, plain = display_answer_parts("**12 months**", "three (3) years from the date")
+    assert fallback == ""
+    assert "12 months" in plain
 
 
 def test_page_index_is_one_based() -> None:
@@ -135,17 +231,53 @@ def test_page_index_is_one_based() -> None:
     assert page_index("x") is None
 
 
-def test_highlight_finds_term_on_sample_nda() -> None:
+def test_working_timer_stays_in_developer_mode() -> None:
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    assert "Working…" in text
+    assert "script_ctx is not None and st.session_state.developer_mode" in text
+
+
+def test_show_page_button_label_is_in_the_sources_panel() -> None:
+    text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
+    assert '"Show page"' in text
+    assert "click the quote" not in text.lower()
+
+
+def test_highlight_covers_section_4_sentence() -> None:
     import pymupdf
 
     pdf_bytes = SAMPLE_NDA.read_bytes()
-    png = render_highlighted_page(pdf_bytes, 2, "three (3) years")
+    png = render_highlighted_page(pdf_bytes, 2, SECTION_4_SENTENCE)
     assert png
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
 
     doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     try:
-        rects = highlight_rects(doc[1], "three (3) years")
+        page = doc[1]
+        expected = page.search_for(SECTION_4_SENTENCE)
+        rects = highlight_rects(page, SECTION_4_SENTENCE)
     finally:
         doc.close()
+    assert expected
     assert rects
+    expected_area = sum(rect.get_area() for rect in expected)
+    covered = 0.0
+    for target in expected:
+        for hit in rects:
+            covered += (target & hit).get_area()
+    assert covered + 1e-6 >= expected_area
+
+
+def test_sample_nda_copy_matches_pdf() -> None:
+    import pymupdf
+
+    doc = pymupdf.open(SAMPLE_NDA)
+    try:
+        pages = [page.get_text() for page in doc]
+    finally:
+        doc.close()
+    assert len(pages) == 3
+    assert "Section 4 - Term" in pages[1]
+    assert SECTION_4_SENTENCE in " ".join(pages[1].split())
+    assert "Section 7 - Governing Law" in pages[2]
+    assert GOVERNING_LAW_QUOTE in " ".join(pages[2].split())

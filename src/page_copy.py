@@ -34,11 +34,12 @@ _CLIENT_COPY = {
         "Do not upload real company files on the shared pilot."
     ),
     "ask_button": "Ask",
-    "no_sources": "Checked the document",
-    "checked_pages": "Checked all {n} pages",
-    "checked_one_page": "Checked the whole page",
+    "no_sources": "Searched the document",
+    "checked_pages": "Searched all {n} pages",
+    "checked_one_page": "Searched the whole page",
+    "sample_preload_error": "Could not load the sample NDA.",
     "booking_prompt": "Want this on your documents?",
-    "booking_action": "Book a 15-min call.",
+    "booking_action": "Message me on Upwork.",
     "progress_prepare": "preparing",
     "progress_extract": "extracting text",
     "progress_chunk": "preparing the index",
@@ -47,7 +48,7 @@ _CLIENT_COPY = {
     "progress_done": "ready",
     "chat_blocked_indexing": ("Still reading the document. Wait until you can type, then ask."),
     "chat_blocked_empty": "The sample NDA is still loading. Try again in a moment.",
-    "privacy_badge_ollama": "Runs offline",
+    "privacy_badge_ollama": "Runs on this server",
     "privacy_badge_hosted": "How your data is handled",
     "privacy_ollama": (
         "Runs on this server: your PDF, search and answers never leave it. "
@@ -99,7 +100,7 @@ def privacy_badge_for_provider(provider: str) -> str:
 
 
 def booking_url(raw: str | None = None) -> str:
-    """Calendar link from env, or empty. Blank is safe."""
+    """Upwork profile from env, or empty. Blank hides the whole line."""
     if raw is None:
         raw = os.getenv(BOOKING_URL_ENV)
     return (raw or "").strip()
@@ -108,20 +109,40 @@ def booking_url(raw: str | None = None) -> str:
 def booking_cta(url: str | None = None) -> dict[str, str | None]:
     """Copy for the post-third-answer line. ``href`` is None when the env is blank."""
     href = booking_url(url)
+    if not href:
+        return {"prompt": "", "action": "", "href": None}
     return {
         "prompt": _CLIENT_COPY["booking_prompt"],
         "action": _CLIENT_COPY["booking_action"],
-        "href": href or None,
+        "href": href,
     }
 
 
-def checked_all_pages_note(pages: int) -> str:
-    """Calm refusal footnote so a miss reads careful, not broken."""
+def should_show_booking(url: str | None = None) -> bool:
+    """Hide the booking line when DEMO_BOOKING_URL is blank."""
+    return bool(booking_url(url))
+
+
+def should_show_starter_chips(messages: list[dict] | None) -> bool:
+    """Starter chips stay until the first assistant answer, then hide."""
+    return not any((message or {}).get("role") == "assistant" for message in (messages or []))
+
+
+def sample_preload_error_copy() -> dict[str, str]:
+    """Short error plus the retry button label when sample preload fails."""
+    return {
+        "error": _CLIENT_COPY["sample_preload_error"],
+        "retry": _CLIENT_COPY["sample_button"],
+    }
+
+
+def checked_all_pages_note(pages: int, *, any_blank: bool = False) -> str:
+    """Refusal footnote: count pages that produced text; hedge if any were blank."""
+    if any_blank or pages <= 0:
+        return _CLIENT_COPY["no_sources"]
     if pages == 1:
         return _CLIENT_COPY["checked_one_page"]
-    if pages > 1:
-        return _CLIENT_COPY["checked_pages"].format(n=pages)
-    return _CLIENT_COPY["no_sources"]
+    return _CLIENT_COPY["checked_pages"].format(n=pages)
 
 
 def should_preload_sample(*, own_pdf_mode: bool, has_upload: bool, is_indexed: bool) -> bool:
@@ -170,19 +191,20 @@ def _render_privacy_badge(provider: str) -> None:
 
 
 def _render_booking_cta(url: str | None = None) -> None:
-    """One next-step line. The action is a link only when a URL is set."""
+    """One next-step line. Hidden entirely when DEMO_BOOKING_URL is blank."""
+    if not should_show_booking(url):
+        return
     cta = booking_cta(url)
     prompt = html.escape(str(cta["prompt"]))
     action = html.escape(str(cta["action"]))
     href = cta["href"]
-    if href:
-        safe_href = html.escape(href, quote=True)
-        action_html = (
-            f'<a class="app-booking__link" href="{safe_href}" '
-            f'target="_blank" rel="noopener noreferrer">{action}</a>'
-        )
-    else:
-        action_html = action
+    if not href:
+        return
+    safe_href = html.escape(href, quote=True)
+    action_html = (
+        f'<a class="app-booking__link" href="{safe_href}" '
+        f'target="_blank" rel="noopener noreferrer">{action}</a>'
+    )
     st.markdown(
         f'<p class="app-booking">{prompt} {action_html}</p>',
         unsafe_allow_html=True,

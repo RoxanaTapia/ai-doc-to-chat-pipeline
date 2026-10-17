@@ -18,8 +18,8 @@ flowchart LR
 ```
 
 1. **Gate.** Request an invite, then open the app. The sample NDA is already loaded.
-2. **Ask.** Type in the question box, or use a starter chip and press **Ask**. A short answer appears first, then a **Page N** badge and quote. Click the quote to see the page.
-3. **Refuse.** Ask something the PDF does not cover. The app keeps the exact miss sentence and notes that it checked every page.
+2. **Ask.** Type in the question box, or use a starter chip and press **Ask**. A short answer appears first, then a **Page N** badge and quote. **Show page** opens the passage highlighted.
+3. **Refuse.** Ask something the PDF does not cover. The app keeps the exact miss sentence and notes that it searched the pages that produced text.
 4. **Your PDF.** **Try your own PDF** is a small link. Do not upload real company files on the shared pilot.
 
 Files are processed in memory and deleted right after processing. Each visit starts fresh.
