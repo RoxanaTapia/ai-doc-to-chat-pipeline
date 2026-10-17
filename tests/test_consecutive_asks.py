@@ -115,6 +115,24 @@ def test_client_first_load_has_no_missing_submit_button(stub_env) -> None:
     assert at.button(ASK_KEY) is not None
 
 
+def _chip_button_keys(at) -> set[str]:
+    keys: set[str] = set()
+    for btn in at.button:
+        key = getattr(btn, "key", None)
+        if key and str(key).startswith("chip_"):
+            keys.add(str(key))
+    return keys
+
+
+def _plain_markdown_values(at) -> list[str]:
+    values: list[str] = []
+    for block in at.markdown:
+        value = (block.value or "").strip()
+        if value and "<" not in value:
+            values.append(value)
+    return values
+
+
 def test_starter_chip_submits_and_answers(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
@@ -122,6 +140,7 @@ def test_starter_chip_submits_and_answers(stub_env) -> None:
     at.run(timeout=30)
     assert not at.exception
     assert _session_get(at, "vector_store") is not None
+    assert TERM_CHIP_KEY in _chip_button_keys(at)
 
     at.button(TERM_CHIP_KEY).click()
     at.run(timeout=30)
@@ -134,6 +153,11 @@ def test_starter_chip_submits_and_answers(stub_env) -> None:
     assert assistants and "3 years" in (assistants[0].get("content") or "")
     ask_box = _session_get(at, "ask_box", "")
     assert ask_box in {"", None}
+    assert not _chip_button_keys(at)
+    leaked = "\n".join(_plain_markdown_values(at))
+    assert LAW_QUESTION not in leaked
+    assert FEE_QUESTION not in leaked
+    assert TERM_QUESTION in _card_questions(at)
 
 
 def test_client_first_ask_skips_cross_encoder(stub_env) -> None:

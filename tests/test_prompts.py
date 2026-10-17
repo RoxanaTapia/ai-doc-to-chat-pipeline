@@ -135,24 +135,29 @@ def test_privacy_line_follows_generator_without_overclaiming() -> None:
     ollama = privacy_line_for_provider("ollama")
     assert ollama == (
         "Runs on this server: your PDF, search and answers never leave it. "
-        "Files are deleted right after processing."
+        "Kept only for this browser session, and cleared when you leave or reset."
     )
     assert "passages" not in ollama
     assert "Anthropic" not in ollama
+    assert "deleted" not in ollama.lower()
 
     anthropic = privacy_line_for_provider("anthropic")
     assert anthropic == (
-        "Your PDF and search stay on this server; only the few passages "
-        "needed for an answer are sent to a hosted model (Anthropic). "
-        "Files are deleted right after processing."
+        "Your PDF and search stay on this server for this browser session; "
+        "only the few passages needed for an answer are sent to a hosted model "
+        "(Anthropic). Cleared when you leave or reset."
     )
     assert "never leave" not in anthropic
+    assert "deleted" not in anthropic.lower()
 
     dummy = privacy_line_for_provider("dummy")
     assert dummy == _CLIENT_COPY["privacy_memory"]
-    assert dummy == "Files are deleted right after processing."
+    assert dummy == (
+        "Your PDF is kept only for this browser session, and cleared when you leave or reset."
+    )
     assert "never leave" not in dummy
     assert "passages" not in dummy
+    assert "deleted" not in dummy.lower()
     assert privacy_line_for_provider("openai") == _CLIENT_COPY["privacy_memory"]
     assert "never stored" not in dummy
     assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]

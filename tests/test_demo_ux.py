@@ -54,17 +54,30 @@ def test_hero_is_one_subtitle() -> None:
     assert not _CLIENT_COPY["hero_kicker"]
 
 
-def test_privacy_wording_is_unchanged() -> None:
-    assert privacy_line_for_provider("ollama") == (
+def test_privacy_wording_matches_session_lifetime() -> None:
+    """Pin the visitor lines so they cannot claim a delete the code does not do."""
+    ollama = privacy_line_for_provider("ollama")
+    anthropic = privacy_line_for_provider("anthropic")
+    dummy = privacy_line_for_provider("dummy")
+    assert ollama == (
         "Runs on this server: your PDF, search and answers never leave it. "
-        "Files are deleted right after processing."
+        "Kept only for this browser session, and cleared when you leave or reset."
     )
-    assert privacy_line_for_provider("anthropic") == (
-        "Your PDF and search stay on this server; only the few passages "
-        "needed for an answer are sent to a hosted model (Anthropic). "
-        "Files are deleted right after processing."
+    assert anthropic == (
+        "Your PDF and search stay on this server for this browser session; "
+        "only the few passages needed for an answer are sent to a hosted model "
+        "(Anthropic). Cleared when you leave or reset."
     )
-    assert privacy_line_for_provider("dummy") == "Files are deleted right after processing."
+    assert dummy == (
+        "Your PDF is kept only for this browser session, and cleared when you leave or reset."
+    )
+    for line in (ollama, anthropic, dummy):
+        assert "deleted" not in line.lower()
+        assert "dsgvo" not in line.lower()
+        assert "gdpr" not in line.lower()
+    assert "never leave" not in anthropic
+    assert "passages" not in ollama
+    assert "Anthropic" not in ollama
 
 
 def test_anthropic_badge_never_says_private_local_or_offline() -> None:
@@ -170,9 +183,9 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
 def test_readme_hosted_wording_does_not_overclaim() -> None:
     text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     hosted = (
-        "Your PDF and search stay on this server; only the few passages "
-        "needed for an answer are sent to a hosted model (Anthropic). "
-        "Files are deleted right after processing."
+        "Your PDF and search stay on this server for this browser session; "
+        "only the few passages needed for an answer are sent to a hosted model "
+        "(Anthropic). Cleared when you leave or reset."
     )
     assert hosted in text
     assert text.startswith("# PDF Q&A with page citations\n")
@@ -184,10 +197,14 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "**Private embeddings**" not in text
     heading = text.split("\n", 1)[0].lower()
     assert "private" not in heading
+    script = (PROJECT_ROOT / "docs" / "product" / "demo-script.md").read_text(encoding="utf-8")
+    assert "deleted right after processing" not in script
+    assert "tap a starter question" in script
     pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0]
     hosted_block = pilot.split("On your own server", 1)[0].lower()
     assert "private" not in hosted_block
     assert "local" not in hosted_block
+    assert "deleted" not in hosted_block
     arch = text.split("## How an answer is grounded", 1)[1].split("## ", 1)[0]
     assert "docs/assets/aidoc_architecture.png" in arch
     assert "caddy" not in arch.lower()
@@ -216,6 +233,11 @@ def test_starter_chips_hide_after_first_answer() -> None:
             {"role": "user", "content": "How long?"},
             {"role": "assistant", "content": "3 years"},
         ]
+    )
+    assert not should_show_starter_chips([], query="How long does this agreement last?")
+    assert not should_show_starter_chips(
+        [{"role": "user", "content": "How long?"}],
+        query="How long?",
     )
 
 
@@ -305,6 +327,7 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "pending_question" not in text
     assert "queued_question = chip" not in text
     assert '_queue_question(chip["question"])' in text
+    assert "should_show_starter_chips(st.session_state.messages, query)" in text
 
 
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
