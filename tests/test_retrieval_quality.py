@@ -186,7 +186,7 @@ def test_filter_docs_overlapping_answer_keeps_matching_chunks() -> None:
     assert filtered == [matching]
 
 
-def test_filter_docs_overlapping_answer_empty_filter_falls_back() -> None:
+def test_filter_docs_overlapping_answer_empty_filter_keeps_top_retrieved() -> None:
     answer = "Liquidated damages equal ten thousand euros upon breach."
     ranked = [
         Document(
@@ -199,8 +199,7 @@ def test_filter_docs_overlapping_answer_empty_filter_falls_back() -> None:
         ),
     ]
     filtered = filter_docs_overlapping_answer(ranked, answer)
-    assert filtered is ranked
-    assert filtered == ranked
+    assert filtered == ranked[:1]
 
 
 def test_filter_docs_overlapping_answer_empty_answer_returns_original() -> None:
@@ -209,6 +208,61 @@ def test_filter_docs_overlapping_answer_empty_answer_returns_original() -> None:
     ]
     assert filter_docs_overlapping_answer(docs, "") is docs
     assert filter_docs_overlapping_answer(docs, "   ") is docs
+
+
+def test_term_sources_keep_retrieval_order_and_drop_unrelated() -> None:
+    """Live demo: Entire Agreement and Governing Law must not outrank Term."""
+    entire = Document(
+        page_content=(
+            "Section 8 - Entire Agreement\n"
+            "This Agreement constitutes the entire understanding between the parties "
+            "with respect to its subject matter and supersedes all prior negotiations."
+        ),
+        metadata={"page": 3, "similarity": 0.92},
+    )
+    law = Document(
+        page_content=(
+            "Section 7 - Governing Law\n"
+            "This Agreement shall be governed by the laws of Spain. "
+            "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+        ),
+        metadata={"page": 3, "similarity": 0.88},
+    )
+    term = Document(
+        page_content=(
+            "Section 4 - Term\n"
+            "This Agreement shall remain in effect for a period of three (3) years "
+            "from the date of signing."
+        ),
+        metadata={"page": 2, "similarity": 0.41},
+    )
+    answer = (
+        "3 years\n\n"
+        "This Agreement shall remain in effect for a period of three (3) years "
+        "from the date of signing."
+    )
+    payload = build_sources_payload(
+        [entire, law, term],
+        query="How long does this agreement last?",
+        answer=answer,
+        display_max=3,
+        preview_chars=280,
+    )
+    assert payload
+    assert payload[0]["page"] == 2
+    assert "three (3) years" in payload[0]["preview"]
+    joined = " ".join(entry.get("preview") or "" for entry in payload)
+    assert "Entire Agreement" not in joined
+    assert "Governing Law" not in joined
+
+    ranked_first = build_sources_payload(
+        [term, entire, law],
+        query="How long does this agreement last?",
+        answer=answer,
+        display_max=3,
+        preview_chars=280,
+    )
+    assert ranked_first[0]["page"] == 2
 
 
 def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
