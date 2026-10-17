@@ -127,6 +127,13 @@ div[data-testid="stVerticalBlock"]:has(.app-primary-mark) {
   margin: 0 0 0.35rem 0;
 }
 
+.app-privacy {
+  margin: 0.55rem 0 0.1rem 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--app-muted);
+}
+
 /* Answer cards: grey question, larger semibold answer */
 div[data-testid="stVerticalBlock"]:has(.app-answer-q) {
   background: var(--app-panel);
@@ -195,6 +202,20 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal)
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--app-muted);
+}
+
+.app-timing {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--app-muted);
+}
+
+[data-testid="stChatAvatar"],
+[data-testid="chatAvatar"],
+[data-testid="stChatMessageAvatar"] {
+  display: none !important;
 }
 
 .app-chips-label {

@@ -21,6 +21,7 @@ from page_copy import (
     _render_client_hero,
     _render_sidebar_footer,
     _render_sidebar_pitch,
+    privacy_line_for_provider,
 )
 from rag import (
     generate_answer,
@@ -628,6 +629,13 @@ if st.button(
 ):
     if load_sample_nda():
         st.rerun()
+_privacy_provider = resolve_llm_provider_name(
+    dummy_mode=st.session_state.dummy_generator_only
+)
+st.markdown(
+    f'<p class="app-privacy">{html.escape(privacy_line_for_provider(_privacy_provider))}</p>',
+    unsafe_allow_html=True,
+)
 
 prev_uploader_had_file = st.session_state.get("_uploader_widget_had_file", False)
 curr_uploader_has_file = uploaded_file is not None
@@ -857,12 +865,10 @@ if chat_ready:
         '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
         unsafe_allow_html=True,
     )
-    chip_cols = st.columns(len(STARTER_CHIPS))
-    for col, chip in zip(chip_cols, STARTER_CHIPS, strict=True):
-        with col:
-            if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
-                st.session_state.pending_question = chip["question"]
-                st.rerun()
+    for chip in STARTER_CHIPS:
+        if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
+            st.session_state.pending_question = chip["question"]
+            st.rerun()
 
 with st.form("ask_form", clear_on_submit=True, border=False):
     typed = st.text_input(

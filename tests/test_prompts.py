@@ -74,14 +74,75 @@ def test_rag_prompt_includes_reliability_rules() -> None:
     assert "I could not find enough information in the document to answer." not in template
 
 
+def test_streamlit_disables_browser_usage_stats() -> None:
+    text = (PROJECT_ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+    assert "gatherUsageStats = false" in text
+
+
 def test_sample_nda_pdf_is_present() -> None:
     pdf = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
     assert pdf.is_file()
     assert pdf.stat().st_size > 1000
 
 
+def test_sample_nda_pdf_keeps_storyboard_facts() -> None:
+    import pymupdf
+
+    doc = pymupdf.open(PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf")
+    pages = [page.get_text() for page in doc]
+    full = "\n".join(pages)
+    assert len(pages) >= 3
+    assert "Convert this file to PDF" not in full
+    assert "penalty" not in full.lower()
+    assert "three (3) years" in pages[1]
+    assert "Section 4" in pages[1]
+    assert "Spain" in pages[2]
+    assert "Madrid" in pages[2]
+    assert "CONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT" in pages[0]
+    title_lines = [
+        line
+        for block in doc[0].get_text("blocks")
+        for line in str(block[4]).splitlines()
+        if "CONFIDENTIALITY AND NON-DISCLOSURE AGREEMENT" in line
+    ]
+    assert title_lines, "title should appear as one line on page 1"
+    remedies_pages = [text for text in pages if "Remedies" in text]
+    assert remedies_pages
+    assert all("irreparable" in text for text in remedies_pages)
+
+
 def test_starter_chips_include_two_hits_and_one_miss() -> None:
-    text = (PROJECT_ROOT / "src" / "page_copy.py").read_text(encoding="utf-8")
-    assert "How is Confidential Information defined in Section 1?" in text
-    assert "What obligations does Section 3 impose on the Receiving Party?" in text
-    assert "Does this agreement specify liquidated damages?" in text
+    from page_copy import STARTER_CHIPS
+
+    questions = [chip["question"] for chip in STARTER_CHIPS]
+    assert questions == [
+        "How long does this agreement last?",
+        "Which country's law applies, and where are disputes settled?",
+        "What is the penalty fee if Beta Labs breaks this agreement?",
+    ]
+    assert [chip["label"] for chip in STARTER_CHIPS] == questions
+
+
+def test_privacy_line_follows_generator_without_overclaiming() -> None:
+    from page_copy import _CLIENT_COPY, privacy_line_for_provider
+
+    ollama = privacy_line_for_provider("ollama")
+    assert ollama.startswith(_CLIENT_COPY["privacy_ollama"])
+    assert ollama.endswith(_CLIENT_COPY["privacy_memory"])
+    assert "passages" not in ollama
+    assert "never leave" in ollama
+
+    anthropic = privacy_line_for_provider("anthropic")
+    assert anthropic.startswith(_CLIENT_COPY["privacy_anthropic"])
+    assert anthropic.endswith(_CLIENT_COPY["privacy_memory"])
+    assert "never leave" not in anthropic
+    assert "passages" in anthropic
+
+    dummy = privacy_line_for_provider("dummy")
+    assert dummy == _CLIENT_COPY["privacy_memory"]
+    assert "never leave" not in dummy
+    assert "passages" not in dummy
+    assert privacy_line_for_provider("openai") == _CLIENT_COPY["privacy_memory"]
+    assert "deleted right after processing" in dummy
+    assert "never stored" not in dummy
+    assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]

@@ -11,8 +11,7 @@ _CLIENT_COPY = {
     "hero_title": "Ask your document",
     "hero_lead": (
         "Grounded answers from a confidential PDF, with "
-        "<strong>page-level sources</strong> you can verify. "
-        "Runs on infrastructure you control."
+        "<strong>page-level sources</strong> you can verify."
     ),
     "hero_kicker": "Policies, SOPs, reports, contracts — upload one PDF, then ask.",
     "chat_ready": "Ask about this document…",
@@ -22,7 +21,7 @@ _CLIENT_COPY = {
     "doc_reading": "Reading {name} — {step}",
     "doc_ready": "{name} is ready. Ask a question.",
     "doc_answering": "Answering…",
-    "sample_button": "Try the sample NDA",
+    "sample_button": "Use sample NDA",
     "sample_help": (
         "Loads the fictional walkthrough NDA in one click. "
         "Do not upload real company files on the shared pilot."
@@ -40,23 +39,44 @@ _CLIENT_COPY = {
         "Still reading the document. Wait until the status says ready, then ask."
     ),
     "chat_blocked_empty": ("Upload a PDF or try the sample NDA, then wait until it is ready."),
+    "privacy_ollama": (
+        "Runs on this server: your PDF, search and answers never leave it."
+    ),
+    "privacy_anthropic": (
+        "Your PDF and search stay on this server; only the few passages "
+        "needed for an answer are sent to the model."
+    ),
+    "privacy_memory": (
+        "Files are processed in memory and deleted right after processing."
+    ),
 }
 
 # Two questions the sample NDA answers; one it does not.
 STARTER_CHIPS = (
     {
-        "label": "What's confidential information?",
-        "question": "How is Confidential Information defined in Section 1?",
+        "label": "How long does this agreement last?",
+        "question": "How long does this agreement last?",
     },
     {
-        "label": "What does Section 3 require?",
-        "question": "What obligations does Section 3 impose on the Receiving Party?",
+        "label": "Which country's law applies, and where are disputes settled?",
+        "question": "Which country's law applies, and where are disputes settled?",
     },
     {
-        "label": "Any liquidated damages?",
-        "question": "Does this agreement specify liquidated damages?",
+        "label": "What is the penalty fee if Beta Labs breaks this agreement?",
+        "question": "What is the penalty fee if Beta Labs breaks this agreement?",
     },
 )
+
+
+def privacy_line_for_provider(provider: str) -> str:
+    """One accurate privacy line for the active generator. Do not overclaim."""
+    name = (provider or "").strip().lower()
+    memory = _CLIENT_COPY["privacy_memory"]
+    if name == "ollama":
+        return f"{_CLIENT_COPY['privacy_ollama']} {memory}"
+    if name == "anthropic":
+        return f"{_CLIENT_COPY['privacy_anthropic']} {memory}"
+    return memory
 
 
 def _inject_demo_styles() -> None:
@@ -86,10 +106,10 @@ def _render_sidebar_pitch() -> None:
         <div class="app-sidebar-block">
           <p class="app-sidebar-pitch">
             Private PDF Q&amp;A with <strong>page sources</strong> you can check.
-            One file per session, on infrastructure you control.
+            One file per session.
           </p>
           <p class="app-sidebar-howto">
-            Upload a PDF, or try the sample NDA. When the status says ready,
+            Upload a PDF, or use the sample NDA. When the status says ready,
             type a question and press Ask. A page badge appears under the
             answer so you can verify the clause.
           </p>

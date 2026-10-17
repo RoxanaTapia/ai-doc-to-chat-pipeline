@@ -263,11 +263,10 @@ def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bo
     """Put the timing caption under the answer, not inside it."""
     if not timing or timing.get("total_ms", 0) <= 0:
         return
-    st.caption(
-        _response_timing_caption(
-            total_ms=timing["total_ms"],
-            retrieval_ms=timing.get("retrieval_ms", 0.0),
-            generation_ms=timing.get("generation_ms", 0.0),
-            developer_mode=developer_mode,
-        )
+    caption = _response_timing_caption(
+        total_ms=timing["total_ms"],
+        retrieval_ms=timing.get("retrieval_ms", 0.0),
+        generation_ms=timing.get("generation_ms", 0.0),
+        developer_mode=developer_mode,
     )
+    st.markdown(f'<p class="app-timing">{html.escape(caption)}</p>', unsafe_allow_html=True)

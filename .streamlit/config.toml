@@ -10,6 +10,9 @@ baseUrlPath = "app"
 showErrorLinks = false
 showErrorDetails = "type"
 
+[browser]
+gatherUsageStats = false
+
 [theme]
 # Match receipt-intelligence-demo: indigo accent, off-white paper, near-black ink.
 primaryColor = "#3d4fd8"
