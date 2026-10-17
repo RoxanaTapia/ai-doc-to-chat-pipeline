@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from collections.abc import Iterator
 
 from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
@@ -36,6 +37,33 @@ def stub_demo_answer(query: str) -> str | None:
     if "long" in lowered or "last" in lowered or "term" in lowered:
         return f"3 years\n\n{_SAMPLE_TERM_LINE}"
     return INSUFFICIENT_CONTEXT_ANSWER
+
+
+def _stub_stream_delay_seconds() -> float:
+    raw = (os.getenv("DEMO_STUB_STREAM_DELAY_MS") or "").strip()
+    if not raw:
+        return 0.0
+    try:
+        return max(0.0, float(raw) / 1000.0)
+    except ValueError:
+        return 0.0
+
+
+def stub_demo_answer_stream(query: str) -> Iterator[str] | None:
+    """Yield the canned answer in tokens, optionally pausing like a hosted model."""
+    canned = stub_demo_answer(query)
+    if canned is None:
+        return None
+    delay = _stub_stream_delay_seconds()
+    tokens = canned.split(" ")
+
+    def _chunks() -> Iterator[str]:
+        for i, token in enumerate(tokens):
+            yield token if i == len(tokens) - 1 else f"{token} "
+            if delay:
+                time.sleep(delay)
+
+    return _chunks()
 
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B-\x1F\x7F]")
@@ -98,9 +126,9 @@ def generate_answer_stream(
         yield prepared
         return
     safe_context, safe_query = prepared
-    canned = stub_demo_answer(safe_query)
-    if canned is not None:
-        yield canned
+    canned_stream = stub_demo_answer_stream(safe_query)
+    if canned_stream is not None:
+        yield from canned_stream
         return
 
     provider_name = resolve_llm_provider_name(dummy_mode=dummy_mode)
