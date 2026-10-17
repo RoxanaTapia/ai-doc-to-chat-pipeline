@@ -207,7 +207,8 @@ def _render_answer_card(
     """Muted question, one-line headline, page badge, or a calm refusal."""
     is_refusal = bool(refusal) or is_insufficient_answer(answer, question)
     marker = "app-answer-card--refusal" if is_refusal else "app-answer-card"
-    with st.container():
+    card_kind = "refusal_card" if is_refusal else "answer_card"
+    with st.container(key=f"{card_kind}_{card_key}"):
         st.markdown(
             f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
             unsafe_allow_html=True,

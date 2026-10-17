@@ -1,4 +1,4 @@
-# Private PDF Q&A
+# PDF Q&A with page citations
 
 > Grounded answers from a confidential PDF, with page citations.
 

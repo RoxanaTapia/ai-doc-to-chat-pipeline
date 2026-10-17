@@ -274,7 +274,8 @@ div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"]:hover {
   75% { content: "..."; }
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-q) {
+[class*="st-key-answer_card_"],
+[class*="st-key-refusal_card_"] {
   background: var(--app-panel);
   border: 1px solid var(--app-line);
   border-radius: var(--app-radius);
@@ -283,7 +284,7 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-q) {
   margin: 0 0 1.1rem 0;
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
+[class*="st-key-refusal_card_"] {
   background: var(--app-warn-bg);
   border-color: color-mix(in srgb, var(--app-warn) 18%, var(--app-line));
   box-shadow: none;
@@ -313,7 +314,7 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
   color: var(--app-slate);
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) .app-answer-headline {
+[class*="st-key-refusal_card_"] .app-answer-headline {
   font-size: 1.2rem;
   letter-spacing: -0.02em;
   font-weight: 600;
