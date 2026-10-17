@@ -284,6 +284,16 @@ def test_working_timer_stays_in_developer_mode() -> None:
     assert "script_ctx is not None and st.session_state.developer_mode" in text
 
 
+def test_ask_path_queues_then_generates_without_write_stream() -> None:
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    assert "queued_question" in text
+    assert "st.write_stream" not in text
+    assert "AskTimeoutError" in text
+    assert _CLIENT_COPY["doc_timeout"] == (
+        "That took too long, so I stopped. Please ask again."
+    )
+
+
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert '"Show page"' in text
