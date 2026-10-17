@@ -629,9 +629,7 @@ if st.button(
 ):
     if load_sample_nda():
         st.rerun()
-_privacy_provider = resolve_llm_provider_name(
-    dummy_mode=st.session_state.dummy_generator_only
-)
+_privacy_provider = resolve_llm_provider_name(dummy_mode=st.session_state.dummy_generator_only)
 st.markdown(
     f'<p class="app-privacy">{html.escape(privacy_line_for_provider(_privacy_provider))}</p>',
     unsafe_allow_html=True,

@@ -129,7 +129,7 @@ def build() -> Path:
     y = _body(
         page,
         y,
-        'This Agreement is entered into as of January 1, 2025, between Acme Corp '
+        "This Agreement is entered into as of January 1, 2025, between Acme Corp "
         '("Disclosing Party") and Beta Labs Ltd ("Receiving Party").',
     )
     y = _heading(page, y + 6, "Section 1 - Definition of Confidential Information")
@@ -146,17 +146,21 @@ def build() -> Path:
     )
     y = _heading(page, y + 4, "Section 2 - Exclusions")
     y = _body(page, y, "The obligations of this Agreement do not apply to information that:")
-    y = _bullet(page, y, "is or becomes publicly available through no fault of the Receiving Party;")
+    y = _bullet(
+        page, y, "is or becomes publicly available through no fault of the Receiving Party;"
+    )
     y = _bullet(page, y, "was rightfully known to the Receiving Party before disclosure;")
     y = _bullet(
         page,
         y,
-        "is independently developed by the Receiving Party without use of Confidential Information;",
+        "is independently developed by the Receiving Party without use of "
+        "Confidential Information;",
     )
     y = _bullet(
         page,
         y,
-        "is required to be disclosed by law or court order, provided prompt written notice is given.",
+        "is required to be disclosed by law or court order, provided prompt "
+        "written notice is given.",
     )
     _footer(page, 1)
 

@@ -39,16 +39,12 @@ _CLIENT_COPY = {
         "Still reading the document. Wait until the status says ready, then ask."
     ),
     "chat_blocked_empty": ("Upload a PDF or try the sample NDA, then wait until it is ready."),
-    "privacy_ollama": (
-        "Runs on this server: your PDF, search and answers never leave it."
-    ),
+    "privacy_ollama": ("Runs on this server: your PDF, search and answers never leave it."),
     "privacy_anthropic": (
         "Your PDF and search stay on this server; only the few passages "
         "needed for an answer are sent to the model."
     ),
-    "privacy_memory": (
-        "Files are processed in memory and deleted right after processing."
-    ),
+    "privacy_memory": ("Files are processed in memory and deleted right after processing."),
 }
 
 # Two questions the sample NDA answers; one it does not.
