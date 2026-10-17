@@ -1,3 +1,4 @@
+import hashlib
 import html
 import os
 import tempfile
@@ -17,10 +18,13 @@ from api_client import api_base_url, chat_via_api, chat_via_api_stream
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
+    _render_booking_cta,
+    _render_client_footer,
     _render_client_hero,
+    _render_privacy_badge,
     _render_sidebar_footer,
     _render_sidebar_pitch,
-    privacy_line_for_provider,
+    booking_url,
 )
 from rag import (
     generate_answer,
@@ -43,6 +47,7 @@ from rag.retrieval import (
     first_stage_retrieval,
 )
 from session_upload import (
+    SAMPLE_NDA_NAME,
     _cache_upload,
     _chat_blocked_user_message,
     _chat_input_placeholder,
@@ -57,8 +62,8 @@ from session_upload import (
     _set_dev_index_logs,
     _set_indexed_doc_stats,
     _set_processed_document,
-    load_sample_nda,
     paint_status,
+    preload_sample_nda,
 )
 from sources_panel import (
     _build_sources_payload,
@@ -72,8 +77,9 @@ from sources_panel import (
 )
 
 st.set_page_config(
-    page_title="Document Q&A · Private RAG",
-    layout="wide",
+    page_title="Ask your document",
+    layout="centered",
+    initial_sidebar_state="collapsed",
     menu_items={
         "Get Help": None,
         "Report a bug": None,
@@ -221,6 +227,36 @@ except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError, ValueEr
 def get_embeddings(model_name: str) -> HuggingFaceEmbeddings:
     """Cache embedding model to avoid repeated heavy initialization."""
     return HuggingFaceEmbeddings(model_name=model_name)
+
+
+@st.cache_resource(show_spinner=False)
+def get_sample_nda_index(
+    model_name: str,
+    chunk_size: int,
+    chunk_overlap: int,
+    header_split: bool,
+) -> dict:
+    """Index the walkthrough NDA once per process so first paint can skip setup."""
+    from rag.ingestion import extract_pdf as _extract_pdf
+    from session_upload import sample_nda_path
+
+    path = sample_nda_path()
+    extracted = _extract_pdf(path, enable_ocr=False)
+    chunks = chunk_pages(
+        extracted.page_docs,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        split_on_legal_headers=header_split,
+    )
+    store = FAISS.from_documents(chunks, get_embeddings(model_name))
+    return {
+        "bytes": path.read_bytes(),
+        "chunks": chunks,
+        "vector_store": store,
+        "pages": len(extracted.page_docs),
+        "chars": len(extracted.preview_text.strip()),
+        "hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
 
 
 @st.cache_resource(show_spinner=False)
@@ -495,113 +531,139 @@ _on_new_browser_session()
 _apply_presentation_mode_lock()
 
 _github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
+_show_sidebar = bool(st.session_state.developer_mode or _dev_toggle_allowed())
 
-# Sidebar: how-to first; developer panels stay collapsed; model + GitHub last.
-_render_sidebar_pitch()
-st.sidebar.link_button("Exit demo", "/invite/exit")
-
-if _dev_toggle_allowed() or st.session_state.developer_mode:
-    st.sidebar.divider()
-
-if _dev_toggle_allowed():
-    st.session_state.developer_mode = st.sidebar.toggle(
-        "Developer mode (show retrieval debug)",
-        value=st.session_state.developer_mode,
-        help=(
-            "ON: show retrieval ranking and chunk diagnostics. "
-            "OFF: cleaner client-facing presentation."
-        ),
-    )
-    st.sidebar.caption(
-        f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
-    )
-
-if st.session_state.developer_mode:
-    with st.sidebar.expander("Advanced options", expanded=False):
-        st.session_state.enable_ocr = st.toggle(
-            "Enable OCR for scanned pages",
-            value=st.session_state.enable_ocr,
-            help="Attempts OCR only on pages with little/no extractable text.",
-        )
-        st.session_state.use_page_separators = st.checkbox(
-            "Use page separators in context",
-            value=st.session_state.use_page_separators,
-            help="Adds page labels between chunks when assembling context for generation.",
-        )
-        st.session_state.dummy_generator_only = st.checkbox(
-            "Use dummy generator only (for testing)",
-            value=st.session_state.dummy_generator_only,
+if _show_sidebar:
+    _render_sidebar_pitch()
+    st.sidebar.link_button("Exit demo", "/invite/exit")
+    if _dev_toggle_allowed() or st.session_state.developer_mode:
+        st.sidebar.divider()
+    if _dev_toggle_allowed():
+        st.session_state.developer_mode = st.sidebar.toggle(
+            "Developer mode (show retrieval debug)",
+            value=st.session_state.developer_mode,
             help=(
-                "Used only when LLM_PROVIDER is unset. ON: placeholder answers. "
-                "OFF: Ollama. Non-empty LLM_PROVIDER (e.g. anthropic) always wins — "
-                "see Generator in the sidebar."
+                "ON: show retrieval ranking and chunk diagnostics. "
+                "OFF: cleaner client-facing presentation."
             ),
         )
-        st.caption(
-            f"**Chunking:** header split **{'ON' if SPLIT_ON_LEGAL_HEADERS else 'OFF'}** "
-            f"· size={CHUNK_SIZE} · overlap={CHUNK_OVERLAP}"
+        st.sidebar.caption(
+            f"Presentation mode: {'Developer' if st.session_state.developer_mode else 'Client'}"
         )
-        st.caption(
-            f"**Retrieval defaults:** {RETRIEVAL_STRATEGY_DEFAULT} · "
-            f"dedupe {'ON' if DEDUPE_SIMILAR_CHUNKS else 'OFF'} · "
-            f"context guard {'ON' if CONTEXT_SUFFICIENCY_GUARD else 'OFF'}"
+    if st.session_state.developer_mode:
+        with st.sidebar.expander("Advanced options", expanded=False):
+            st.session_state.enable_ocr = st.toggle(
+                "Enable OCR for scanned pages",
+                value=st.session_state.enable_ocr,
+                help="Attempts OCR only on pages with little/no extractable text.",
+            )
+            st.session_state.use_page_separators = st.checkbox(
+                "Use page separators in context",
+                value=st.session_state.use_page_separators,
+                help="Adds page labels between chunks when assembling context for generation.",
+            )
+            st.session_state.dummy_generator_only = st.checkbox(
+                "Use dummy generator only (for testing)",
+                value=st.session_state.dummy_generator_only,
+                help=(
+                    "Used only when LLM_PROVIDER is unset. ON: placeholder answers. "
+                    "OFF: Ollama. Non-empty LLM_PROVIDER (e.g. anthropic) always wins."
+                ),
+            )
+            st.caption(
+                f"**Chunking:** header split **{'ON' if SPLIT_ON_LEGAL_HEADERS else 'OFF'}** "
+                f"· size={CHUNK_SIZE} · overlap={CHUNK_OVERLAP}"
+            )
+            st.caption(
+                f"**Retrieval defaults:** {RETRIEVAL_STRATEGY_DEFAULT} · "
+                f"dedupe {'ON' if DEDUPE_SIMILAR_CHUNKS else 'OFF'} · "
+                f"context guard {'ON' if CONTEXT_SUFFICIENCY_GUARD else 'OFF'}"
+            )
+        st.session_state.retrieval_strategy = st.sidebar.selectbox(
+            "Retrieval strategy",
+            options=["semantic", "hybrid"],
+            index=0 if st.session_state.retrieval_strategy == "semantic" else 1,
+            help=(
+                "semantic: dense vector search only. "
+                "hybrid: dense + BM25 with reciprocal rank fusion."
+            ),
         )
-    st.session_state.retrieval_strategy = st.sidebar.selectbox(
-        "Retrieval strategy",
-        options=["semantic", "hybrid"],
-        index=0 if st.session_state.retrieval_strategy == "semantic" else 1,
-        help=(
-            "semantic: dense vector search only. hybrid: dense + BM25 with reciprocal rank fusion."
-        ),
+        st.session_state.enable_reranker = st.sidebar.checkbox(
+            "Enable cross-encoder reranker",
+            value=st.session_state.enable_reranker,
+            help=(
+                "Second-stage reranking of top candidates using a cross-encoder "
+                f"({RERANKER_MODEL_NAME})."
+            ),
+        )
+        _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
+        _dev_settings = load_generation_config()
+        _dev_model = (
+            _dev_settings.get("anthropic_model")
+            if _dev_provider == "anthropic"
+            else _dev_settings.get("model")
+        )
+        if _dev_model:
+            st.sidebar.caption(f"API id: `{_dev_model}`")
+    _render_sidebar_footer(
+        generator_label=_active_generator_label(st.session_state.dummy_generator_only),
+        github_url=_github,
     )
-    st.session_state.enable_reranker = st.sidebar.checkbox(
-        "Enable cross-encoder reranker",
-        value=st.session_state.enable_reranker,
-        help=(
-            "Second-stage reranking of top candidates using a cross-encoder "
-            f"({RERANKER_MODEL_NAME})."
-        ),
+
+if preload_sample_nda():
+    try:
+        cached = get_sample_nda_index(
+            EMBEDDING_MODEL,
+            CHUNK_SIZE,
+            CHUNK_OVERLAP,
+            SPLIT_ON_LEGAL_HEADERS,
+        )
+        _cache_upload(cached["bytes"], SAMPLE_NDA_NAME)
+        st.session_state.chunks = cached["chunks"]
+        st.session_state.vector_store = cached["vector_store"]
+        st.session_state.bm25_state = None
+        _set_processed_document(SAMPLE_NDA_NAME, cached["hash"])
+        _set_indexed_doc_stats(
+            file_name=SAMPLE_NDA_NAME,
+            pages=cached["pages"],
+            chars=cached["chars"],
+            reused_index=True,
+            header_split=SPLIT_ON_LEGAL_HEADERS,
+            chunks=len(cached["chunks"]),
+        )
+    except (OSError, ValueError, RuntimeError):
+        pass
+
+_render_client_hero(hide_sidebar=not _show_sidebar)
+
+privacy_col, status_col, own_col = st.columns([1.1, 2.2, 1.4])
+with privacy_col:
+    _render_privacy_badge(
+        resolve_llm_provider_name(dummy_mode=st.session_state.dummy_generator_only)
     )
-
-if st.session_state.developer_mode:
-    _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
-    _dev_settings = load_generation_config()
-    _dev_model = (
-        _dev_settings.get("anthropic_model")
-        if _dev_provider == "anthropic"
-        else _dev_settings.get("model")
-    )
-    if _dev_model:
-        st.sidebar.caption(f"API id: `{_dev_model}`")
-
-_render_sidebar_footer(
-    generator_label=_active_generator_label(st.session_state.dummy_generator_only),
-    github_url=_github,
-)
-
-_render_client_hero()
-
-st.markdown('<p class="app-primary-mark">Your document</p>', unsafe_allow_html=True)
-uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
-uploaded_file = st.file_uploader(
-    "PDF",
-    type=["pdf"],
-    key=uploader_key,
-    label_visibility="collapsed",
-)
-if st.button(
-    _CLIENT_COPY["sample_button"],
-    type="primary",
-    use_container_width=True,
-    help=_CLIENT_COPY["sample_help"],
-):
-    if load_sample_nda():
+status_slot = status_col.empty()
+with own_col:
+    st.markdown('<div class="app-own-pdf">', unsafe_allow_html=True)
+    if st.button(
+        _CLIENT_COPY["own_pdf_link"],
+        key="own_pdf_toggle",
+        help=_CLIENT_COPY["own_pdf_help"],
+    ):
+        st.session_state.show_own_pdf = not bool(st.session_state.get("show_own_pdf"))
+        st.session_state.own_pdf_mode = True
         st.rerun()
-_privacy_provider = resolve_llm_provider_name(dummy_mode=st.session_state.dummy_generator_only)
-st.markdown(
-    f'<p class="app-privacy">{html.escape(privacy_line_for_provider(_privacy_provider))}</p>',
-    unsafe_allow_html=True,
-)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
+uploaded_file = None
+if st.session_state.get("show_own_pdf") or st.session_state.get("own_pdf_mode"):
+    uploaded_file = st.file_uploader(
+        "PDF",
+        type=["pdf"],
+        key=uploader_key,
+        label_visibility="collapsed",
+        help=_CLIENT_COPY["own_pdf_help"],
+    )
 
 prev_uploader_had_file = st.session_state.get("_uploader_widget_had_file", False)
 curr_uploader_has_file = uploaded_file is not None
@@ -609,6 +671,8 @@ if prev_uploader_had_file and not curr_uploader_has_file:
     if _document_is_indexed() or st.session_state.get("uploaded_pdf_bytes"):
         _reset_document_state(bump_uploader_key=True)
         st.session_state._uploader_widget_had_file = False
+        st.session_state.own_pdf_mode = False
+        st.session_state.show_own_pdf = False
         st.rerun()
 st.session_state._uploader_widget_had_file = curr_uploader_has_file
 
@@ -785,16 +849,7 @@ chat_ready = _document_is_indexed()
 if "pending_question" in st.session_state:
     st.session_state.ask_box = st.session_state.pop("pending_question")
 
-if chat_ready:
-    st.markdown(
-        '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
-        unsafe_allow_html=True,
-    )
-    for chip in STARTER_CHIPS:
-        if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
-            st.session_state.pending_question = chip["question"]
-            st.rerun()
-
+st.markdown('<p class="app-ask-mark">Ask</p>', unsafe_allow_html=True)
 with st.form("ask_form", clear_on_submit=True, border=False):
     typed = st.text_input(
         "Question",
@@ -812,6 +867,16 @@ with st.form("ask_form", clear_on_submit=True, border=False):
         disabled=not chat_ready,
     )
 query = typed.strip() if submitted and typed else None
+
+if chat_ready:
+    st.markdown(
+        '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
+        unsafe_allow_html=True,
+    )
+    for chip in STARTER_CHIPS:
+        if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
+            st.session_state.pending_question = chip["question"]
+            st.rerun()
 
 if query and query.strip() and chat_ready:
     query = query.strip()
@@ -849,100 +914,106 @@ if query and query.strip() and chat_ready:
                 elapsed = time.perf_counter() - t0
                 timer_placeholder.caption(f"Working… {elapsed:.1f}s")
 
-        with st.spinner("Working on your answer…"):
-            timer_thread = None
-            if script_ctx is not None:
-                timer_thread = threading.Thread(
-                    target=_thinking_timer_loop,
-                    daemon=True,
-                    name="thinking-timer",
-                )
-                timer_thread.start()
+        typing_slot = st.empty()
+        typing_slot.markdown(
+            f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
+            '<span class="app-typing-dots"></span></p>',
+            unsafe_allow_html=True,
+        )
+        timer_thread = None
+        if script_ctx is not None:
+            timer_thread = threading.Thread(
+                target=_thinking_timer_loop,
+                daemon=True,
+                name="thinking-timer",
+            )
+            timer_thread.start()
+        try:
+            retrieval_start = time.perf_counter()
             try:
-                retrieval_start = time.perf_counter()
-                try:
-                    candidate_limit = (
-                        max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
-                    )
-                    candidate_pool, mode, first_stage_warning, retrieval_diag = (
-                        _run_first_stage_retrieval(
-                            query,
-                            candidate_limit=candidate_limit,
-                        )
-                    )
-                    raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
-                        _finalize_retrieval_candidates(
-                            query,
-                            candidate_pool=candidate_pool,
-                            mode=mode,
-                        )
-                    )
-                    st.session_state.last_retrieval_mode = final_mode
-                    retrieval_warning = reranker_warning or first_stage_warning
-                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-
-                    for doc, score in raw_results:
-                        doc.metadata["similarity"] = score
-                    st.session_state.last_raw_results = raw_results
-
-                    context_results, hard_filter_warning = apply_hard_section_context_filter(
+                candidate_limit = (
+                    max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
+                )
+                candidate_pool, mode, first_stage_warning, retrieval_diag = (
+                    _run_first_stage_retrieval(
                         query,
-                        raw_results,
-                        all_chunks=st.session_state.chunks,
-                        top_k=TOP_K,
-                        enabled=SECTION_HARD_CONTEXT_FILTER,
-                        min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
+                        candidate_limit=candidate_limit,
                     )
-                    if hard_filter_warning:
-                        retrieval_warning = " · ".join(
-                            part for part in (retrieval_warning, hard_filter_warning) if part
-                        )
-                        st.session_state.last_retrieval_mode = (
-                            f"{st.session_state.last_retrieval_mode}_section_filtered"
-                        )
-
-                    retrieved_docs = [doc for doc, _score in context_results]
-                    st.session_state.last_query = query
-                    st.session_state.last_retrieved_docs = retrieved_docs
-                    context = assemble_context(
-                        context_results,
-                        use_page_separators=st.session_state.use_page_separators,
+                )
+                raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
+                    _finalize_retrieval_candidates(
+                        query,
+                        candidate_pool=candidate_pool,
+                        mode=mode,
                     )
-                    st.session_state.last_context = context
+                )
+                st.session_state.last_retrieval_mode = final_mode
+                retrieval_warning = reranker_warning or first_stage_warning
+                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
 
-                    context_ok, _context_gap = context_sufficient_for_query(query, context)
-                    if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
-                        st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
-                        st.session_state.last_generation_error = None
-                        st.session_state.last_retrieval_mode = (
-                            f"{st.session_state.last_retrieval_mode}_context_guard"
-                        )
-                        generation_elapsed_ms = 0.0
-                    else:
-                        need_stream_generation = True
-                except (
-                    AttributeError,
-                    KeyError,
-                    TypeError,
-                    ValueError,
-                    RuntimeError,
-                ) as e:
-                    retrieval_error = e
-                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                    st.session_state.last_retrieval_mode = "retrieval_failed"
-                    raw_results = []
-                    retrieved_docs = []
-                    context = ""
-                    st.session_state.last_query = query
-                    st.session_state.last_raw_results = []
-                    st.session_state.last_retrieved_docs = []
-                    st.session_state.last_context = ""
-                    st.session_state.last_answer = None
-            finally:
-                if timer_thread is not None:
-                    stop_timer.set()
-                    timer_thread.join(timeout=5.0)
-        timer_placeholder.empty()
+                for doc, score in raw_results:
+                    doc.metadata["similarity"] = score
+                st.session_state.last_raw_results = raw_results
+
+                context_results, hard_filter_warning = apply_hard_section_context_filter(
+                    query,
+                    raw_results,
+                    all_chunks=st.session_state.chunks,
+                    top_k=TOP_K,
+                    enabled=SECTION_HARD_CONTEXT_FILTER,
+                    min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
+                )
+                if hard_filter_warning:
+                    retrieval_warning = " · ".join(
+                        part for part in (retrieval_warning, hard_filter_warning) if part
+                    )
+                    st.session_state.last_retrieval_mode = (
+                        f"{st.session_state.last_retrieval_mode}_section_filtered"
+                    )
+
+                retrieved_docs = [doc for doc, _score in context_results]
+                st.session_state.last_query = query
+                st.session_state.last_retrieved_docs = retrieved_docs
+                context = assemble_context(
+                    context_results,
+                    use_page_separators=st.session_state.use_page_separators,
+                )
+                st.session_state.last_context = context
+
+                context_ok, _context_gap = context_sufficient_for_query(query, context)
+                if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
+                    st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
+                    st.session_state.last_generation_error = None
+                    st.session_state.last_retrieval_mode = (
+                        f"{st.session_state.last_retrieval_mode}_context_guard"
+                    )
+                    generation_elapsed_ms = 0.0
+                else:
+                    need_stream_generation = True
+            except (
+                AttributeError,
+                KeyError,
+                TypeError,
+                ValueError,
+                RuntimeError,
+            ) as e:
+                retrieval_error = e
+                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                st.session_state.last_retrieval_mode = "retrieval_failed"
+                raw_results = []
+                retrieved_docs = []
+                context = ""
+                st.session_state.last_query = query
+                st.session_state.last_raw_results = []
+                st.session_state.last_retrieved_docs = []
+                st.session_state.last_context = ""
+                st.session_state.last_answer = None
+        finally:
+            if timer_thread is not None:
+                stop_timer.set()
+                timer_thread.join(timeout=5.0)
+            typing_slot.empty()
+            timer_placeholder.empty()
 
         # Stream tokens after retrieval so the UI feels responsive; fall back if needed.
         # When API_BASE_URL is set, generation goes through the thin FastAPI /chat.
@@ -1122,6 +1193,13 @@ elif query is not None:
 
 # Newest answer first so the last reply stays on screen without iframe scroll.
 turns = _paired_turns(st.session_state.messages)
+indexed_stats = st.session_state.get("indexed_doc_stats") or {}
+page_count = int(indexed_stats.get("pages") or 0)
+pdf_bytes = st.session_state.get("uploaded_pdf_bytes")
+assistant_count = sum(
+    1 for message in st.session_state.messages if message.get("role") == "assistant"
+)
+
 for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
     question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
     _render_answer_card(
@@ -1132,7 +1210,12 @@ for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
         expanded=turn_idx == 0,
         timing=assistant_msg.get("timing"),
         developer_mode=st.session_state.developer_mode,
+        page_count=page_count,
+        pdf_bytes=pdf_bytes,
+        card_key=str(len(turns) - turn_idx),
     )
+    if turn_idx == 0 and assistant_count >= 3:
+        _render_booking_cta(booking_url())
     if st.session_state.developer_mode and assistant_msg.get("sources"):
         turn_label = f"turn {len(turns) - turn_idx}"
         _render_source_checklist(
@@ -1156,6 +1239,12 @@ for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
                 ),
                 top_k=TOP_K,
             )
+
+if not _show_sidebar:
+    _render_client_footer(
+        generator_label=_active_generator_label(st.session_state.dummy_generator_only),
+        github_url=_github,
+    )
 
 if st.session_state.developer_mode:
     _render_persistent_generation_error()

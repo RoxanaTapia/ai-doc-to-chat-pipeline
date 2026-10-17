@@ -9,7 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from page_copy import _CLIENT_COPY
+from page_copy import _CLIENT_COPY, should_preload_sample
 
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
@@ -37,6 +37,7 @@ def _on_new_browser_session() -> None:
     st.session_state.chunks = None
     st.session_state.indexed_doc_stats = None
     st.session_state.bm25_state = None
+    st.session_state.own_pdf_mode = False
     _set_doc_status("empty", _CLIENT_COPY["doc_empty"])
 
 
@@ -105,6 +106,21 @@ def _cache_upload(file_bytes: bytes, file_name: str) -> str:
     return file_hash
 
 
+def preload_sample_nda() -> bool:
+    """Load the walkthrough NDA on first paint when the visitor has not uploaded."""
+    own_pdf_mode = bool(st.session_state.get("own_pdf_mode"))
+    has_upload = bool(st.session_state.get("uploaded_pdf_bytes")) or bool(
+        st.session_state.get("current_file")
+    )
+    if not should_preload_sample(
+        own_pdf_mode=own_pdf_mode,
+        has_upload=has_upload,
+        is_indexed=_document_is_indexed(),
+    ):
+        return False
+    return load_sample_nda()
+
+
 def load_sample_nda() -> bool:
     """Cache the walkthrough NDA so indexing starts without a widget upload."""
     path = sample_nda_path()
@@ -112,6 +128,7 @@ def load_sample_nda() -> bool:
         _set_doc_status("error", _CLIENT_COPY["sample_missing"])
         return False
     _reset_document_state(bump_uploader_key=True)
+    st.session_state.own_pdf_mode = False
     _cache_upload(path.read_bytes(), SAMPLE_NDA_NAME)
     _set_doc_status(
         "reading",
@@ -171,8 +188,18 @@ def _reading_message(name: str, step: str) -> str:
     return _CLIENT_COPY["doc_reading"].format(name=name, step=step)
 
 
-def _ready_message(name: str) -> str:
-    return _CLIENT_COPY["doc_ready"].format(name=name)
+def _ready_message(name: str, pages: int | None = None) -> str:
+    page_count = pages
+    if page_count is None:
+        stats = st.session_state.get("indexed_doc_stats") or {}
+        page_count = int(stats.get("pages") or 0)
+    if name == SAMPLE_NDA_NAME:
+        if page_count:
+            return _CLIENT_COPY["doc_ready"].format(pages=page_count)
+        return "Sample NDA"
+    if page_count:
+        return _CLIENT_COPY["doc_ready_named"].format(name=name, pages=page_count)
+    return name
 
 
 def _derive_document_status(
@@ -335,6 +362,9 @@ def _init_session_state(
         "doc_status": "empty",
         "doc_status_detail": _CLIENT_COPY["doc_empty"],
         "ask_box": "",
+        "own_pdf_mode": False,
+        "show_own_pdf": False,
+        "open_page_preview": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:

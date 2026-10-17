@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import html
+import os
+
 import streamlit as st
 
 from ui_theme import inject_theme
@@ -9,36 +12,42 @@ from ui_theme import inject_theme
 # Visitor-facing lines for the pilot. The page script looks them up by key.
 _CLIENT_COPY = {
     "hero_title": "Ask your document",
-    "hero_lead": (
-        "Grounded answers from a confidential PDF, with "
-        "<strong>page-level sources</strong> you can verify."
-    ),
-    "hero_kicker": "Policies, SOPs, reports, contracts — upload one PDF, then ask.",
+    "hero_lead": ("Ask your contract anything. Every answer shows the page it came from."),
+    "hero_kicker": "",
     "chat_ready": "Ask about this document…",
     "chat_indexing": "Reading the document…",
-    "chat_waiting": "Upload a PDF or try the sample NDA.",
-    "doc_empty": "Upload a PDF, or try the sample NDA.",
+    "chat_waiting": "The sample NDA is loading…",
+    "doc_empty": "Loading the sample NDA…",
     "doc_reading": "Reading {name} — {step}",
-    "doc_ready": "{name} is ready. Ask a question.",
-    "doc_answering": "Answering…",
+    "doc_ready": "Sample NDA · {pages} pages",
+    "doc_ready_named": "{name} · {pages} pages",
+    "doc_answering": "Looking through the document",
     "sample_button": "Use sample NDA",
     "sample_help": (
         "Loads the fictional walkthrough NDA in one click. "
         "Do not upload real company files on the shared pilot."
     ),
     "sample_missing": "The sample NDA is not available in this build.",
+    "own_pdf_link": "Try your own PDF",
+    "own_pdf_help": (
+        "Replace the sample with a PDF from your computer. "
+        "Do not upload real company files on the shared pilot."
+    ),
     "ask_button": "Ask",
-    "no_sources": "No sources used.",
+    "no_sources": "Checked the document",
+    "checked_pages": "Checked all {n} pages",
+    "checked_one_page": "Checked all 1 page",
+    "booking_prompt": "Want this on your documents?",
+    "booking_action": "Book a 15-min call.",
     "progress_prepare": "preparing",
     "progress_extract": "extracting text",
     "progress_chunk": "preparing the index",
     "progress_embed": "building the search index",
     "progress_index": "indexing",
     "progress_done": "ready",
-    "chat_blocked_indexing": (
-        "Still reading the document. Wait until the status says ready, then ask."
-    ),
-    "chat_blocked_empty": ("Upload a PDF or try the sample NDA, then wait until it is ready."),
+    "chat_blocked_indexing": ("Still reading the document. Wait until you can type, then ask."),
+    "chat_blocked_empty": "The sample NDA is still loading. Try again in a moment.",
+    "privacy_badge": "Private",
     "privacy_ollama": (
         "Runs on this server: your PDF, search and answers never leave it. "
         "Files are deleted right after processing."
@@ -67,6 +76,8 @@ STARTER_CHIPS = (
     },
 )
 
+BOOKING_URL_ENV = "DEMO_BOOKING_URL"
+
 
 def privacy_line_for_provider(provider: str) -> str:
     """One accurate privacy line for the active generator. Do not overclaim."""
@@ -78,39 +89,105 @@ def privacy_line_for_provider(provider: str) -> str:
     return _CLIENT_COPY["privacy_memory"]
 
 
-def _inject_demo_styles() -> None:
+def booking_url(raw: str | None = None) -> str:
+    """Calendar link from env, or empty. Blank is safe."""
+    if raw is None:
+        raw = os.getenv(BOOKING_URL_ENV)
+    return (raw or "").strip()
+
+
+def booking_cta(url: str | None = None) -> dict[str, str | None]:
+    """Copy for the post-third-answer line. ``href`` is None when the env is blank."""
+    href = booking_url(url)
+    return {
+        "prompt": _CLIENT_COPY["booking_prompt"],
+        "action": _CLIENT_COPY["booking_action"],
+        "href": href or None,
+    }
+
+
+def checked_all_pages_note(pages: int) -> str:
+    """Calm refusal footnote so a miss reads careful, not broken."""
+    if pages == 1:
+        return _CLIENT_COPY["checked_one_page"]
+    if pages > 1:
+        return _CLIENT_COPY["checked_pages"].format(n=pages)
+    return _CLIENT_COPY["no_sources"]
+
+
+def should_preload_sample(*, own_pdf_mode: bool, has_upload: bool, is_indexed: bool) -> bool:
+    """True on first paint when the visitor has not chosen their own PDF."""
+    return not own_pdf_mode and not has_upload and not is_indexed
+
+
+def _inject_demo_styles(*, hide_sidebar: bool) -> None:
     """Load the shared theme before the hero paints."""
-    inject_theme()
+    inject_theme(hide_sidebar=hide_sidebar)
 
 
-def _render_client_hero() -> None:
-    """Open the page on the document title so the visitor knows what to do."""
-    _inject_demo_styles()
+def _render_client_hero(*, hide_sidebar: bool = True) -> None:
+    """Title plus one subtitle. No setup paragraphs."""
+    _inject_demo_styles(hide_sidebar=hide_sidebar)
     st.title(_CLIENT_COPY["hero_title"])
     st.markdown(
+        f'<p class="app-hero__lead">{html.escape(_CLIENT_COPY["hero_lead"])}</p>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_privacy_badge(provider: str) -> None:
+    """Lock badge that expands to the model-dependent privacy line."""
+    line = html.escape(privacy_line_for_provider(provider))
+    label = html.escape(_CLIENT_COPY["privacy_badge"])
+    st.markdown(
         f"""
-        <div class="app-hero">
-          <p class="app-hero__lead">{_CLIENT_COPY["hero_lead"]}</p>
-          <p class="app-hero__kicker">{_CLIENT_COPY["hero_kicker"]}</p>
-        </div>
+        <details class="app-lock">
+          <summary>
+            <span class="app-lock__icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="12" height="12">
+                <path fill="currentColor"
+                  d="M8 1.3A3.2 3.2 0 0 0 4.8 4.5V6H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1
+                  1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-.8V4.5A3.2 3.2 0 0 0 8 1.3zm1.6
+                  4.7H6.4V4.5a1.6 1.6 0 1 1 3.2 0V6z"/>
+              </svg>
+            </span>
+            {label}
+          </summary>
+          <p class="app-lock__line">{line}</p>
+        </details>
         """,
         unsafe_allow_html=True,
     )
 
 
+def _render_booking_cta(url: str | None = None) -> None:
+    """One next-step line. The action is a link only when a URL is set."""
+    cta = booking_cta(url)
+    prompt = html.escape(str(cta["prompt"]))
+    action = html.escape(str(cta["action"]))
+    href = cta["href"]
+    if href:
+        safe_href = html.escape(href, quote=True)
+        action_html = (
+            f'<a class="app-booking__link" href="{safe_href}" '
+            f'target="_blank" rel="noopener noreferrer">{action}</a>'
+        )
+    else:
+        action_html = action
+    st.markdown(
+        f'<p class="app-booking">{prompt} {action_html}</p>',
+        unsafe_allow_html=True,
+    )
+
+
 def _render_sidebar_pitch() -> None:
-    """Show the short how-to in plain text at the top of the sidebar."""
+    """Developer-only how-to. Client mode has no sidebar."""
     st.sidebar.markdown(
         """
         <div class="app-sidebar-block">
           <p class="app-sidebar-pitch">
             Private PDF Q&amp;A with <strong>page sources</strong> you can check.
-            One file per session.
-          </p>
-          <p class="app-sidebar-howto">
-            Upload a PDF, or use the sample NDA. When the status says ready,
-            type a question and press Ask. A page badge appears under the
-            answer so you can verify the clause.
+            The sample NDA loads on open.
           </p>
         </div>
         """,
@@ -123,9 +200,9 @@ def _render_sidebar_footer(*, generator_label: str, github_url: str) -> None:
     st.sidebar.markdown(
         f"""
         <div class="app-sidebar-footer">
-          <p class="app-sidebar-model">{generator_label}</p>
+          <p class="app-sidebar-model">{html.escape(generator_label)}</p>
           <a class="app-sidebar-github"
-             href="{github_url}"
+             href="{html.escape(github_url, quote=True)}"
              target="_blank"
              rel="noopener noreferrer"
              aria-label="Project on GitHub"
@@ -142,6 +219,25 @@ def _render_sidebar_footer(*, generator_label: str, github_url: str) -> None:
                 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
             </svg>
           </a>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_client_footer(*, generator_label: str, github_url: str) -> None:
+    """Quiet exit + model line when the sidebar is hidden."""
+    st.markdown(
+        f"""
+        <div class="app-footer">
+          <a class="app-footer__link" href="/invite/exit">Exit demo</a>
+          <span class="app-footer__dot" aria-hidden="true">·</span>
+          <a class="app-footer__link"
+             href="{html.escape(github_url, quote=True)}"
+             target="_blank"
+             rel="noopener noreferrer">GitHub</a>
+          <span class="app-footer__dot" aria-hidden="true">·</span>
+          <span class="app-footer__meta">{html.escape(generator_label)}</span>
         </div>
         """,
         unsafe_allow_html=True,
