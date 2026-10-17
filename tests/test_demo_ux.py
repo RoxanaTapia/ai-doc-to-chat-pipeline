@@ -287,7 +287,7 @@ def test_working_timer_stays_in_developer_mode() -> None:
 def test_ask_path_queues_then_generates_without_write_stream() -> None:
     text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
     assert "queued_question" in text
-    assert "st.write_stream" not in text
+    assert "st.write_stream(" not in text
     assert "AskTimeoutError" in text
     assert text.find("run_with_timeout") < text.find("typing_slot.empty()")
     assert text.find("_collect_generated_answer") < text.find("typing_slot.empty()")

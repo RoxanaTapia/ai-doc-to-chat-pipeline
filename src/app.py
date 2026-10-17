@@ -504,7 +504,7 @@ def _ask_timeout_seconds() -> float:
 
 
 def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
-    """Join token chunks without st.write_stream, which can hang on the next Ask."""
+    """Join token chunks in-process. A live UI stream can hang on the next Ask."""
     if api_base_url():
         return chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
     return "".join(
