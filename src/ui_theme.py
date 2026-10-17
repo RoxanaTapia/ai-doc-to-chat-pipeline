@@ -197,12 +197,8 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="stTextInput"
   border-radius: 12px;
 }
 
-div[data-testid="stForm"] button,
-div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button,
-div[data-testid="stForm"] [data-testid="stBaseButton-primary"],
-div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"],
-div[data-testid="stForm"] button[kind="primary"],
-div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
+[class*="st-key-ask_submit"] button,
+[class*="st-key-ask_submit"] [data-testid^="stBaseButton"] {
   background: var(--app-accent) !important;
   background-color: var(--app-accent) !important;
   color: var(--app-accent-ink) !important;
@@ -214,10 +210,8 @@ div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
   min-height: 2.6rem !important;
 }
 
-div[data-testid="stForm"] button:hover,
-div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover,
-div[data-testid="stForm"] [data-testid="stBaseButton-primary"]:hover,
-div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"]:hover {
+[class*="st-key-ask_submit"] button:hover,
+[class*="st-key-ask_submit"] [data-testid^="stBaseButton"]:hover {
   background: var(--app-accent-hover) !important;
   background-color: var(--app-accent-hover) !important;
   color: var(--app-accent-ink) !important;

@@ -514,13 +514,29 @@ def _ask_timeout_seconds() -> float:
         return 90.0
 
 
+def _queue_question(text: str) -> bool:
+    """Remember a question to run on the next pass. True when it was non-empty."""
+    question = (text or "").strip()
+    if not question:
+        return False
+    st.session_state.queued_question = question
+    st.session_state._clear_ask_box = True
+    return True
+
+
+def _on_ask_box_commit() -> None:
+    """Enter in the question box should submit, same as Ask."""
+    if not _document_is_indexed():
+        return
+    if _queue_question(st.session_state.get("ask_box") or ""):
+        st.session_state.ask_box = ""
+
+
 def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
     """Join token chunks in-process. A live UI stream can hang on the next Ask."""
     if api_base_url():
         return chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
-    return "".join(
-        generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode)
-    )
+    return "".join(generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode))
 
 
 def _render_ocr_status(
@@ -927,29 +943,31 @@ def _seed_capture_storyboard() -> None:
 
 chat_ready = _document_is_indexed()
 _seed_capture_storyboard()
+if st.session_state.pop("_clear_ask_box", False):
+    st.session_state.ask_box = ""
 queued_question = st.session_state.pop("queued_question", None)
-if "pending_question" in st.session_state:
-    st.session_state.ask_box = st.session_state.pop("pending_question")
 
 st.markdown('<p class="app-ask-mark">Ask</p>', unsafe_allow_html=True)
-with st.form("ask_form", clear_on_submit=True, border=False):
-    typed = st.text_input(
-        "Question",
-        key="ask_box",
-        placeholder=_chat_input_placeholder(
-            uploaded_file=uploaded_file,
-            resolved_upload=resolved_upload,
-        ),
-        label_visibility="collapsed",
-        disabled=not chat_ready,
-    )
-    submitted = st.form_submit_button(
-        _CLIENT_COPY["ask_button"],
-        type="primary",
-        disabled=not chat_ready,
-    )
-if submitted and typed and typed.strip():
-    st.session_state.queued_question = typed.strip()
+# No st.form: Streamlit 1.54 flashes "Missing Submit Button" while the form
+# hydrates on first load (form delta arrives before the lazy submit button).
+typed = st.text_input(
+    "Question",
+    key="ask_box",
+    placeholder=_chat_input_placeholder(
+        uploaded_file=uploaded_file,
+        resolved_upload=resolved_upload,
+    ),
+    label_visibility="collapsed",
+    disabled=not chat_ready,
+    on_change=_on_ask_box_commit if chat_ready else None,
+)
+submitted = st.button(
+    _CLIENT_COPY["ask_button"],
+    key="ask_submit",
+    type="primary",
+    disabled=not chat_ready,
+)
+if submitted and _queue_question(typed):
     st.rerun()
 query = (queued_question or "").strip() or None
 
@@ -960,8 +978,8 @@ if chat_ready and should_show_starter_chips(st.session_state.messages):
     )
     for chip in STARTER_CHIPS:
         if st.button(chip["label"], key=f"chip_{chip['label']}"):
-            st.session_state.pending_question = chip["question"]
-            st.rerun()
+            if _queue_question(chip["question"]):
+                st.rerun()
 
 if query and query.strip() and chat_ready:
     query = query.strip()
@@ -1039,11 +1057,9 @@ if query and query.strip() and chat_ready:
                         candidate_limit=candidate_limit,
                     )
 
-                candidate_pool, mode, first_stage_warning, retrieval_diag = (
-                    run_with_timeout(
-                        _retrieve_only,
-                        remaining_timeout(total_start, timeout_seconds),
-                    )
+                candidate_pool, mode, first_stage_warning, retrieval_diag = run_with_timeout(
+                    _retrieve_only,
+                    remaining_timeout(total_start, timeout_seconds),
                 )
                 raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
                     _finalize_retrieval_candidates(
@@ -1109,9 +1125,7 @@ if query and query.strip() and chat_ready:
                     )
                     try:
                         streamed = run_with_timeout(
-                            lambda: _collect_generated_answer(
-                                context, query, dummy_mode
-                            ),
+                            lambda: _collect_generated_answer(context, query, dummy_mode),
                             remaining_timeout(total_start, timeout_seconds),
                         )
                         st.session_state.last_answer = (
@@ -1124,9 +1138,7 @@ if query and query.strip() and chat_ready:
                     except Exception as e:
                         generation_error = e
                         st.session_state.last_answer = None
-                    generation_elapsed_ms = (
-                        time.perf_counter() - generation_start
-                    ) * 1000.0
+                    generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
                     if generation_error is None:
                         log_ask_stage(
                             "model_call_end",
