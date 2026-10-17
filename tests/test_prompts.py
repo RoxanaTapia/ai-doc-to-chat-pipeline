@@ -68,4 +68,21 @@ def test_rag_prompt_includes_reliability_rules() -> None:
     assert "Never invent section numbers" in template
     assert "must not do" in template
     assert "I agree not to" in template
-    assert "I could not find enough information in the document to answer." in template
+    assert (
+        "This isn't in the document. Try rephrasing, or ask about something it covers."
+        in template
+    )
+    assert "I could not find enough information in the document to answer." not in template
+
+
+def test_sample_nda_pdf_is_present() -> None:
+    pdf = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
+    assert pdf.is_file()
+    assert pdf.stat().st_size > 1000
+
+
+def test_starter_chips_include_two_hits_and_one_miss() -> None:
+    text = (PROJECT_ROOT / "src" / "page_copy.py").read_text(encoding="utf-8")
+    assert "How is Confidential Information defined in Section 1?" in text
+    assert "What obligations does Section 3 impose on the Receiving Party?" in text
+    assert "Does this agreement specify liquidated damages?" in text

@@ -7,7 +7,14 @@ import re
 from langchain_core.documents import Document
 
 INSUFFICIENT_CONTEXT_ANSWER = (
-    "I could not find enough information in the document to answer."
+    "This isn't in the document. Try rephrasing, or ask about something it covers."
+)
+
+# Canonical refusal plus older model phrasings, so the UI still detects a miss.
+_REFUSAL_MARKERS = (
+    "this isn't in the document",
+    "could not find enough information in the document",
+    "could not find relevant information in the document",
 )
 
 # Light English stopwords for answer↔chunk overlap (keep the set tiny).
@@ -111,6 +118,12 @@ def dedupe_similar_chunks(
             break
 
     return final
+
+
+def is_insufficient_answer(text: str) -> bool:
+    """True when the guard or the model declined for lack of document support."""
+    lowered = " ".join((text or "").split()).lower()
+    return bool(lowered) and any(marker in lowered for marker in _REFUSAL_MARKERS)
 
 
 def query_expects_obligations(query: str) -> bool:
@@ -258,6 +271,9 @@ def build_sources_payload(
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     from rag.chunking import chunk_on_section, extract_target_section
+
+    if is_insufficient_answer(answer or ""):
+        return []
 
     target_section = extract_target_section(query) if query else None
     ordered = sort_source_docs(retrieved_docs, target_section=target_section)

@@ -23,7 +23,7 @@ DEFAULT_PROMPT_TEMPLATE = (
     "You are a precise and concise legal assistant.\n"
     "Answer ONLY using information from the provided context.\n"
     "If there is no relevant information, say: "
-    '"I could not find enough information in the document to answer."\n\n'
+    '"This isn\'t in the document. Try rephrasing, or ask about something it covers."\n\n'
     "Extracted context:\n"
     "{context}\n\n"
     "User question:\n"

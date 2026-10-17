@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
+from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
 from rag.providers import get_llm_provider, resolve_llm_provider_name
 
 CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0B-\x1F\x7F]")
@@ -28,7 +29,7 @@ def _prepare_generation_inputs(
         return "Please enter a non-empty question."
     safe_context = _normalize_untrusted_text(context, max_chars=12000)
     if not safe_context:
-        return "I could not find relevant information in the document to answer this question."
+        return INSUFFICIENT_CONTEXT_ANSWER
     return safe_context, safe_query
 
 
