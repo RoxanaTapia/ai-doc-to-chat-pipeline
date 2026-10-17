@@ -26,7 +26,7 @@ On your own server, it can run fully offline with a local model.
 
 Each step exists to keep the answer inside the PDF you uploaded.
 
-Upload PDF → Extract → Chunk → Embed locally → Hybrid search → Rerank → Cited answer
+![Upload a PDF, split by page, search on the server, send passages to the model, then answer with a page quote](docs/assets/aidoc_architecture.png)
 
 | Step | Technique | Why? |
 |------|-----------|------|

@@ -183,6 +183,11 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     hosted_block = pilot.split("On your own server", 1)[0].lower()
     assert "private" not in hosted_block
     assert "local" not in hosted_block
+    arch = text.split("## How an answer is grounded", 1)[1].split("## ", 1)[0]
+    assert "docs/assets/aidoc_architecture.png" in arch
+    assert "caddy" not in arch.lower()
+    assert "```mermaid" not in arch
+    assert (PROJECT_ROOT / "docs" / "assets" / "aidoc_architecture.png").is_file()
 
 
 def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
