@@ -294,7 +294,7 @@ def _append_chat_message(
     if sources:
         message["sources"] = sources
     if role == "assistant":
-        message["refusal"] = bool(is_insufficient_answer(content))
+        message["refusal"] = bool(is_insufficient_answer(content, for_question))
     if role == "assistant" and timing and timing.get("total_ms", 0) > 0:
         message["timing"] = {
             "total_ms": timing["total_ms"],
@@ -933,7 +933,7 @@ if chat_ready and should_show_starter_chips(st.session_state.messages):
         unsafe_allow_html=True,
     )
     for chip in STARTER_CHIPS:
-        if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
+        if st.button(chip["label"], key=f"chip_{chip['label']}"):
             st.session_state.pending_question = chip["question"]
             st.rerun()
 
@@ -1222,7 +1222,8 @@ if query and query.strip() and chat_ready:
     else:
         assistant_message = visitor_refusal_answer(
             st.session_state.last_answer
-            or "I could not generate an answer at this time. Please try again."
+            or "I could not generate an answer at this time. Please try again.",
+            query,
         )
         target_section = extract_target_section(query)
         source_payload = _build_sources_payload(

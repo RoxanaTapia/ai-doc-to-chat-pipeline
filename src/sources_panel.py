@@ -205,40 +205,41 @@ def _render_answer_card(
     card_key: str = "0",
 ) -> None:
     """Muted question, one-line headline, page badge, or a calm refusal."""
-    is_refusal = bool(refusal) or is_insufficient_answer(answer)
+    is_refusal = bool(refusal) or is_insufficient_answer(answer, question)
     marker = "app-answer-card--refusal" if is_refusal else "app-answer-card"
-    st.markdown(
-        f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
-        unsafe_allow_html=True,
-    )
-    if is_refusal:
+    with st.container():
         st.markdown(
-            f'<p class="app-answer-headline">{html.escape(INSUFFICIENT_CONTEXT_ANSWER)}</p>',
+            f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
             unsafe_allow_html=True,
         )
-        note = checked_all_pages_note(page_count, any_blank=any_blank_pages)
-        st.markdown(
-            f'<p class="app-no-sources">{html.escape(note)}</p>',
-            unsafe_allow_html=True,
-        )
-    else:
-        quote = (sources[0].get("preview") if sources else "") or ""
-        headline, body = display_answer_parts(answer, quote)
-        if headline:
+        if is_refusal:
             st.markdown(
-                f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                f'<p class="app-answer-headline">{html.escape(INSUFFICIENT_CONTEXT_ANSWER)}</p>',
                 unsafe_allow_html=True,
             )
-        if body:
-            st.markdown(body)
-        if sources:
-            _render_inline_sources(
-                sources,
-                expanded=expanded,
-                pdf_bytes=pdf_bytes,
-                card_key=card_key,
+            note = checked_all_pages_note(page_count, any_blank=any_blank_pages)
+            st.markdown(
+                f'<p class="app-no-sources">{html.escape(note)}</p>',
+                unsafe_allow_html=True,
             )
-    _render_answer_timing(timing, developer_mode=developer_mode)
+        else:
+            quote = (sources[0].get("preview") if sources else "") or ""
+            headline, body = display_answer_parts(answer, quote)
+            if headline:
+                st.markdown(
+                    f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                    unsafe_allow_html=True,
+                )
+            if body:
+                st.markdown(body)
+            if sources:
+                _render_inline_sources(
+                    sources,
+                    expanded=expanded,
+                    pdf_bytes=pdf_bytes,
+                    card_key=card_key,
+                )
+        _render_answer_timing(timing, developer_mode=developer_mode)
 
 
 def _render_sources_panel(
