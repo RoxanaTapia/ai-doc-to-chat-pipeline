@@ -207,6 +207,8 @@ def _ask(
     expect_text: str,
     min_cards: int,
     card_timeout_ms: int,
+    out_dir: Path | None = None,
+    looking_shot: str = "",
 ) -> dict:
     """Wait until looking-through ends and a finished card contains expect_text."""
     from playwright.sync_api import expect
@@ -223,6 +225,8 @@ def _ask(
     deadline = time.time() + (card_timeout_ms / 1000)
     while time.time() < deadline:
         if _looking_visible(page):
+            if not looking_seen and out_dir and looking_shot:
+                _screenshot(page, out_dir, looking_shot)
             looking_seen = True
             time.sleep(0.2)
             continue
@@ -259,7 +263,12 @@ def _run_pass(page, *, out_dir: Path, card_timeout_ms: int) -> dict:
         expect_text="3 years",
         min_cards=1,
         card_timeout_ms=card_timeout_ms,
+        out_dir=out_dir,
+        looking_shot="pass-q1-looking-through.png",
     )
+    looking_path = out_dir / "pass-q1-looking-through.png"
+    if looking_path.is_file():
+        shots.append(str(looking_path))
     shots.append(_screenshot(page, out_dir, "pass-q1-term.png"))
     q2 = _ask(
         page,
