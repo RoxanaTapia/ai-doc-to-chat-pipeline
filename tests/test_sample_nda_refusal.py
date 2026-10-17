@@ -29,8 +29,7 @@ PENALTY_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
 TERM_QUESTION = "How long does this agreement last?"
 NEAR_MISS = "no fee is specified; Section 6 allows injunctive relief"
 TERM_WITH_UNSPECIFIED = (
-    "The agreement lasts 3 years from the date of signing. "
-    "The exact signing date is not specified."
+    "The agreement lasts 3 years from the date of signing. The exact signing date is not specified."
 )
 SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
