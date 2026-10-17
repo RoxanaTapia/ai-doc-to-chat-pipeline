@@ -36,7 +36,7 @@ _CLIENT_COPY = {
     "ask_button": "Ask",
     "no_sources": "Checked the document",
     "checked_pages": "Checked all {n} pages",
-    "checked_one_page": "Checked all 1 page",
+    "checked_one_page": "Checked the whole page",
     "booking_prompt": "Want this on your documents?",
     "booking_action": "Book a 15-min call.",
     "progress_prepare": "preparing",
@@ -47,7 +47,8 @@ _CLIENT_COPY = {
     "progress_done": "ready",
     "chat_blocked_indexing": ("Still reading the document. Wait until you can type, then ask."),
     "chat_blocked_empty": "The sample NDA is still loading. Try again in a moment.",
-    "privacy_badge": "Private",
+    "privacy_badge_ollama": "Runs offline",
+    "privacy_badge_hosted": "How your data is handled",
     "privacy_ollama": (
         "Runs on this server: your PDF, search and answers never leave it. "
         "Files are deleted right after processing."
@@ -87,6 +88,14 @@ def privacy_line_for_provider(provider: str) -> str:
     if name == "anthropic":
         return _CLIENT_COPY["privacy_anthropic"]
     return _CLIENT_COPY["privacy_memory"]
+
+
+def privacy_badge_for_provider(provider: str) -> str:
+    """Collapsed lock-badge label. Do not call a hosted model private."""
+    name = (provider or "").strip().lower()
+    if name == "ollama":
+        return _CLIENT_COPY["privacy_badge_ollama"]
+    return _CLIENT_COPY["privacy_badge_hosted"]
 
 
 def booking_url(raw: str | None = None) -> str:
@@ -138,7 +147,7 @@ def _render_client_hero(*, hide_sidebar: bool = True) -> None:
 def _render_privacy_badge(provider: str) -> None:
     """Lock badge that expands to the model-dependent privacy line."""
     line = html.escape(privacy_line_for_provider(provider))
-    label = html.escape(_CLIENT_COPY["privacy_badge"])
+    label = html.escape(privacy_badge_for_provider(provider))
     st.markdown(
         f"""
         <details class="app-lock">

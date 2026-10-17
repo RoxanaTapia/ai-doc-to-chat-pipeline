@@ -16,6 +16,7 @@ from page_copy import (  # noqa: E402
     booking_cta,
     booking_url,
     checked_all_pages_note,
+    privacy_badge_for_provider,
     privacy_line_for_provider,
     should_preload_sample,
 )
@@ -47,6 +48,18 @@ def test_privacy_wording_is_unchanged() -> None:
     assert privacy_line_for_provider("dummy") == "Files are deleted right after processing."
 
 
+def test_anthropic_badge_never_says_private_local_or_offline() -> None:
+    label = privacy_badge_for_provider("anthropic")
+    assert label == "How your data is handled"
+    lowered = label.lower()
+    assert "private" not in lowered
+    assert "local" not in lowered
+    assert "offline" not in lowered
+    assert privacy_badge_for_provider("dummy") == label
+    assert privacy_badge_for_provider("openai") == label
+    assert privacy_badge_for_provider("ollama") == "Runs offline"
+
+
 def test_refusal_sentinel_is_unchanged() -> None:
     assert INSUFFICIENT_CONTEXT_ANSWER == (
         "This isn't in the document, so I won't guess. Ask about something it covers."
@@ -57,7 +70,7 @@ def test_refusal_sentinel_is_unchanged() -> None:
 
 def test_checked_all_pages_note() -> None:
     assert checked_all_pages_note(4) == "Checked all 4 pages"
-    assert checked_all_pages_note(1) == "Checked all 1 page"
+    assert checked_all_pages_note(1) == "Checked the whole page"
     assert checked_all_pages_note(0) == "Checked the document"
 
 
