@@ -159,7 +159,8 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-q) [data-testid="stMarkdownCo
   color: var(--app-ink);
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) [data-testid="stMarkdownContainer"] p {
+div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal)
+  [data-testid="stMarkdownContainer"] p {
   font-weight: 600;
   color: var(--app-warn);
 }

@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from langchain_core.documents import Document
 
@@ -55,7 +55,12 @@ def test_dedupe_similar_chunks_drops_near_duplicates() -> None:
     candidates = [
         (Document(page_content=text, metadata={"page": 1}), 1.0),
         (Document(page_content=text + " extra", metadata={"page": 1}), 0.6),
-        (Document(page_content="3. Obligations\nHold in strict confidence.", metadata={"page": 2}), 0.5),
+        (
+            Document(
+                page_content="3. Obligations\nHold in strict confidence.", metadata={"page": 2}
+            ),
+            0.5,
+        ),
     ]
     deduped = dedupe_similar_chunks(candidates, top_k=5)
     assert len(deduped) == 2
@@ -229,9 +234,7 @@ def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
 
 def test_is_insufficient_answer_detects_canonical_and_legacy() -> None:
     assert is_insufficient_answer(INSUFFICIENT_CONTEXT_ANSWER)
-    assert is_insufficient_answer(
-        "I could not find enough information in the document to answer."
-    )
+    assert is_insufficient_answer("I could not find enough information in the document to answer.")
     assert is_insufficient_answer(
         "I could not find relevant information in the document to answer this question."
     )

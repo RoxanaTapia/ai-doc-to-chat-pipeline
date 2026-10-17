@@ -106,10 +106,7 @@ def dedupe_similar_chunks(
             continue
 
         page = doc.metadata.get("page")
-        if (
-            len(text) < min_tiny_chars
-            and page_max_lens.get(page, 0) > len(text) * 2
-        ):
+        if len(text) < min_tiny_chars and page_max_lens.get(page, 0) > len(text) * 2:
             continue
 
         seen_snippets.append(snippet)
@@ -186,11 +183,7 @@ def sort_source_docs(
 
 def _content_tokens(text: str) -> set[str]:
     """Lowercase alnum tokens minus a light stopword list."""
-    return {
-        tok
-        for tok in _TOKEN_RE.findall((text or "").lower())
-        if tok not in _OVERLAP_STOPWORDS
-    }
+    return {tok for tok in _TOKEN_RE.findall((text or "").lower()) if tok not in _OVERLAP_STOPWORDS}
 
 
 def token_overlap_score(answer: str, chunk_text: str) -> float:
@@ -224,11 +217,7 @@ def filter_docs_overlapping_answer(
     if not docs or not (answer or "").strip():
         return docs
 
-    kept = [
-        doc
-        for doc in docs
-        if token_overlap_score(answer, doc.page_content or "") >= min_score
-    ]
+    kept = [doc for doc in docs if token_overlap_score(answer, doc.page_content or "") >= min_score]
     return kept if kept else docs
 
 

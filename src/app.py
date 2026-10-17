@@ -9,17 +9,38 @@ import streamlit as st
 import streamlit.components.v1 as components
 import yaml
 from dotenv import load_dotenv
-
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
 from api_client import api_base_url, chat_via_api, chat_via_api_stream
 from page_copy import (
-    STARTER_CHIPS,
     _CLIENT_COPY,
+    STARTER_CHIPS,
     _render_client_hero,
     _render_sidebar_footer,
     _render_sidebar_pitch,
+)
+from rag import (
+    generate_answer,
+    generate_answer_stream,
+    load_generation_config,
+    resolve_llm_provider_name,
+)
+from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract_target_section
+from rag.citations import (
+    INSUFFICIENT_CONTEXT_ANSWER,
+    assemble_context,
+    context_sufficient_for_query,
+    is_insufficient_answer,
+)
+from rag.ingestion import extract_pdf
+from rag.retrieval import (
+    RetrievalConfig,
+    build_bm25_index,
+    finalize_retrieval,
+    first_stage_retrieval,
 )
 from session_upload import (
     _cache_upload,
@@ -49,27 +70,6 @@ from sources_panel import (
     _render_eval_context_panel,
     _render_source_checklist,
 )
-from rag import (
-    generate_answer,
-    generate_answer_stream,
-    load_generation_config,
-    resolve_llm_provider_name,
-)
-from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract_target_section
-from rag.citations import (
-    INSUFFICIENT_CONTEXT_ANSWER,
-    assemble_context,
-    context_sufficient_for_query,
-    is_insufficient_answer,
-)
-from rag.ingestion import extract_pdf
-from rag.retrieval import (
-    RetrievalConfig,
-    build_bm25_index,
-    finalize_retrieval,
-    first_stage_retrieval,
-)
-from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 st.set_page_config(
     page_title="Document Q&A · Private RAG",
@@ -256,8 +256,8 @@ def _scroll_chat_to_bottom_if_requested() -> None:
 def _get_cross_encoder(model_name: str):
     """Cache cross-encoder reranker model."""
     from sentence_transformers import CrossEncoder
-    return CrossEncoder(model_name)
 
+    return CrossEncoder(model_name)
 
 
 def _append_chat_message(
@@ -333,8 +333,7 @@ def _run_first_stage_retrieval(
     )
     if diag.get("used_global_fallback") and st.session_state.developer_mode:
         st.caption(
-            f"No matches found in pages <= {EARLY_PAGE_MAX}. "
-            "Showing best matches from all pages."
+            f"No matches found in pages <= {EARLY_PAGE_MAX}. Showing best matches from all pages."
         )
     return results, mode, warning, diag
 
@@ -380,13 +379,11 @@ def _ollama_recovery_expander(*, expanded: bool = False) -> None:
         st.markdown(
             "**Metal / GPU crashes on macOS** often come from the Ollama runner. "
             "Update Ollama, try another model/quantization, or reduce context "
-            f"(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
+            "(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
         )
         st.markdown("Run these commands in a terminal:")
         st.code(
-            "ollama serve\n"
-            f"{pull_commands}\n"
-            "ollama list",
+            f"ollama serve\n{pull_commands}\nollama list",
             language="bash",
         )
         st.caption(f"CPU smoke-test order: {recommended_order_text}.")
@@ -419,7 +416,9 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
             # Prefer the API message body when present; keep it short for chat.
             if "message': '" in detail:
                 try:
-                    reason = "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
+                    reason = (
+                        "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
+                    )
                 except IndexError:
                     reason = "Could not generate an Anthropic answer right now."
             else:
@@ -436,7 +435,11 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
         reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
     elif "timeout" in error_text or "timed out" in error_text:
         reason = "Local model timed out. Retry with a shorter question or smaller context."
-    elif "mtllibrary" in error_text or "metal" in error_text or "llama runner process has terminated" in error_text:
+    elif (
+        "mtllibrary" in error_text
+        or "metal" in error_text
+        or "llama runner process has terminated" in error_text
+    ):
         reason = (
             "Ollama’s local model runner crashed (often a Metal/GPU issue on macOS). "
             "Update Ollama, try a smaller model, or lower `OLLAMA_NUM_CTX`."
@@ -464,7 +467,6 @@ def _render_persistent_generation_error() -> None:
         st.rerun()
 
 
-
 def _env_bool(name: str, default: bool) -> bool:
     """Parse a boolean environment variable with a fallback default."""
     raw = os.getenv(name)
@@ -480,8 +482,7 @@ def _stream_text_chunks(text: str, chunk_size: int = 40):
     """Yield text in small chunks for progressive chat rendering."""
     safe_text = text or ""
     for i in range(0, len(safe_text), chunk_size):
-        yield safe_text[i:i + chunk_size]
-
+        yield safe_text[i : i + chunk_size]
 
 
 def _render_ocr_status(
@@ -510,12 +511,9 @@ def _render_ocr_status(
         return
 
     if ocr_pages_used > 0:
-        st.caption(
-            f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
-        )
+        st.caption(f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality.")
     elif scanned_pages_detected > 0 and ocr_warning:
         st.caption(ocr_warning)
-
 
 
 _init_session_state(
@@ -584,8 +582,7 @@ if st.session_state.developer_mode:
         options=["semantic", "hybrid"],
         index=0 if st.session_state.retrieval_strategy == "semantic" else 1,
         help=(
-            "semantic: dense vector search only. "
-            "hybrid: dense + BM25 with reciprocal rank fusion."
+            "semantic: dense vector search only. hybrid: dense + BM25 with reciprocal rank fusion."
         ),
     )
     st.session_state.enable_reranker = st.sidebar.checkbox(
@@ -654,10 +651,7 @@ if resolved_upload is not None:
     file_bytes, file_name = resolved_upload
     uploaded_hash = _cache_upload(file_bytes, file_name)
 
-    if (
-        uploaded_hash == st.session_state.last_processed_hash
-        and _document_is_indexed()
-    ):
+    if uploaded_hash == st.session_state.last_processed_hash and _document_is_indexed():
         st.session_state.current_file = file_name
         prev = st.session_state.indexed_doc_stats or {}
         _set_indexed_doc_stats(
@@ -698,7 +692,8 @@ if resolved_upload is not None:
             extracted_char_count = len(extracted_text.strip())
             if st.session_state.developer_mode:
                 st.caption(
-                    f"Extraction: **{len(page_docs)}** pages · **{extracted_char_count:,}** characters"
+                    f"Extraction: **{len(page_docs)}** pages · "
+                    f"**{extracted_char_count:,}** characters"
                 )
             _render_ocr_status(
                 enable_ocr=st.session_state.enable_ocr,
@@ -780,8 +775,7 @@ if resolved_upload is not None:
                 start = time.time()
                 embeddings = get_embeddings(EMBEDDING_MODEL)
                 vector_store = FAISS.from_documents(
-                    documents=st.session_state.chunks,
-                    embedding=embeddings
+                    documents=st.session_state.chunks, embedding=embeddings
                 )
                 st.session_state.vector_store = vector_store
                 took = time.time() - start
@@ -937,9 +931,7 @@ if query and query.strip() and chat_ready:
                 retrieval_start = time.perf_counter()
                 try:
                     candidate_limit = (
-                        max(TOP_K, RERANKER_TOP_N)
-                        if st.session_state.enable_reranker
-                        else TOP_K
+                        max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
                     )
                     candidate_pool, mode, first_stage_warning, retrieval_diag = (
                         _run_first_stage_retrieval(
@@ -956,9 +948,7 @@ if query and query.strip() and chat_ready:
                     )
                     st.session_state.last_retrieval_mode = final_mode
                     retrieval_warning = reranker_warning or first_stage_warning
-                    retrieval_elapsed_ms = (
-                        time.perf_counter() - retrieval_start
-                    ) * 1000.0
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
 
                     for doc, score in raw_results:
                         doc.metadata["similarity"] = score
@@ -974,9 +964,7 @@ if query and query.strip() and chat_ready:
                     )
                     if hard_filter_warning:
                         retrieval_warning = " · ".join(
-                            part
-                            for part in (retrieval_warning, hard_filter_warning)
-                            if part
+                            part for part in (retrieval_warning, hard_filter_warning) if part
                         )
                         st.session_state.last_retrieval_mode = (
                             f"{st.session_state.last_retrieval_mode}_section_filtered"
@@ -1009,9 +997,7 @@ if query and query.strip() and chat_ready:
                     RuntimeError,
                 ) as e:
                     retrieval_error = e
-                    retrieval_elapsed_ms = (
-                        time.perf_counter() - retrieval_start
-                    ) * 1000.0
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
                     st.session_state.last_retrieval_mode = "retrieval_failed"
                     raw_results = []
                     retrieved_docs = []
@@ -1035,11 +1021,7 @@ if query and query.strip() and chat_ready:
             use_api = bool(api_base_url())
             try:
                 try:
-                    stream_fn = (
-                        chat_via_api_stream
-                        if use_api
-                        else generate_answer_stream
-                    )
+                    stream_fn = chat_via_api_stream if use_api else generate_answer_stream
                     streamed = st.write_stream(
                         stream_fn(
                             context=context,
@@ -1070,9 +1052,7 @@ if query and query.strip() and chat_ready:
             except Exception as e:
                 generation_error = e
                 st.session_state.last_answer = None
-            generation_elapsed_ms = (
-                time.perf_counter() - generation_start
-            ) * 1000.0
+            generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
 
         total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
@@ -1096,7 +1076,9 @@ if query and query.strip() and chat_ready:
             query_preview = _question_preview(query)
             if st.session_state.last_retrieval_metrics:
                 with st.expander(
-                    _dev_panel_title("Retrieval metrics (last run)", query_preview, fallback="live"),
+                    _dev_panel_title(
+                        "Retrieval metrics (last run)", query_preview, fallback="live"
+                    ),
                     expanded=False,
                 ):
                     metrics = st.session_state.last_retrieval_metrics
@@ -1107,8 +1089,10 @@ if query and query.strip() and chat_ready:
                         f"- candidates (dense/sparse/fused): "
                         f"`{metrics.get('dense_candidates', 0)}` / "
                         f"`{metrics.get('sparse_candidates', 0)}` / "
-                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`  \n"
-                        f"- selected before rerank: `{metrics.get('selected_before_rerank', 0)}`  \n"
+                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`"
+                        "  \n"
+                        f"- selected before rerank: "
+                        f"`{metrics.get('selected_before_rerank', 0)}`  \n"
                         f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
                         f"- context chars: `{metrics['context_chars']}`  \n"
                         f"- timing ms (retrieval/rerank/generation/total): "
@@ -1129,8 +1113,9 @@ if query and query.strip() and chat_ready:
             ):
                 for i, (doc, _raw_score) in enumerate(raw_results, start=1):
                     similarity = doc.metadata.get("similarity")
+                    score = round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A"
                     st.markdown(
-                        f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
+                        f"**Chunk {i}** (similarity score: {score})  \n"
                         f"Page: {doc.metadata.get('page', '?')}"
                     )
                     st.code(doc.page_content, language="text")
@@ -1144,8 +1129,7 @@ if query and query.strip() and chat_ready:
     ready_name = st.session_state.current_file or "Document"
     if retrieval_error is not None:
         retrieval_reason = (
-            "I couldn't retrieve relevant document chunks right now. "
-            "Please try again."
+            "I couldn't retrieve relevant document chunks right now. Please try again."
         )
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
@@ -1164,10 +1148,7 @@ if query and query.strip() and chat_ready:
             "user_reason": reason,
             "detail": str(e),
         }
-        assistant_message = (
-            "I couldn't generate an answer right now. "
-            f"{reason}"
-        )
+        assistant_message = f"I couldn't generate an answer right now. {reason}"
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",

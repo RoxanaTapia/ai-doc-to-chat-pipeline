@@ -27,9 +27,7 @@ def _on_new_browser_session() -> None:
     if st.session_state.get("_app_boot_id") == _APP_BOOT_ID:
         return
     st.session_state._app_boot_id = _APP_BOOT_ID
-    st.session_state.uploader_key_version = (
-        int(st.session_state.get("uploader_key_version", 0)) + 1
-    )
+    st.session_state.uploader_key_version = int(st.session_state.get("uploader_key_version", 0)) + 1
     for key in ("uploaded_pdf_bytes", "uploaded_pdf_name", "uploaded_pdf_hash"):
         st.session_state.pop(key, None)
     st.session_state.last_processed_name = None
@@ -46,8 +44,10 @@ def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | Non
     """True when we have file bytes but no searchable index yet."""
     if _document_is_indexed():
         return False
-    return resolved_upload is not None or uploaded_file is not None or bool(
-        st.session_state.get("uploaded_pdf_bytes")
+    return (
+        resolved_upload is not None
+        or uploaded_file is not None
+        or bool(st.session_state.get("uploaded_pdf_bytes"))
     )
 
 

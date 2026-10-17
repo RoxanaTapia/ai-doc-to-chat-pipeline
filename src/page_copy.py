@@ -39,9 +39,7 @@ _CLIENT_COPY = {
     "chat_blocked_indexing": (
         "Still reading the document. Wait until the status says ready, then ask."
     ),
-    "chat_blocked_empty": (
-        "Upload a PDF or try the sample NDA, then wait until it is ready."
-    ),
+    "chat_blocked_empty": ("Upload a PDF or try the sample NDA, then wait until it is ready."),
 }
 
 # Two questions the sample NDA answers; one it does not.

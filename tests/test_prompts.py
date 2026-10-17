@@ -69,8 +69,7 @@ def test_rag_prompt_includes_reliability_rules() -> None:
     assert "must not do" in template
     assert "I agree not to" in template
     assert (
-        "This isn't in the document. Try rephrasing, or ask about something it covers."
-        in template
+        "This isn't in the document. Try rephrasing, or ask about something it covers." in template
     )
     assert "I could not find enough information in the document to answer." not in template
 
