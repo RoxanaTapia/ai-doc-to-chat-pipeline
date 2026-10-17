@@ -153,7 +153,10 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert 'div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal)' not in _THEME_CSS
     assert '[class*="st-key-answer_card_"]' in _THEME_CSS
     assert '[class*="st-key-refusal_card_"]' in _THEME_CSS
+    assert '[class*="st-key-answer_card_"] .app-answer-headline' in _THEME_CSS
     assert '[class*="st-key-refusal_card_"] .app-answer-headline' in _THEME_CSS
+    assert "font-size: 2rem !important" in _THEME_CSS
+    assert "font-size: 1.2rem !important" in _THEME_CSS
     assert 'div[data-testid="stForm"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
     assert "max-width: 28rem" not in _THEME_CSS
@@ -177,6 +180,8 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "on infrastructure you control" not in text
     assert "processed in memory and never stored" not in text
     assert "# Private PDF Q&A" not in text
+    assert "**On-server embeddings**" in text
+    assert "**Private embeddings**" not in text
     heading = text.split("\n", 1)[0].lower()
     assert "private" not in heading
     pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0]
@@ -368,3 +373,31 @@ def test_storyboard_stills_keep_page_grey_and_ink_headlines() -> None:
     assert dark, "expected headline pixels in still 02"
     brown_hits = sum(1 for pixel in dark if _closer_to(pixel, BROWN, INK))
     assert brown_hits * 4 < len(dark), "still 02 answer headline rendered brown"
+
+    answer_h = _headline_ink_height(term, top_frac=0.12, bottom_frac=0.48)
+    refusal = Image.open(SCREENSHOTS / "03-not-in-document.png").convert("RGB")
+    refusal_h = _headline_ink_height(refusal, top_frac=0.18, bottom_frac=0.72)
+    assert answer_h > refusal_h, (
+        f"answer headline should be larger than refusal ({answer_h}px vs {refusal_h}px)"
+    )
+
+
+def _headline_ink_height(
+    image,
+    *,
+    top_frac: float,
+    bottom_frac: float,
+    luma_max: int = 200,
+) -> int:
+    """Tallest dark-ink run in the headline band of a card still."""
+    width, height = image.size
+    ys: list[int] = []
+    for y in range(int(height * top_frac), int(height * bottom_frac)):
+        for x in range(int(width * 0.05), int(width * 0.72)):
+            pixel = image.getpixel((x, y))
+            if pixel[0] + pixel[1] + pixel[2] < luma_max:
+                ys.append(y)
+                break
+    if not ys:
+        return 0
+    return max(ys) - min(ys) + 1

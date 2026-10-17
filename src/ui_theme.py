@@ -306,6 +306,15 @@ div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"]:hover {
   color: var(--app-ink);
 }
 
+[class*="st-key-answer_card_"] .app-answer-headline,
+[class*="st-key-answer_card_"] [data-testid="stMarkdownContainer"] .app-answer-headline {
+  font-size: 2rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--app-ink) !important;
+}
+
 .app-answer-body {
   margin: 0 0 0.65rem 0;
   font-size: 1rem;
@@ -314,11 +323,12 @@ div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"]:hover {
   color: var(--app-slate);
 }
 
-[class*="st-key-refusal_card_"] .app-answer-headline {
-  font-size: 1.2rem;
+[class*="st-key-refusal_card_"] .app-answer-headline,
+[class*="st-key-refusal_card_"] [data-testid="stMarkdownContainer"] .app-answer-headline {
+  font-size: 1.2rem !important;
   letter-spacing: -0.02em;
-  font-weight: 600;
-  color: var(--app-warn);
+  font-weight: 600 !important;
+  color: var(--app-warn) !important;
 }
 
 .app-page-badge {

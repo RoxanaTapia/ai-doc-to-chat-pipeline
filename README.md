@@ -47,7 +47,7 @@ Each step is a module under [`src/rag/`](src/rag/). Map: [docs/README.md](docs/R
 |---------|-------------|
 | **Citations** | Page and excerpt on every answer |
 | **Model choice** | Ollama writes answers on your server. Anthropic is optional when you want quicker replies. Search and citations stay the same. |
-| **Private embeddings** | Vectors stay on your server |
+| **On-server embeddings** | Vectors stay on your server |
 | **Honest refusals** | Says so when the PDF does not contain the answer |
 | **Document types** | Policies, SOPs, reports, contracts |
 
