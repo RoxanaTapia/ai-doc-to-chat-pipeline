@@ -53,14 +53,16 @@ _CLIENT_COPY = {
     "privacy_badge_hosted": "How your data is handled",
     "privacy_ollama": (
         "Runs on this server: your PDF, search and answers never leave it. "
-        "Files are deleted right after processing."
+        "Kept only for this browser session, and cleared when you leave or reset."
     ),
     "privacy_anthropic": (
-        "Your PDF and search stay on this server; only the few passages "
-        "needed for an answer are sent to a hosted model (Anthropic). "
-        "Files are deleted right after processing."
+        "Your PDF and search stay on this server for this browser session; "
+        "only the few passages needed for an answer are sent to a hosted model "
+        "(Anthropic). Cleared when you leave or reset."
     ),
-    "privacy_memory": "Files are deleted right after processing.",
+    "privacy_memory": (
+        "Your PDF is kept only for this browser session, and cleared when you leave or reset."
+    ),
 }
 
 # Two questions the sample NDA answers; one it does not.
@@ -124,8 +126,17 @@ def should_show_booking(url: str | None = None) -> bool:
     return bool(booking_url(url))
 
 
-def should_show_starter_chips(messages: list[dict] | None) -> bool:
-    """Starter chips stay until the first assistant answer, then hide."""
+def should_show_starter_chips(
+    messages: list[dict] | None,
+    query: str | None = None,
+) -> bool:
+    """Starter chips stay until the first answer, and hide while a question runs.
+
+    Hiding them on the in-flight ask run avoids Streamlit painting the button
+    labels as plain text while the look-up spinner catches up.
+    """
+    if (query or "").strip():
+        return False
     return not any((message or {}).get("role") == "assistant" for message in (messages or []))
 
 

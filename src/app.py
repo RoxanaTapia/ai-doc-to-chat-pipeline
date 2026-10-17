@@ -971,7 +971,9 @@ if submitted and _queue_question(typed):
     st.rerun()
 query = (queued_question or "").strip() or None
 
-if chat_ready and should_show_starter_chips(st.session_state.messages):
+# Hide chips once a question is queued. Re-creating the buttons on the
+# look-up run makes Streamlit flash their labels as plain text under Ask.
+if chat_ready and should_show_starter_chips(st.session_state.messages, query):
     st.markdown(
         '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
         unsafe_allow_html=True,

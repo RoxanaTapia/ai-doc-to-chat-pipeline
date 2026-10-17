@@ -16,7 +16,7 @@ Upload a policy, SOP, report, or contract. Ask in plain language. Every answer c
 - Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
 - Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
-Your PDF and search stay on this server; only the few passages needed for an answer are sent to a hosted model (Anthropic). Files are deleted right after processing. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+Your PDF and search stay on this server for this browser session; only the few passages needed for an answer are sent to a hosted model (Anthropic). Cleared when you leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
 
 On your own server, it can run fully offline with a local model.
 
