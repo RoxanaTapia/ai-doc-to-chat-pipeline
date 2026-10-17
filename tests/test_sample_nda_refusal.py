@@ -17,7 +17,9 @@ from rag.citations import (  # noqa: E402
     INSUFFICIENT_CONTEXT_ANSWER,
     assemble_context,
     build_sources_payload,
+    context_sufficient_for_query,
     is_insufficient_answer,
+    visitor_refusal_answer,
 )
 from rag.config import load_rag_prompt  # noqa: E402
 from rag.ingestion import extract_pdf  # noqa: E402
@@ -67,7 +69,7 @@ def test_sample_nda_penalty_question_uses_sentinel_refusal() -> None:
 
     assert answer == INSUFFICIENT_CONTEXT_ANSWER
     assert is_insufficient_answer(answer)
-    assert not is_insufficient_answer(NEAR_MISS)
+    assert is_insufficient_answer(NEAR_MISS)
     assert (
         build_sources_payload(
             retrieved,
@@ -78,3 +80,34 @@ def test_sample_nda_penalty_question_uses_sentinel_refusal() -> None:
         )
         == []
     )
+
+
+def test_penalty_fee_question_refuses_on_sample_nda() -> None:
+    retrieved = _retrieve_sample_nda(PENALTY_QUESTION)
+    assert retrieved, "retrieval should still return nearby passages from the NDA"
+    context = assemble_context(
+        [(doc, float(idx)) for idx, doc in enumerate(retrieved, start=1)],
+        use_page_separators=True,
+    )
+    sufficient, gap = context_sufficient_for_query(PENALTY_QUESTION, context)
+    assert not sufficient
+    assert gap == "amount_missing"
+
+    stubs = (
+        INSUFFICIENT_CONTEXT_ANSWER,
+        "This isn\u2019t in the document, so I won\u2019t guess. Ask about something it covers.",
+        "No penalty fee is specified; Section 6 allows injunctive relief",
+    )
+    for stub in stubs:
+        answer = visitor_refusal_answer(stub)
+        assert answer == INSUFFICIENT_CONTEXT_ANSWER
+        assert (
+            build_sources_payload(
+                retrieved,
+                query=PENALTY_QUESTION,
+                answer=stub,
+                display_max=3,
+                preview_chars=280,
+            )
+            == []
+        )

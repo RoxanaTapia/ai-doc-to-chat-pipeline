@@ -9,6 +9,29 @@ from langchain_core.documents import Document
 INSUFFICIENT_CONTEXT_ANSWER = (
     "This isn't in the document, so I won't guess. Ask about something it covers."
 )
+REFUSAL_CORE_PHRASE = "this isn't in the document"
+_CURLY_QUOTES = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201a": "'",
+        "\u201b": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u201e": '"',
+        "\u02bc": "'",
+    }
+)
+AMOUNT_QUERY_RE = re.compile(r"(?i)\b(fee|penalty|amount|liquidated damages)\b")
+MONEY_AMOUNT_RE = re.compile(
+    r"(?i)"
+    r"([$€£]\s?\d[\d,]*(?:\.\d+)?)"
+    r"|(\d[\d,]*(?:\.\d+)?\s?(?:usd|eur|gbp|dollars?|euros?|pounds?))"
+    r"|((?:usd|eur|gbp|dollars?|euros?|pounds?)\s?\d[\d,]*)"
+)
+_UNSPECIFIED_RE = re.compile(
+    r"(?i)(\bnot (specified|stated|mentioned)\b|\bno\b.{0,60}\b(specified|stated|mentioned)\b)"
+)
 
 # Light English stopwords for answer↔chunk overlap (keep the set tiny).
 _OVERLAP_STOPWORDS = frozenset(
@@ -110,11 +133,36 @@ def dedupe_similar_chunks(
     return final
 
 
+def normalize_refusal_text(text: str) -> str:
+    """Lowercase, straighten curly quotes, and collapse whitespace."""
+    return " ".join((text or "").translate(_CURLY_QUOTES).lower().split())
+
+
 def is_insufficient_answer(text: str) -> bool:
-    """True when the answer contains the exact refusal sentinel."""
-    normalized = " ".join((text or "").split())
-    sentinel = " ".join(INSUFFICIENT_CONTEXT_ANSWER.split())
-    return bool(normalized) and sentinel in normalized
+    """True when the answer is a miss, including curly quotes and 'not specified'."""
+    normalized = normalize_refusal_text(text)
+    if not normalized:
+        return False
+    if REFUSAL_CORE_PHRASE in normalized:
+        return True
+    return bool(_UNSPECIFIED_RE.search(normalized))
+
+
+def query_expects_amount(query: str) -> bool:
+    """True when the question asks for a fee, penalty, or amount."""
+    return bool(AMOUNT_QUERY_RE.search(query or ""))
+
+
+def context_has_money_amount(context: str) -> bool:
+    """True when retrieved text names a currency amount (not a bare year or count)."""
+    return bool(MONEY_AMOUNT_RE.search(context or ""))
+
+
+def visitor_refusal_answer(text: str) -> str:
+    """Show the exact sentinel whenever the raw answer is a miss."""
+    if is_insufficient_answer(text):
+        return INSUFFICIENT_CONTEXT_ANSWER
+    return text or ""
 
 
 def query_expects_obligations(query: str) -> bool:
@@ -136,6 +184,9 @@ def context_sufficient_for_query(query: str, context: str) -> tuple[bool, str | 
 
     if query_expects_obligations(query) and not context_has_obligation_markers(context):
         return False, "obligation_markers_missing"
+
+    if query_expects_amount(query) and not context_has_money_amount(context):
+        return False, "amount_missing"
 
     return True, None
 
