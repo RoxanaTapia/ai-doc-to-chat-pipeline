@@ -132,4 +132,8 @@ def test_term_answer_with_trailing_unspecified_keeps_sources() -> None:
         preview_chars=280,
     )
     assert payload
-    assert any(str(entry.get("page")) == "2" for entry in payload)
+    assert str(payload[0].get("page")) == "2"
+    assert "three (3) years" in (payload[0].get("preview") or "")
+    joined = " ".join(entry.get("preview") or "" for entry in payload)
+    assert "Entire Agreement" not in joined
+    assert "Governing Law" not in joined

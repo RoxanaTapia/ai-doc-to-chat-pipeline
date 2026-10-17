@@ -258,6 +258,34 @@ def token_overlap_score(answer: str, chunk_text: str) -> float:
     return len(intersection) / len(union)
 
 
+def _answer_digit_tokens(answer: str) -> set[str]:
+    """Digit tokens in the answer (e.g. ``3`` from '3 years')."""
+    return {tok for tok in _content_tokens(answer) if tok.isdigit()}
+
+
+def _chunk_contains_answer_digits(chunk_text: str, digits: set[str]) -> bool:
+    """True when every answer digit appears in the chunk text."""
+    if not digits:
+        return True
+    text = chunk_text or ""
+    return all(digit in text for digit in digits)
+
+
+def _chunk_supports_answer_tokens(chunk_text: str, answer: str) -> bool:
+    """True when the chunk carries the answer's numbers and at least one other token."""
+    answer_tokens = _content_tokens(answer)
+    if not answer_tokens:
+        return False
+    chunk_tokens = _content_tokens(chunk_text)
+    digits = {tok for tok in answer_tokens if tok.isdigit()}
+    words = answer_tokens - digits
+    if digits and not _chunk_contains_answer_digits(chunk_text, digits):
+        return False
+    if words:
+        return bool(words & chunk_tokens)
+    return bool(digits) and digits <= chunk_tokens
+
+
 def filter_docs_overlapping_answer(
     docs: list[Document],
     answer: str,
@@ -265,16 +293,36 @@ def filter_docs_overlapping_answer(
     min_score: float = DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
 ) -> list[Document]:
     """
-    Keep Sources chunks whose token overlap with ``answer`` is >= ``min_score``.
+    Keep Sources chunks that support ``answer``, in the given retrieval order.
 
-    Safe fallback: if the answer is blank, or no doc clears the threshold,
-    return the original ``docs`` list unchanged (same order / identity).
+    Prefer Jaccard overlap at ``min_score``. Short answers like "3 years" often
+    miss that floor, so fall back to chunks that contain the answer's numbers
+    and at least one other content token. If nothing supports the answer, keep
+    only the first retrieved chunk, not the whole unfiltered list.
     """
     if not docs or not (answer or "").strip():
         return docs
 
-    kept = [doc for doc in docs if token_overlap_score(answer, doc.page_content or "") >= min_score]
-    return kept if kept else docs
+    digits = _answer_digit_tokens(answer)
+    scored_hits = [
+        doc for doc in docs if token_overlap_score(answer, doc.page_content or "") >= min_score
+    ]
+    if digits:
+        numbered = [
+            doc
+            for doc in scored_hits
+            if _chunk_contains_answer_digits(doc.page_content or "", digits)
+        ]
+        scored_hits = numbered
+    if scored_hits:
+        return scored_hits
+
+    token_hits = [
+        doc for doc in docs if _chunk_supports_answer_tokens(doc.page_content or "", answer)
+    ]
+    if token_hits:
+        return token_hits
+    return docs[:1]
 
 
 def readable_excerpt(text: str, max_chars: int) -> str:
@@ -321,7 +369,8 @@ def build_sources_payload(
         return []
 
     target_section = extract_target_section(query) if query else None
-    ordered = sort_source_docs(retrieved_docs, target_section=target_section)
+    # Keep retrieval/ranked order. Do not re-sort by page or raw similarity.
+    ordered = list(retrieved_docs)
     if answer:
         ordered = filter_docs_overlapping_answer(ordered, answer)
     if target_section:

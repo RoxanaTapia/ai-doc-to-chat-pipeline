@@ -20,7 +20,8 @@ from rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 TERM_QUESTION = STARTER_CHIPS[0]["question"]
 LAW_QUESTION = STARTER_CHIPS[1]["question"]
 FEE_QUESTION = STARTER_CHIPS[2]["question"]
-ASK_KEY = "FormSubmitter:ask_form-Ask"
+ASK_KEY = "ask_submit"
+TERM_CHIP_KEY = f"chip_{STARTER_CHIPS[0]['label']}"
 
 
 @pytest.fixture
@@ -99,6 +100,40 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     metrics = _session_get(at, "last_retrieval_metrics") or {}
     assert metrics.get("reranker_enabled") is False
     assert float(metrics.get("rerank_ms") or 0) == 0.0
+
+
+def test_client_first_load_has_no_missing_submit_button(stub_env) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    error_text = " ".join(str(getattr(err, "value", err)) for err in at.error)
+    assert "Missing Submit Button" not in error_text
+    assert "missing submit" not in error_text.lower()
+    assert _session_get(at, "vector_store") is not None
+    assert at.button(ASK_KEY) is not None
+
+
+def test_starter_chip_submits_and_answers(stub_env) -> None:
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is not None
+
+    at.button(TERM_CHIP_KEY).click()
+    at.run(timeout=30)
+    assert not at.exception
+
+    messages = _session_get(at, "messages") or []
+    users = [m for m in messages if m.get("role") == "user"]
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert users and users[0]["content"] == TERM_QUESTION
+    assert assistants and "3 years" in (assistants[0].get("content") or "")
+    ask_box = _session_get(at, "ask_box", "")
+    assert ask_box in {"", None}
 
 
 def test_client_first_ask_skips_cross_encoder(stub_env) -> None:

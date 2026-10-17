@@ -157,7 +157,7 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert '[class*="st-key-refusal_card_"] .app-answer-headline' in _THEME_CSS
     assert "font-size: 2rem !important" in _THEME_CSS
     assert "font-size: 1.2rem !important" in _THEME_CSS
-    assert 'div[data-testid="stForm"] button' in _THEME_CSS
+    assert '[class*="st-key-ask_submit"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
     assert "max-width: 28rem" not in _THEME_CSS
     assert ".app-lock__line" in _THEME_CSS
@@ -293,9 +293,18 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
     assert text.find("_collect_generated_answer") < text.find("typing_slot.empty()")
     assert 'paint_status(status_slot, "answering"' in text
     assert "Looking through the document" in _CLIENT_COPY["doc_answering"]
-    assert _CLIENT_COPY["doc_timeout"] == (
-        "That took too long, so I stopped. Please ask again."
-    )
+    assert _CLIENT_COPY["doc_timeout"] == ("That took too long, so I stopped. Please ask again.")
+
+
+def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
+    """Streamlit 1.54 paints 'Missing Submit Button' while a form hydrates."""
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    assert "st.form(" not in text
+    assert "form_submit_button" not in text
+    assert 'key="ask_submit"' in text
+    assert "pending_question" not in text
+    assert "queued_question = chip" not in text
+    assert '_queue_question(chip["question"])' in text
 
 
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
