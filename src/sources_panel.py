@@ -8,7 +8,11 @@ import streamlit as st
 from langchain_core.documents import Document
 
 from page_copy import _CLIENT_COPY
-from rag.citations import build_sources_payload, is_insufficient_answer
+from rag.citations import (
+    INSUFFICIENT_CONTEXT_ANSWER,
+    build_sources_payload,
+    is_insufficient_answer,
+)
 
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
 
@@ -114,7 +118,7 @@ def _render_answer_card(
         f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
         unsafe_allow_html=True,
     )
-    st.markdown(answer)
+    st.markdown(INSUFFICIENT_CONTEXT_ANSWER if is_refusal else answer)
     if is_refusal:
         st.markdown(
             f'<p class="app-no-sources">{html.escape(_CLIENT_COPY["no_sources"])}</p>',

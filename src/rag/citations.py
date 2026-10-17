@@ -7,14 +7,7 @@ import re
 from langchain_core.documents import Document
 
 INSUFFICIENT_CONTEXT_ANSWER = (
-    "This isn't in the document. Try rephrasing, or ask about something it covers."
-)
-
-# Canonical refusal plus older model phrasings, so the UI still detects a miss.
-_REFUSAL_MARKERS = (
-    "this isn't in the document",
-    "could not find enough information in the document",
-    "could not find relevant information in the document",
+    "This isn't in the document, so I won't guess. Ask about something it covers."
 )
 
 # Light English stopwords for answer↔chunk overlap (keep the set tiny).
@@ -118,9 +111,10 @@ def dedupe_similar_chunks(
 
 
 def is_insufficient_answer(text: str) -> bool:
-    """True when the guard or the model declined for lack of document support."""
-    lowered = " ".join((text or "").split()).lower()
-    return bool(lowered) and any(marker in lowered for marker in _REFUSAL_MARKERS)
+    """True when the answer contains the exact refusal sentinel."""
+    normalized = " ".join((text or "").split())
+    sentinel = " ".join(INSUFFICIENT_CONTEXT_ANSWER.split())
+    return bool(normalized) and sentinel in normalized
 
 
 def query_expects_obligations(query: str) -> bool:

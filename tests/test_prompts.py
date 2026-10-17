@@ -9,6 +9,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from rag import load_rag_prompt  # noqa: E402
+from rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 
 
 def _build_prompt() -> PromptTemplate:
@@ -68,9 +69,12 @@ def test_rag_prompt_includes_reliability_rules() -> None:
     assert "Never invent section numbers" in template
     assert "must not do" in template
     assert "I agree not to" in template
-    assert (
-        "This isn't in the document. Try rephrasing, or ask about something it covers." in template
-    )
+    assert INSUFFICIENT_CONTEXT_ANSWER in template
+    assert "partial or adjacent" in template
+    assert "injunctive relief" in template
+    near_miss = "no fee is specified; Section 6 allows injunctive relief"
+    assert near_miss in template
+    assert "Use the exact sentinel sentence instead" in template
     assert "I could not find enough information in the document to answer." not in template
 
 
@@ -127,22 +131,26 @@ def test_privacy_line_follows_generator_without_overclaiming() -> None:
     from page_copy import _CLIENT_COPY, privacy_line_for_provider
 
     ollama = privacy_line_for_provider("ollama")
-    assert ollama.startswith(_CLIENT_COPY["privacy_ollama"])
-    assert ollama.endswith(_CLIENT_COPY["privacy_memory"])
+    assert ollama == (
+        "Runs on this server: your PDF, search and answers never leave it. "
+        "Files are deleted right after processing."
+    )
     assert "passages" not in ollama
-    assert "never leave" in ollama
+    assert "Anthropic" not in ollama
 
     anthropic = privacy_line_for_provider("anthropic")
-    assert anthropic.startswith(_CLIENT_COPY["privacy_anthropic"])
-    assert anthropic.endswith(_CLIENT_COPY["privacy_memory"])
+    assert anthropic == (
+        "Your PDF and search stay on this server; only the few passages "
+        "needed for an answer are sent to a hosted model (Anthropic). "
+        "Files are deleted right after processing."
+    )
     assert "never leave" not in anthropic
-    assert "passages" in anthropic
 
     dummy = privacy_line_for_provider("dummy")
     assert dummy == _CLIENT_COPY["privacy_memory"]
+    assert dummy == "Files are deleted right after processing."
     assert "never leave" not in dummy
     assert "passages" not in dummy
     assert privacy_line_for_provider("openai") == _CLIENT_COPY["privacy_memory"]
-    assert "deleted right after processing" in dummy
     assert "never stored" not in dummy
     assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]

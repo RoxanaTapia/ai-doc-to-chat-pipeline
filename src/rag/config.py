@@ -22,8 +22,11 @@ DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_PROMPT_TEMPLATE = (
     "You are a precise and concise legal assistant.\n"
     "Answer ONLY using information from the provided context.\n"
-    "If there is no relevant information, say: "
-    '"This isn\'t in the document. Try rephrasing, or ask about something it covers."\n\n'
+    "If the context does not contain the answer, reply with exactly this "
+    "sentence and nothing else: "
+    "\"This isn't in the document, so I won't guess. Ask about something it covers.\"\n"
+    "Do not give partial or adjacent answers. If a penalty, fee, or amount is "
+    "not in the context, do not infer from nearby remedies or injunctive relief.\n\n"
     "Extracted context:\n"
     "{context}\n\n"
     "User question:\n"

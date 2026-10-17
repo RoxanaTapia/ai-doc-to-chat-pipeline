@@ -232,15 +232,14 @@ def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
     assert "means any information" in payload[0]["preview"]
 
 
-def test_is_insufficient_answer_detects_canonical_and_legacy() -> None:
+def test_is_insufficient_answer_detects_exact_sentinel_only() -> None:
     assert is_insufficient_answer(INSUFFICIENT_CONTEXT_ANSWER)
-    assert is_insufficient_answer("I could not find enough information in the document to answer.")
-    assert is_insufficient_answer(
-        "I could not find relevant information in the document to answer this question."
+    assert is_insufficient_answer(f"### Summary\n{INSUFFICIENT_CONTEXT_ANSWER}")
+    assert not is_insufficient_answer(
+        "I could not find enough information in the document to answer."
     )
-    assert is_insufficient_answer(
-        "### Summary\nThis isn't in the document. Try rephrasing, or ask about something it covers."
-    )
+    assert not is_insufficient_answer("This isn't in the document.")
+    assert not is_insufficient_answer("no fee is specified; Section 6 allows injunctive relief")
     assert not is_insufficient_answer(
         "Confidential Information means any information disclosed by Acme Corp."
     )
