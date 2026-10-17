@@ -866,7 +866,45 @@ if resolved_upload is not None:
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
 
+
+def _seed_capture_storyboard() -> None:
+    """Paint the walkthrough answers for stills. Off unless DEMO_CAPTURE_STORYBOARD is set."""
+    if not _env_bool("DEMO_CAPTURE_STORYBOARD", False):
+        return
+    if st.session_state.messages or not _document_is_indexed():
+        return
+    term = (
+        "This Agreement shall remain in effect for a period of three (3) years "
+        "from the date of signing."
+    )
+    law = (
+        "This Agreement shall be governed by the laws of Spain. "
+        "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+    )
+    turns = (
+        (
+            STARTER_CHIPS[0]["question"],
+            f"3 years\n\n{term}",
+            [{"page": 2, "preview": f"Section 4 - Term {term}", "score": "N/A"}],
+        ),
+        (
+            STARTER_CHIPS[1]["question"],
+            f"Spain / Madrid\n\n{law}",
+            [{"page": 3, "preview": f"Section 7 - Governing Law {law}", "score": "N/A"}],
+        ),
+        (
+            STARTER_CHIPS[2]["question"],
+            INSUFFICIENT_CONTEXT_ANSWER,
+            [],
+        ),
+    )
+    for question, answer, sources in turns:
+        _append_chat_message("user", question)
+        _append_chat_message("assistant", answer, sources=sources or None, for_question=question)
+
+
 chat_ready = _document_is_indexed()
+_seed_capture_storyboard()
 if "pending_question" in st.session_state:
     st.session_state.ask_box = st.session_state.pop("pending_question")
 
