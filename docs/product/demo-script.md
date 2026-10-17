@@ -19,11 +19,13 @@ flowchart LR
 ```
 
 1. **Gate.** Request an invite, then open the app.
-2. **Upload.** Download the sample NDA from the sidebar, or use [sample-nda.pdf](sample-nda.pdf) / export the [sample policy](sample-policy.md). Do not upload real company files on the shared pilot.
-3. **Ask.** A question the document can answer. **Sources** opens under the answer — check that the page matches the clause.
-4. **Refuse.** A question the document does not answer. The app should say so, not invent a clause.
+2. **Upload.** Press **Use sample NDA**, or upload [sample-nda.pdf](sample-nda.pdf) / export the [sample policy](sample-policy.md). Do not upload real company files on the shared pilot.
+3. **Ask.** Use a starter chip (it only fills the box) and press **Ask**. A **Page N** badge and quote open under the newest answer.
+4. **Refuse.** Ask something the PDF does not cover. The app should say it is not in the document, with no sources.
 
-Uploaded files stay in memory for the session. Each visit starts fresh.
+Files are processed in memory and deleted right after processing. Each visit starts fresh.
+
+Storyboard stills: [docs/screenshots](../screenshots/).
 
 ---
 
@@ -31,11 +33,11 @@ Uploaded files stay in memory for the session. Each visit starts fresh.
 
 ### Sample NDA
 
-1. What's confidential information? (or: How is Confidential Information defined in Section 1?)
-2. What obligations does Section 3 impose on the Receiving Party?
-3. Does this agreement specify liquidated damages? (It does not.)
+1. How long does this agreement last? (three years, Section 4, page 2)
+2. Which country's law applies, and where are disputes settled? (Spain / courts of Madrid, page 3)
+3. What is the penalty fee if Beta Labs breaks this agreement? (It does not name one.)
 
-Sources for question 1 should stay on the definition clause (page 1), not neighboring duties or oral-disclosure text.
+Sources for question 1 should stay on the term clause (page 2). Question 2 should cite governing law (page 3).
 
 ### Sample retention policy
 

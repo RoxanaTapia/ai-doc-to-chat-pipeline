@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from langchain_core.documents import Document
 
@@ -10,11 +10,13 @@ if str(SRC_DIR) not in sys.path:
 
 from rag.citations import (  # noqa: E402
     DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
+    INSUFFICIENT_CONTEXT_ANSWER,
     build_sources_payload,
     context_has_obligation_markers,
     context_sufficient_for_query,
     dedupe_similar_chunks,
     filter_docs_overlapping_answer,
+    is_insufficient_answer,
     query_expects_obligations,
     sort_source_docs,
     token_overlap_score,
@@ -53,7 +55,12 @@ def test_dedupe_similar_chunks_drops_near_duplicates() -> None:
     candidates = [
         (Document(page_content=text, metadata={"page": 1}), 1.0),
         (Document(page_content=text + " extra", metadata={"page": 1}), 0.6),
-        (Document(page_content="3. Obligations\nHold in strict confidence.", metadata={"page": 2}), 0.5),
+        (
+            Document(
+                page_content="3. Obligations\nHold in strict confidence.", metadata={"page": 2}
+            ),
+            0.5,
+        ),
     ]
     deduped = dedupe_similar_chunks(candidates, top_k=5)
     assert len(deduped) == 2
@@ -223,3 +230,34 @@ def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
     assert payload[0]["page"] == 1
     assert payload[0]["on_section"] is True
     assert "means any information" in payload[0]["preview"]
+
+
+def test_is_insufficient_answer_detects_exact_sentinel_only() -> None:
+    assert is_insufficient_answer(INSUFFICIENT_CONTEXT_ANSWER)
+    assert is_insufficient_answer(f"### Summary\n{INSUFFICIENT_CONTEXT_ANSWER}")
+    assert not is_insufficient_answer(
+        "I could not find enough information in the document to answer."
+    )
+    assert not is_insufficient_answer("This isn't in the document.")
+    assert not is_insufficient_answer("no fee is specified; Section 6 allows injunctive relief")
+    assert not is_insufficient_answer(
+        "Confidential Information means any information disclosed by Acme Corp."
+    )
+    assert not is_insufficient_answer("")
+
+
+def test_build_sources_payload_empty_on_refusal() -> None:
+    docs = [
+        Document(
+            page_content="1. Definition of Confidential Information\nTrade secrets.",
+            metadata={"page": 1, "similarity": 0.9},
+        )
+    ]
+    payload = build_sources_payload(
+        docs,
+        query="Does this agreement specify liquidated damages?",
+        answer=INSUFFICIENT_CONTEXT_ANSWER,
+        display_max=3,
+        preview_chars=280,
+    )
+    assert payload == []

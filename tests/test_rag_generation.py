@@ -382,6 +382,18 @@ def test_generate_answer_stream_dummy_yields_placeholder() -> None:
     assert "live pilot" in chunks[0]
 
 
+def test_generate_answer_empty_context_uses_refusal_copy() -> None:
+    from rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer
+
+    answer = rag.generate_answer(
+        context="   ",
+        query="Does this specify liquidated damages?",
+        dummy_mode=True,
+    )
+    assert answer == INSUFFICIENT_CONTEXT_ANSWER
+    assert is_insufficient_answer(answer)
+
+
 def test_generate_answer_stream_empty_query_yields_error() -> None:
     chunks = list(
         rag.generate_answer_stream(

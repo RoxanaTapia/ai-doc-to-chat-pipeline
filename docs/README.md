@@ -138,6 +138,7 @@ If you only want the product story, these three pages are enough:
 | [Architecture](product/architecture.md) | What runs on the VM vs at the edge |
 | [Walkthrough](product/demo-script.md) | What a live session shows, plus sample questions |
 | [Sample NDA](product/sample-nda.pdf) | A ready PDF to upload |
+| [Screenshots](screenshots/) | Empty, ready, cited answers, refusal, privacy line |
 
 Contributor pages:
 

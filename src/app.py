@@ -1,42 +1,26 @@
-import streamlit as st
-import streamlit.components.v1 as components
+import html
+import os
 import tempfile
 import threading
-import yaml
 import time
-import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-from langchain_huggingface import HuggingFaceEmbeddings
+import streamlit as st
+import yaml
+from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+
 from api_client import api_base_url, chat_via_api, chat_via_api_stream
-from page_copy import _CLIENT_COPY, _render_client_hero, _render_sidebar_pitch
-from session_upload import (
-    _cache_upload,
-    _chat_blocked_user_message,
-    _chat_input_placeholder,
-    _document_is_indexed,
-    _init_session_state,
-    _on_new_browser_session,
-    _render_document_status,
-    _reset_document_state,
-    _resolve_upload,
-    _set_dev_index_logs,
-    _set_indexed_doc_stats,
-    _set_processed_document,
-)
-from sources_panel import (
-    _build_sources_payload,
-    _dev_panel_title,
-    _question_preview,
-    _remember_response_timing,
-    _render_answer_timing,
-    _render_eval_context_panel,
-    _render_source_checklist,
-    _render_sources_panel,
-    _sources_panel_title,
+from page_copy import (
+    _CLIENT_COPY,
+    STARTER_CHIPS,
+    _render_client_hero,
+    _render_sidebar_footer,
+    _render_sidebar_pitch,
+    privacy_line_for_provider,
 )
 from rag import (
     generate_answer,
@@ -49,6 +33,7 @@ from rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
     assemble_context,
     context_sufficient_for_query,
+    is_insufficient_answer,
 )
 from rag.ingestion import extract_pdf
 from rag.retrieval import (
@@ -57,7 +42,34 @@ from rag.retrieval import (
     finalize_retrieval,
     first_stage_retrieval,
 )
-from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from session_upload import (
+    _cache_upload,
+    _chat_blocked_user_message,
+    _chat_input_placeholder,
+    _document_is_indexed,
+    _init_session_state,
+    _on_new_browser_session,
+    _reading_message,
+    _ready_message,
+    _render_document_status,
+    _reset_document_state,
+    _resolve_upload,
+    _set_dev_index_logs,
+    _set_indexed_doc_stats,
+    _set_processed_document,
+    load_sample_nda,
+    paint_status,
+)
+from sources_panel import (
+    _build_sources_payload,
+    _dev_panel_title,
+    _paired_turns,
+    _question_preview,
+    _remember_response_timing,
+    _render_answer_card,
+    _render_eval_context_panel,
+    _render_source_checklist,
+)
 
 st.set_page_config(
     page_title="Document Q&A · Private RAG",
@@ -122,14 +134,6 @@ def _active_generator_label(dummy_mode: bool) -> str:
         model_id = str(settings.get("model") or "")
         return f"Ollama · {_human_model_label(provider, model_id)}"
     return provider
-
-
-def _sample_nda_bytes() -> bytes | None:
-    """Bytes for the walkthrough sample NDA, if present in the repo."""
-    path = APP_ROOT / "docs" / "product" / "sample-nda.pdf"
-    if not path.is_file():
-        return None
-    return path.read_bytes()
 
 
 def _apply_presentation_mode_lock() -> None:
@@ -219,50 +223,12 @@ def get_embeddings(model_name: str) -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(model_name=model_name)
 
 
-def finalize_progress(progress_bar, message: str) -> None:
-    """Set progress to done, pause briefly, then hide the bar."""
-    if progress_bar is not None:
-        progress_bar.progress(100, text=message)
-        time.sleep(0.4)
-        progress_bar.empty()
-
-
-
-def _request_chat_scroll_to_bottom() -> None:
-    """After a new assistant turn, scroll main pane to the latest message."""
-    st.session_state._scroll_chat_to_bottom = True
-
-
-def _scroll_chat_to_bottom_if_requested() -> None:
-    if not st.session_state.pop("_scroll_chat_to_bottom", False):
-        return
-    components.html(
-        """
-        <script>
-        (function () {
-          const doc = window.parent.document;
-          const anchor = doc.getElementById("chat-scroll-anchor");
-          if (anchor) {
-            anchor.scrollIntoView({ behavior: "instant", block: "end" });
-            return;
-          }
-          const main = doc.querySelector("section.main");
-          if (main) {
-            main.scrollTop = main.scrollHeight;
-          }
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
-
 @st.cache_resource(show_spinner=False)
 def _get_cross_encoder(model_name: str):
     """Cache cross-encoder reranker model."""
     from sentence_transformers import CrossEncoder
-    return CrossEncoder(model_name)
 
+    return CrossEncoder(model_name)
 
 
 def _append_chat_message(
@@ -279,6 +245,8 @@ def _append_chat_message(
     message = {"role": role, "content": content}
     if sources:
         message["sources"] = sources
+    if role == "assistant":
+        message["refusal"] = bool(is_insufficient_answer(content))
     if role == "assistant" and timing and timing.get("total_ms", 0) > 0:
         message["timing"] = {
             "total_ms": timing["total_ms"],
@@ -297,8 +265,6 @@ def _append_chat_message(
     st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
-    if role == "assistant":
-        _request_chat_scroll_to_bottom()
 
 
 def _ensure_bm25_index() -> tuple[object | None, str | None]:
@@ -334,10 +300,9 @@ def _run_first_stage_retrieval(
         config=RETRIEVAL_CONFIG,
         candidate_limit=candidate_limit,
     )
-    if diag.get("used_global_fallback"):
-        st.info(
-            f"No matches found in pages <= {EARLY_PAGE_MAX}. "
-            "Showing best matches from all pages."
+    if diag.get("used_global_fallback") and st.session_state.developer_mode:
+        st.caption(
+            f"No matches found in pages <= {EARLY_PAGE_MAX}. Showing best matches from all pages."
         )
     return results, mode, warning, diag
 
@@ -383,13 +348,11 @@ def _ollama_recovery_expander(*, expanded: bool = False) -> None:
         st.markdown(
             "**Metal / GPU crashes on macOS** often come from the Ollama runner. "
             "Update Ollama, try another model/quantization, or reduce context "
-            f"(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
+            "(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
         )
         st.markdown("Run these commands in a terminal:")
         st.code(
-            "ollama serve\n"
-            f"{pull_commands}\n"
-            "ollama list",
+            f"ollama serve\n{pull_commands}\nollama list",
             language="bash",
         )
         st.caption(f"CPU smoke-test order: {recommended_order_text}.")
@@ -422,7 +385,9 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
             # Prefer the API message body when present; keep it short for chat.
             if "message': '" in detail:
                 try:
-                    reason = "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
+                    reason = (
+                        "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
+                    )
                 except IndexError:
                     reason = "Could not generate an Anthropic answer right now."
             else:
@@ -439,7 +404,11 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
         reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
     elif "timeout" in error_text or "timed out" in error_text:
         reason = "Local model timed out. Retry with a shorter question or smaller context."
-    elif "mtllibrary" in error_text or "metal" in error_text or "llama runner process has terminated" in error_text:
+    elif (
+        "mtllibrary" in error_text
+        or "metal" in error_text
+        or "llama runner process has terminated" in error_text
+    ):
         reason = (
             "Ollama’s local model runner crashed (often a Metal/GPU issue on macOS). "
             "Update Ollama, try a smaller model, or lower `OLLAMA_NUM_CTX`."
@@ -467,7 +436,6 @@ def _render_persistent_generation_error() -> None:
         st.rerun()
 
 
-
 def _env_bool(name: str, default: bool) -> bool:
     """Parse a boolean environment variable with a fallback default."""
     raw = os.getenv(name)
@@ -483,8 +451,7 @@ def _stream_text_chunks(text: str, chunk_size: int = 40):
     """Yield text in small chunks for progressive chat rendering."""
     safe_text = text or ""
     for i in range(0, len(safe_text), chunk_size):
-        yield safe_text[i:i + chunk_size]
-
+        yield safe_text[i : i + chunk_size]
 
 
 def _render_ocr_status(
@@ -509,18 +476,13 @@ def _render_ocr_status(
             f"OCR unresolved={ocr_missed_pages}"
         )
 
-    if ocr_pages_used > 0:
-        st.warning(
-            f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality."
-        )
-    elif scanned_pages_detected > 0 and ocr_warning:
-        st.warning(ocr_warning)
-        if developer_mode:
-            st.caption(
-                "Install OCR runtime first (`brew install tesseract`) and ensure "
-                "`pytesseract` + `pillow` are available in the active environment."
-            )
+    if not developer_mode:
+        return
 
+    if ocr_pages_used > 0:
+        st.caption(f"OCR used on {ocr_pages_used} page(s). Results may vary by scan quality.")
+    elif scanned_pages_detected > 0 and ocr_warning:
+        st.caption(ocr_warning)
 
 
 _init_session_state(
@@ -534,67 +496,10 @@ _apply_presentation_mode_lock()
 
 _github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
 
-# Sidebar IA: Generator → GitHub → model → pitch/steps → sample → Exit → developer
-st.sidebar.markdown("**Generator**")
-st.sidebar.markdown(
-    f"""
-    <div class="app-sidebar-links app-sidebar-links--under-generator">
-      <a class="app-sidebar-github"
-         href="{_github}"
-         target="_blank"
-         rel="noopener noreferrer"
-         aria-label="Project on GitHub"
-         title="Project on GitHub">
-        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true">
-          <path fill="currentColor"
-            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-            0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-            -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07
-            -.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08
-            -.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2
-            .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15
-            0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0
-            .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-      </a>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-st.sidebar.caption(_active_generator_label(st.session_state.dummy_generator_only))
-if st.session_state.developer_mode:
-    _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
-    _dev_settings = load_generation_config()
-    _dev_model = (
-        _dev_settings.get("anthropic_model")
-        if _dev_provider == "anthropic"
-        else _dev_settings.get("model")
-    )
-    if _dev_model:
-        st.sidebar.caption(f"API id: `{_dev_model}`")
-
+# Sidebar: how-to first; developer panels stay collapsed; model + GitHub last.
 _render_sidebar_pitch()
-
-_sample_nda = _sample_nda_bytes()
-if _sample_nda is not None:
-    st.sidebar.download_button(
-        label="Download sample NDA",
-        data=_sample_nda,
-        file_name="sample-nda.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-        help="Fictional sample for the walkthrough. Do not upload real company files on the shared pilot.",
-    )
-
-if st.session_state.developer_mode:
-    st.sidebar.caption(
-        "Stack: Python · LangChain · FAISS · Streamlit · OCR · Ollama"
-    )
-
-# Invite cookie clear → public gate. No-op locally without the invite proxy.
 st.sidebar.link_button("Exit demo", "/invite/exit")
 
-# Developer controls stay below client-facing sections
 if _dev_toggle_allowed() or st.session_state.developer_mode:
     st.sidebar.divider()
 
@@ -646,8 +551,7 @@ if st.session_state.developer_mode:
         options=["semantic", "hybrid"],
         index=0 if st.session_state.retrieval_strategy == "semantic" else 1,
         help=(
-            "semantic: dense vector search only. "
-            "hybrid: dense + BM25 with reciprocal rank fusion."
+            "semantic: dense vector search only. hybrid: dense + BM25 with reciprocal rank fusion."
         ),
     )
     st.session_state.enable_reranker = st.sidebar.checkbox(
@@ -659,8 +563,25 @@ if st.session_state.developer_mode:
         ),
     )
 
+if st.session_state.developer_mode:
+    _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
+    _dev_settings = load_generation_config()
+    _dev_model = (
+        _dev_settings.get("anthropic_model")
+        if _dev_provider == "anthropic"
+        else _dev_settings.get("model")
+    )
+    if _dev_model:
+        st.sidebar.caption(f"API id: `{_dev_model}`")
+
+_render_sidebar_footer(
+    generator_label=_active_generator_label(st.session_state.dummy_generator_only),
+    github_url=_github,
+)
+
 _render_client_hero()
 
+st.markdown('<p class="app-primary-mark">Your document</p>', unsafe_allow_html=True)
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = st.file_uploader(
     "PDF",
@@ -668,9 +589,19 @@ uploaded_file = st.file_uploader(
     key=uploader_key,
     label_visibility="collapsed",
 )
-
-if st.session_state.pop("_fresh_session_hint", False) and not _document_is_indexed():
-    st.info(_CLIENT_COPY["session_fresh"])
+if st.button(
+    _CLIENT_COPY["sample_button"],
+    type="primary",
+    use_container_width=True,
+    help=_CLIENT_COPY["sample_help"],
+):
+    if load_sample_nda():
+        st.rerun()
+_privacy_provider = resolve_llm_provider_name(dummy_mode=st.session_state.dummy_generator_only)
+st.markdown(
+    f'<p class="app-privacy">{html.escape(privacy_line_for_provider(_privacy_provider))}</p>',
+    unsafe_allow_html=True,
+)
 
 prev_uploader_had_file = st.session_state.get("_uploader_widget_had_file", False)
 curr_uploader_has_file = uploaded_file is not None
@@ -678,24 +609,23 @@ if prev_uploader_had_file and not curr_uploader_has_file:
     if _document_is_indexed() or st.session_state.get("uploaded_pdf_bytes"):
         _reset_document_state(bump_uploader_key=True)
         st.session_state._uploader_widget_had_file = False
-        st.info(_CLIENT_COPY["doc_cleared"])
         st.rerun()
 st.session_state._uploader_widget_had_file = curr_uploader_has_file
 
 extracted_text = ""
-
+status_slot = st.empty()
 resolved_upload = _resolve_upload(uploaded_file)
+_render_document_status(
+    uploaded_file=uploaded_file,
+    resolved_upload=resolved_upload,
+    slot=status_slot,
+)
+
 if resolved_upload is not None:
     file_bytes, file_name = resolved_upload
     uploaded_hash = _cache_upload(file_bytes, file_name)
 
-    if uploaded_file is None and not _document_is_indexed():
-        st.info(_CLIENT_COPY["reindex_resume"])
-
-    if (
-        uploaded_hash == st.session_state.last_processed_hash
-        and _document_is_indexed()
-    ):
+    if uploaded_hash == st.session_state.last_processed_hash and _document_is_indexed():
         st.session_state.current_file = file_name
         prev = st.session_state.indexed_doc_stats or {}
         _set_indexed_doc_stats(
@@ -708,32 +638,36 @@ if resolved_upload is not None:
         )
     else:
         tmp_path = None
-        progress_bar = None
         try:
-            progress_bar = st.progress(5, text=_CLIENT_COPY["progress_prepare"])
+            paint_status(
+                status_slot,
+                "reading",
+                _reading_message(file_name, _CLIENT_COPY["progress_prepare"]),
+            )
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                 tmp_file.write(file_bytes)
                 tmp_path = Path(tmp_file.name)
 
-            progress_bar.progress(25, text=(
-                "Extracting text from PDF…"
-                if st.session_state.developer_mode
-                else _CLIENT_COPY["progress_extract"]
-            ))
+            paint_status(
+                status_slot,
+                "reading",
+                _reading_message(file_name, _CLIENT_COPY["progress_extract"]),
+            )
 
             extracted = extract_pdf(tmp_path, enable_ocr=st.session_state.enable_ocr)
             page_docs = extracted.page_docs
             extracted_text = extracted.preview_text
-            progress_bar.progress(45, text=(
-                "Text extracted. Preparing chunking…"
-                if st.session_state.developer_mode
-                else _CLIENT_COPY["progress_chunk"]
-            ))
+            paint_status(
+                status_slot,
+                "reading",
+                _reading_message(file_name, _CLIENT_COPY["progress_chunk"]),
+            )
 
             extracted_char_count = len(extracted_text.strip())
             if st.session_state.developer_mode:
                 st.caption(
-                    f"Extraction: **{len(page_docs)}** pages · **{extracted_char_count:,}** characters"
+                    f"Extraction: **{len(page_docs)}** pages · "
+                    f"**{extracted_char_count:,}** characters"
                 )
             _render_ocr_status(
                 enable_ocr=st.session_state.enable_ocr,
@@ -751,22 +685,17 @@ if resolved_upload is not None:
                         height=260,
                     )
 
-            with st.spinner(
-                "Splitting text into chunks…"
-                if st.session_state.developer_mode
-                else _CLIENT_COPY["progress_chunk"]
-            ):
-                chunks = chunk_pages(
-                    page_docs,
-                    chunk_size=CHUNK_SIZE,
-                    chunk_overlap=CHUNK_OVERLAP,
-                    split_on_legal_headers=SPLIT_ON_LEGAL_HEADERS,
-                )
-            progress_bar.progress(65, text=(
-                "Chunks created. Loading embedding model…"
-                if st.session_state.developer_mode
-                else _CLIENT_COPY["progress_embed"]
-            ))
+            chunks = chunk_pages(
+                page_docs,
+                chunk_size=CHUNK_SIZE,
+                chunk_overlap=CHUNK_OVERLAP,
+                split_on_legal_headers=SPLIT_ON_LEGAL_HEADERS,
+            )
+            paint_status(
+                status_slot,
+                "reading",
+                _reading_message(file_name, _CLIENT_COPY["progress_embed"]),
+            )
 
             if st.session_state.developer_mode:
                 split_note = " · header split ON" if SPLIT_ON_LEGAL_HEADERS else ""
@@ -787,11 +716,10 @@ if resolved_upload is not None:
                     reused_index=False,
                     header_split=SPLIT_ON_LEGAL_HEADERS,
                 )
-                finalize_progress(progress_bar, "No index created (no extractable text).")
-                st.warning(
-                    "No extractable text chunks were found in this document, "
-                    "so search indexing was skipped. Try a PDF with selectable text "
-                    "or run OCR preprocessing."
+                paint_status(
+                    status_slot,
+                    "error",
+                    "No extractable text in this PDF. Try a file with selectable text.",
                 )
             else:
                 if st.session_state.developer_mode:
@@ -813,35 +741,18 @@ if resolved_upload is not None:
                 st.session_state.bm25_state = None
 
                 had_existing_index = st.session_state.vector_store is not None
-                progress_bar.progress(80, text=(
-                    "Embeddings ready. Building FAISS index…"
-                    if st.session_state.developer_mode
-                    else _CLIENT_COPY["progress_embed"]
-                ))
-                with st.spinner(
-                    f"Generating embeddings with {EMBEDDING_MODEL} & building FAISS index…"
-                    if st.session_state.developer_mode
-                    else _CLIENT_COPY["progress_index"]
-                ):
-                    start = time.time()
-
-                    embeddings = get_embeddings(EMBEDDING_MODEL)
-
-                    vector_store = FAISS.from_documents(
-                        documents=st.session_state.chunks,
-                        embedding=embeddings
-                    )
-
-                    st.session_state.vector_store = vector_store
-                    took = time.time() - start
-                finalize_progress(
-                    progress_bar,
-                    (
-                        "Indexing complete."
-                        if st.session_state.developer_mode
-                        else _CLIENT_COPY["progress_done"]
-                    ),
+                paint_status(
+                    status_slot,
+                    "reading",
+                    _reading_message(file_name, _CLIENT_COPY["progress_index"]),
                 )
+                start = time.time()
+                embeddings = get_embeddings(EMBEDDING_MODEL)
+                vector_store = FAISS.from_documents(
+                    documents=st.session_state.chunks, embedding=embeddings
+                )
+                st.session_state.vector_store = vector_store
+                took = time.time() - start
 
                 if st.session_state.developer_mode:
                     _set_dev_index_logs(
@@ -850,8 +761,6 @@ if resolved_upload is not None:
                             f"with {vector_store.index.ntotal} vectors • took {took:.1f} s"
                         ),
                     )
-                else:
-                    st.toast(_CLIENT_COPY["toast_indexed"], icon="✅")
 
                 _set_processed_document(file_name, uploaded_hash)
                 _set_indexed_doc_stats(
@@ -862,91 +771,52 @@ if resolved_upload is not None:
                     header_split=SPLIT_ON_LEGAL_HEADERS,
                     chunks=len(chunks),
                 )
-
-                if len(chunks) <= 2:
-                    st.warning("Very little text found in document. Search might not work well.")
+                paint_status(status_slot, "ready", _ready_message(file_name))
 
         except (OSError, ValueError, RuntimeError) as e:
-            finalize_progress(progress_bar, "Processing failed.")
-            st.error(f"Error processing PDF: {str(e)}")
-            st.exception(e)
+            paint_status(status_slot, "error", f"Could not read this PDF. {e}")
+            if st.session_state.developer_mode:
+                st.exception(e)
         finally:
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
 
-_render_document_status(
-    uploaded_file=uploaded_file,
-    resolved_upload=resolved_upload,
-)
-
-# Chat history UI (persists across reruns)
-latest_sources_idx = next(
-    (
-        idx
-        for idx in range(len(st.session_state.messages) - 1, -1, -1)
-        if st.session_state.messages[idx].get("role") == "assistant"
-        and st.session_state.messages[idx].get("sources")
-    ),
-    None,
-)
-for msg_idx, message in enumerate(st.session_state.messages):
-    turn_label = f"turn {msg_idx // 2 + 1}"
-
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-        if message["role"] == "assistant":
-            _render_answer_timing(
-                message.get("timing"),
-                developer_mode=st.session_state.developer_mode,
-            )
-            if message.get("sources"):
-                _render_sources_panel(
-                    message["sources"],
-                    developer_mode=st.session_state.developer_mode,
-                    title=_sources_panel_title(message),
-                    expanded=msg_idx == latest_sources_idx,
-                )
-            if st.session_state.developer_mode and message.get("sources"):
-                _render_source_checklist(
-                    message["sources"],
-                    target_section=message.get("target_section"),
-                    title=_dev_panel_title(
-                        "Source checklist (eval)",
-                        message.get("for_question"),
-                        fallback=turn_label,
-                    ),
-                )
-                if message.get("eval_context"):
-                    _render_eval_context_panel(
-                        message["eval_context"],
-                        target_section=message.get("target_section"),
-                        chunk_count=message.get("eval_chunk_count"),
-                        title=_dev_panel_title(
-                            "Exact context fed to LLM",
-                            message.get("for_question"),
-                            fallback=turn_label,
-                        ),
-                        top_k=TOP_K,
-                    )
-
-st.markdown('<div id="chat-scroll-anchor"></div>', unsafe_allow_html=True)
-_scroll_chat_to_bottom_if_requested()
-
 chat_ready = _document_is_indexed()
-query = st.chat_input(
-    _chat_input_placeholder(
-        uploaded_file=uploaded_file,
-        resolved_upload=resolved_upload,
-    ),
-    disabled=not chat_ready,
-)
+if "pending_question" in st.session_state:
+    st.session_state.ask_box = st.session_state.pop("pending_question")
+
+if chat_ready:
+    st.markdown(
+        '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
+        unsafe_allow_html=True,
+    )
+    for chip in STARTER_CHIPS:
+        if st.button(chip["label"], key=f"chip_{chip['label']}", use_container_width=True):
+            st.session_state.pending_question = chip["question"]
+            st.rerun()
+
+with st.form("ask_form", clear_on_submit=True, border=False):
+    typed = st.text_input(
+        "Question",
+        key="ask_box",
+        placeholder=_chat_input_placeholder(
+            uploaded_file=uploaded_file,
+            resolved_upload=resolved_upload,
+        ),
+        label_visibility="collapsed",
+        disabled=not chat_ready,
+    )
+    submitted = st.form_submit_button(
+        _CLIENT_COPY["ask_button"],
+        type="primary",
+        disabled=not chat_ready,
+    )
+query = typed.strip() if submitted and typed else None
 
 if query and query.strip() and chat_ready:
     query = query.strip()
     _append_chat_message("user", query)
-
-    with st.chat_message("user"):
-        st.markdown(query)
+    paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
 
     retrieval_error = None
     generation_error = None
@@ -960,7 +830,11 @@ if query and query.strip() and chat_ready:
     generation_elapsed_ms = 0.0
     total_elapsed_ms = 0.0
 
-    with st.chat_message("assistant"):
+    with st.container():
+        st.markdown(
+            f'<p class="app-answer-q">{html.escape(query)}</p>',
+            unsafe_allow_html=True,
+        )
         timer_placeholder = st.empty()
         stop_timer = threading.Event()
         script_ctx = get_script_run_ctx()
@@ -988,9 +862,7 @@ if query and query.strip() and chat_ready:
                 retrieval_start = time.perf_counter()
                 try:
                     candidate_limit = (
-                        max(TOP_K, RERANKER_TOP_N)
-                        if st.session_state.enable_reranker
-                        else TOP_K
+                        max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
                     )
                     candidate_pool, mode, first_stage_warning, retrieval_diag = (
                         _run_first_stage_retrieval(
@@ -1007,9 +879,7 @@ if query and query.strip() and chat_ready:
                     )
                     st.session_state.last_retrieval_mode = final_mode
                     retrieval_warning = reranker_warning or first_stage_warning
-                    retrieval_elapsed_ms = (
-                        time.perf_counter() - retrieval_start
-                    ) * 1000.0
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
 
                     for doc, score in raw_results:
                         doc.metadata["similarity"] = score
@@ -1025,9 +895,7 @@ if query and query.strip() and chat_ready:
                     )
                     if hard_filter_warning:
                         retrieval_warning = " · ".join(
-                            part
-                            for part in (retrieval_warning, hard_filter_warning)
-                            if part
+                            part for part in (retrieval_warning, hard_filter_warning) if part
                         )
                         st.session_state.last_retrieval_mode = (
                             f"{st.session_state.last_retrieval_mode}_section_filtered"
@@ -1060,9 +928,7 @@ if query and query.strip() and chat_ready:
                     RuntimeError,
                 ) as e:
                     retrieval_error = e
-                    retrieval_elapsed_ms = (
-                        time.perf_counter() - retrieval_start
-                    ) * 1000.0
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
                     st.session_state.last_retrieval_mode = "retrieval_failed"
                     raw_results = []
                     retrieved_docs = []
@@ -1086,11 +952,7 @@ if query and query.strip() and chat_ready:
             use_api = bool(api_base_url())
             try:
                 try:
-                    stream_fn = (
-                        chat_via_api_stream
-                        if use_api
-                        else generate_answer_stream
-                    )
+                    stream_fn = chat_via_api_stream if use_api else generate_answer_stream
                     streamed = st.write_stream(
                         stream_fn(
                             context=context,
@@ -1121,14 +983,12 @@ if query and query.strip() and chat_ready:
             except Exception as e:
                 generation_error = e
                 st.session_state.last_answer = None
-            generation_elapsed_ms = (
-                time.perf_counter() - generation_start
-            ) * 1000.0
+            generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
 
         total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
-        if retrieval_warning:
-            st.warning(retrieval_warning)
+        if retrieval_warning and st.session_state.developer_mode:
+            st.caption(retrieval_warning)
 
         st.session_state.last_retrieval_metrics = {
             "strategy": st.session_state.retrieval_strategy,
@@ -1147,7 +1007,9 @@ if query and query.strip() and chat_ready:
             query_preview = _question_preview(query)
             if st.session_state.last_retrieval_metrics:
                 with st.expander(
-                    _dev_panel_title("Retrieval metrics (last run)", query_preview, fallback="live"),
+                    _dev_panel_title(
+                        "Retrieval metrics (last run)", query_preview, fallback="live"
+                    ),
                     expanded=False,
                 ):
                     metrics = st.session_state.last_retrieval_metrics
@@ -1158,8 +1020,10 @@ if query and query.strip() and chat_ready:
                         f"- candidates (dense/sparse/fused): "
                         f"`{metrics.get('dense_candidates', 0)}` / "
                         f"`{metrics.get('sparse_candidates', 0)}` / "
-                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`  \n"
-                        f"- selected before rerank: `{metrics.get('selected_before_rerank', 0)}`  \n"
+                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`"
+                        "  \n"
+                        f"- selected before rerank: "
+                        f"`{metrics.get('selected_before_rerank', 0)}`  \n"
                         f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
                         f"- context chars: `{metrics['context_chars']}`  \n"
                         f"- timing ms (retrieval/rerank/generation/total): "
@@ -1180,8 +1044,9 @@ if query and query.strip() and chat_ready:
             ):
                 for i, (doc, _raw_score) in enumerate(raw_results, start=1):
                     similarity = doc.metadata.get("similarity")
+                    score = round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A"
                     st.markdown(
-                        f"**Chunk {i}** (similarity score: {round(similarity, 3) if isinstance(similarity, (float, int)) else 'N/A'})  \n"
+                        f"**Chunk {i}** (similarity score: {score})  \n"
                         f"Page: {doc.metadata.get('page', '?')}"
                     )
                     st.code(doc.page_content, language="text")
@@ -1192,10 +1057,10 @@ if query and query.strip() and chat_ready:
         "generation_ms": generation_elapsed_ms,
     }
 
+    ready_name = st.session_state.current_file or "Document"
     if retrieval_error is not None:
         retrieval_reason = (
-            "I couldn't retrieve relevant document chunks right now. "
-            "Please try again."
+            "I couldn't retrieve relevant document chunks right now. Please try again."
         )
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
@@ -1204,6 +1069,7 @@ if query and query.strip() and chat_ready:
             timing=timing_payload if total_elapsed_ms > 0 else None,
             for_question=query,
         )
+        paint_status(status_slot, "error", retrieval_reason)
         st.rerun()
     elif generation_error is not None:
         e = generation_error
@@ -1213,10 +1079,7 @@ if query and query.strip() and chat_ready:
             "user_reason": reason,
             "detail": str(e),
         }
-        assistant_message = (
-            "I couldn't generate an answer right now. "
-            f"{reason}"
-        )
+        assistant_message = f"I couldn't generate an answer right now. {reason}"
         _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
         _append_chat_message(
             "assistant",
@@ -1224,6 +1087,7 @@ if query and query.strip() and chat_ready:
             timing=timing_payload if total_elapsed_ms > 0 else None,
             for_question=query,
         )
+        paint_status(status_slot, "error", reason)
         st.rerun()
     else:
         assistant_message = (
@@ -1249,10 +1113,49 @@ if query and query.strip() and chat_ready:
             target_section=target_section,
             eval_chunk_count=len(raw_results),
         )
+        paint_status(status_slot, "ready", _ready_message(ready_name))
         st.rerun()
 elif query is not None and not chat_ready:
-    st.info(_chat_blocked_user_message(uploaded_file))
+    paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
 elif query is not None:
-    st.warning("Please enter a non-empty question.")
+    paint_status(status_slot, "error", "Please enter a non-empty question.")
 
-_render_persistent_generation_error()
+# Newest answer first so the last reply stays on screen without iframe scroll.
+turns = _paired_turns(st.session_state.messages)
+for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
+    question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+    _render_answer_card(
+        question=question,
+        answer=assistant_msg.get("content") or "",
+        sources=assistant_msg.get("sources") or [],
+        refusal=assistant_msg.get("refusal"),
+        expanded=turn_idx == 0,
+        timing=assistant_msg.get("timing"),
+        developer_mode=st.session_state.developer_mode,
+    )
+    if st.session_state.developer_mode and assistant_msg.get("sources"):
+        turn_label = f"turn {len(turns) - turn_idx}"
+        _render_source_checklist(
+            assistant_msg["sources"],
+            target_section=assistant_msg.get("target_section"),
+            title=_dev_panel_title(
+                "Source checklist (eval)",
+                assistant_msg.get("for_question"),
+                fallback=turn_label,
+            ),
+        )
+        if assistant_msg.get("eval_context"):
+            _render_eval_context_panel(
+                assistant_msg["eval_context"],
+                target_section=assistant_msg.get("target_section"),
+                chunk_count=assistant_msg.get("eval_chunk_count"),
+                title=_dev_panel_title(
+                    "Exact context fed to LLM",
+                    assistant_msg.get("for_question"),
+                    fallback=turn_label,
+                ),
+                top_k=TOP_K,
+            )
+
+if st.session_state.developer_mode:
+    _render_persistent_generation_error()

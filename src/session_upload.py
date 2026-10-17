@@ -1,9 +1,11 @@
-"""Session keys, upload cache, and document-ready helpers for the page script."""
+"""Session keys, upload cache, sample NDA, and the single document status line."""
 
 from __future__ import annotations
 
 import hashlib
+import html
 import os
+from pathlib import Path
 
 import streamlit as st
 
@@ -11,6 +13,13 @@ from page_copy import _CLIENT_COPY
 
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
+SAMPLE_NDA_NAME = "sample-nda.pdf"
+_STATUS_KINDS = frozenset({"empty", "reading", "ready", "answering", "error"})
+
+
+def sample_nda_path() -> Path:
+    """Repo path to the walkthrough NDA PDF."""
+    return Path(__file__).resolve().parent.parent / "docs" / "product" / SAMPLE_NDA_NAME
 
 
 def _on_new_browser_session() -> None:
@@ -18,10 +27,7 @@ def _on_new_browser_session() -> None:
     if st.session_state.get("_app_boot_id") == _APP_BOOT_ID:
         return
     st.session_state._app_boot_id = _APP_BOOT_ID
-    st.session_state.uploader_key_version = (
-        int(st.session_state.get("uploader_key_version", 0)) + 1
-    )
-    st.session_state._fresh_session_hint = True
+    st.session_state.uploader_key_version = int(st.session_state.get("uploader_key_version", 0)) + 1
     for key in ("uploaded_pdf_bytes", "uploaded_pdf_name", "uploaded_pdf_hash"):
         st.session_state.pop(key, None)
     st.session_state.last_processed_name = None
@@ -31,14 +37,17 @@ def _on_new_browser_session() -> None:
     st.session_state.chunks = None
     st.session_state.indexed_doc_stats = None
     st.session_state.bm25_state = None
+    _set_doc_status("empty", _CLIENT_COPY["doc_empty"])
 
 
 def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | None) -> bool:
     """True when we have file bytes but no searchable index yet."""
     if _document_is_indexed():
         return False
-    return resolved_upload is not None or uploaded_file is not None or bool(
-        st.session_state.get("uploaded_pdf_bytes")
+    return (
+        resolved_upload is not None
+        or uploaded_file is not None
+        or bool(st.session_state.get("uploaded_pdf_bytes"))
     )
 
 
@@ -96,6 +105,24 @@ def _cache_upload(file_bytes: bytes, file_name: str) -> str:
     return file_hash
 
 
+def load_sample_nda() -> bool:
+    """Cache the walkthrough NDA so indexing starts without a widget upload."""
+    path = sample_nda_path()
+    if not path.is_file():
+        _set_doc_status("error", _CLIENT_COPY["sample_missing"])
+        return False
+    _reset_document_state(bump_uploader_key=True)
+    _cache_upload(path.read_bytes(), SAMPLE_NDA_NAME)
+    _set_doc_status(
+        "reading",
+        _CLIENT_COPY["doc_reading"].format(
+            name=SAMPLE_NDA_NAME,
+            step=_CLIENT_COPY["progress_prepare"],
+        ),
+    )
+    return True
+
+
 def _resolve_upload(uploaded_file) -> tuple[bytes, str] | None:
     """Return file bytes and name from the widget or the session cache."""
     if uploaded_file is not None:
@@ -131,60 +158,99 @@ def _chat_blocked_user_message(uploaded_file) -> str:
         return ""
     if uploaded_file is not None or st.session_state.get("uploaded_pdf_bytes"):
         return _CLIENT_COPY["chat_blocked_indexing"]
-    if st.session_state.current_file or st.session_state.get("uploaded_pdf_name"):
-        return _CLIENT_COPY["chat_blocked_ghost"]
     return _CLIENT_COPY["chat_blocked_empty"]
+
+
+def _set_doc_status(kind: str, message: str) -> None:
+    """Remember the single status line for this session."""
+    st.session_state.doc_status = kind if kind in _STATUS_KINDS else "empty"
+    st.session_state.doc_status_detail = message
+
+
+def _reading_message(name: str, step: str) -> str:
+    return _CLIENT_COPY["doc_reading"].format(name=name, step=step)
+
+
+def _ready_message(name: str) -> str:
+    return _CLIENT_COPY["doc_ready"].format(name=name)
+
+
+def _derive_document_status(
+    *,
+    uploaded_file,
+    resolved_upload: tuple[bytes, str] | None,
+) -> tuple[str, str]:
+    """Pick empty / reading / ready / answering / error from session + upload."""
+    if st.session_state.get("doc_status") == "answering":
+        return "answering", _CLIENT_COPY["doc_answering"]
+
+    err = st.session_state.get("last_generation_error") or {}
+    if err.get("user_reason"):
+        return "error", str(err["user_reason"])
+    if st.session_state.get("doc_status") == "error" and st.session_state.get("doc_status_detail"):
+        return "error", st.session_state.doc_status_detail
+
+    stats = st.session_state.get("indexed_doc_stats") or {}
+    if _document_is_indexed():
+        name = stats.get("file_name") or st.session_state.current_file or "Document"
+        return "ready", _ready_message(name)
+
+    if _upload_in_flight(uploaded_file=uploaded_file, resolved_upload=resolved_upload):
+        name = (
+            st.session_state.get("uploaded_pdf_name")
+            or (resolved_upload[1] if resolved_upload else None)
+            or (getattr(uploaded_file, "name", None))
+            or "document"
+        )
+        step = st.session_state.get("doc_status_detail")
+        if st.session_state.get("doc_status") == "reading" and step:
+            return "reading", step
+        return "reading", _reading_message(name, _CLIENT_COPY["progress_prepare"])
+
+    return "empty", _CLIENT_COPY["doc_empty"]
+
+
+def paint_status(slot, kind: str, message: str) -> None:
+    """Draw the one status pill and remember it."""
+    _set_doc_status(kind, message)
+    safe = html.escape(message)
+    slot.markdown(
+        f'<div class="app-status app-status--{kind}" role="status">{safe}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _render_document_status(
     *,
     uploaded_file,
     resolved_upload: tuple[bytes, str] | None,
-) -> None:
-    """Show indexing or ready so the visitor knows when they can ask."""
-    stats = st.session_state.get("indexed_doc_stats")
-    if stats and _document_is_indexed():
-        name = stats.get("file_name") or st.session_state.current_file or "Document"
+    slot=None,
+):
+    """Show one status line so the visitor knows when they can ask."""
+    kind, message = _derive_document_status(
+        uploaded_file=uploaded_file,
+        resolved_upload=resolved_upload,
+    )
+    target = slot if slot is not None else st.empty()
+    paint_status(target, kind, message)
+    if kind == "ready" and st.session_state.developer_mode:
+        stats = st.session_state.get("indexed_doc_stats") or {}
         pages = stats.get("pages", 0)
-        st.success(_CLIENT_COPY["doc_ready"].format(name=name))
-        if st.session_state.developer_mode:
-            dev_logs = st.session_state.get("dev_index_logs") or {}
-            if dev_logs.get("chunks"):
-                st.success(dev_logs["chunks"])
-            if dev_logs.get("faiss"):
-                st.success(dev_logs["faiss"])
-            detail = f"{pages} page{'s' if pages != 1 else ''} indexed"
-            if stats.get("chars"):
-                detail += f" · {stats['chars']:,} characters extracted"
-            if stats.get("reused_index"):
-                detail += " · index reused (no re-processing)"
-            if stats.get("chunks") is not None:
-                detail += f" · {stats['chunks']} chunks"
-            if stats.get("header_split") is not None:
-                detail += f" · header split {'ON' if stats['header_split'] else 'OFF'}"
-            st.caption(detail)
-        elif pages:
-            st.caption(f"{pages} page{'s' if pages != 1 else ''} processed")
-        return
-
-    if _document_is_indexed() and st.session_state.current_file:
-        st.success(
-            _CLIENT_COPY["doc_ready"].format(name=st.session_state.current_file)
-        )
-        return
-
-    if st.session_state.get("uploaded_pdf_name") and not _document_is_indexed():
-        st.info(
-            _CLIENT_COPY["doc_indexing"].format(
-                name=st.session_state.uploaded_pdf_name
-            )
-        )
-        return
-
-    if _upload_in_flight(
-        uploaded_file=uploaded_file, resolved_upload=resolved_upload
-    ):
-        st.warning(_CLIENT_COPY["doc_stale"])
+        parts = []
+        if pages:
+            parts.append(f"{pages} page{'s' if pages != 1 else ''}")
+        if stats.get("chunks") is not None:
+            parts.append(f"{stats['chunks']} chunks")
+        if stats.get("header_split") is not None:
+            parts.append(f"header split {'ON' if stats['header_split'] else 'OFF'}")
+        if parts:
+            st.caption(" · ".join(parts))
+        dev_logs = st.session_state.get("dev_index_logs") or {}
+        if dev_logs.get("chunks"):
+            st.caption(dev_logs["chunks"])
+        if dev_logs.get("faiss"):
+            st.caption(dev_logs["faiss"])
+    return target
 
 
 def _reset_chat_state() -> None:
@@ -214,6 +280,7 @@ def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
     _clear_dev_index_logs()
     _clear_cached_upload()
     _reset_chat_state()
+    _set_doc_status("empty", _CLIENT_COPY["doc_empty"])
     if bump_uploader_key:
         st.session_state.uploader_key_version += 1
 
@@ -252,7 +319,6 @@ def _init_session_state(
         "developer_mode": developer_mode,
         "enable_ocr": True,
         "use_page_separators": True,
-        # Local / VPS: Ollama by default. Set USE_DUMMY_GENERATOR=true for UI placeholder tests.
         "dummy_generator_only": dummy_generator_only,
         "bm25_state": None,
         "retrieval_strategy": (
@@ -266,7 +332,9 @@ def _init_session_state(
         "last_generation_error": None,
         "last_response_timing": None,
         "_uploader_widget_had_file": False,
-        "_scroll_chat_to_bottom": False,
+        "doc_status": "empty",
+        "doc_status_detail": _CLIENT_COPY["doc_empty"],
+        "ask_box": "",
     }
     for key, value in defaults.items():
         if key not in st.session_state:

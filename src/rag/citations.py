@@ -7,7 +7,7 @@ import re
 from langchain_core.documents import Document
 
 INSUFFICIENT_CONTEXT_ANSWER = (
-    "I could not find enough information in the document to answer."
+    "This isn't in the document, so I won't guess. Ask about something it covers."
 )
 
 # Light English stopwords for answer↔chunk overlap (keep the set tiny).
@@ -99,10 +99,7 @@ def dedupe_similar_chunks(
             continue
 
         page = doc.metadata.get("page")
-        if (
-            len(text) < min_tiny_chars
-            and page_max_lens.get(page, 0) > len(text) * 2
-        ):
+        if len(text) < min_tiny_chars and page_max_lens.get(page, 0) > len(text) * 2:
             continue
 
         seen_snippets.append(snippet)
@@ -111,6 +108,13 @@ def dedupe_similar_chunks(
             break
 
     return final
+
+
+def is_insufficient_answer(text: str) -> bool:
+    """True when the answer contains the exact refusal sentinel."""
+    normalized = " ".join((text or "").split())
+    sentinel = " ".join(INSUFFICIENT_CONTEXT_ANSWER.split())
+    return bool(normalized) and sentinel in normalized
 
 
 def query_expects_obligations(query: str) -> bool:
@@ -173,11 +177,7 @@ def sort_source_docs(
 
 def _content_tokens(text: str) -> set[str]:
     """Lowercase alnum tokens minus a light stopword list."""
-    return {
-        tok
-        for tok in _TOKEN_RE.findall((text or "").lower())
-        if tok not in _OVERLAP_STOPWORDS
-    }
+    return {tok for tok in _TOKEN_RE.findall((text or "").lower()) if tok not in _OVERLAP_STOPWORDS}
 
 
 def token_overlap_score(answer: str, chunk_text: str) -> float:
@@ -211,11 +211,7 @@ def filter_docs_overlapping_answer(
     if not docs or not (answer or "").strip():
         return docs
 
-    kept = [
-        doc
-        for doc in docs
-        if token_overlap_score(answer, doc.page_content or "") >= min_score
-    ]
+    kept = [doc for doc in docs if token_overlap_score(answer, doc.page_content or "") >= min_score]
     return kept if kept else docs
 
 
@@ -258,6 +254,9 @@ def build_sources_payload(
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
     from rag.chunking import chunk_on_section, extract_target_section
+
+    if is_insufficient_answer(answer or ""):
+        return []
 
     target_section = extract_target_section(query) if query else None
     ordered = sort_source_docs(retrieved_docs, target_section=target_section)
