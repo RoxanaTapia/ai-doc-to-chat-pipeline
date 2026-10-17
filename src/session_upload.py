@@ -398,7 +398,7 @@ def _init_session_state(
             if retrieval_strategy_default in {"semantic", "hybrid"}
             else "semantic"
         ),
-        "enable_reranker": reranker_enabled_default,
+        "enable_reranker": reranker_enabled_default if developer_mode else False,
         "indexed_doc_stats": None,
         "dev_index_logs": None,
         "last_generation_error": None,

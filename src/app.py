@@ -1,6 +1,10 @@
+import os
+
+# Before tokenizers/sentence-transformers import: avoid a first-ask deadlock.
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import hashlib
 import html
-import os
 import tempfile
 import threading
 import time
@@ -15,7 +19,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 from api_client import api_base_url, chat_via_api
-from ask_runtime import AskTimeoutError, run_with_timeout
+from ask_runtime import AskTimeoutError, log_ask_stage, remaining_timeout, run_with_timeout
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
@@ -155,6 +159,13 @@ def _apply_presentation_mode_lock() -> None:
     if _dev_toggle_allowed():
         return
     st.session_state.developer_mode = _presentation_mode() == "developer"
+
+
+def _apply_client_ask_guards() -> None:
+    """Skip the cross-encoder on the pilot so the first question can reach the model."""
+    if st.session_state.developer_mode:
+        return
+    st.session_state.enable_reranker = False
 
 
 # Load configuration
@@ -551,6 +562,7 @@ _init_session_state(
 )
 _on_new_browser_session()
 _apply_presentation_mode_lock()
+_apply_client_ask_guards()
 
 _github = "https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline"
 _show_sidebar = bool(st.session_state.developer_mode or _dev_toggle_allowed())
@@ -1006,10 +1018,31 @@ if query and query.strip() and chat_ready:
                 candidate_limit = (
                     max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
                 )
-                candidate_pool, mode, first_stage_warning, retrieval_diag = (
-                    _run_first_stage_retrieval(
+                bm25_index, bm25_warning = _ensure_bm25_index()
+                strategy = st.session_state.retrieval_strategy
+                vector_store = st.session_state.vector_store
+                chunks = st.session_state.chunks or []
+                dummy_mode = st.session_state.dummy_generator_only
+                use_page_separators = bool(st.session_state.use_page_separators)
+                timeout_seconds = _ask_timeout_seconds()
+                log_ask_stage("start", question=query)
+
+                def _retrieve_only():
+                    return first_stage_retrieval(
                         query,
+                        strategy=strategy,
+                        vector_store=vector_store,
+                        chunks=chunks,
+                        bm25_index=bm25_index,
+                        bm25_warning=bm25_warning,
+                        config=RETRIEVAL_CONFIG,
                         candidate_limit=candidate_limit,
+                    )
+
+                candidate_pool, mode, first_stage_warning, retrieval_diag = (
+                    run_with_timeout(
+                        _retrieve_only,
+                        remaining_timeout(total_start, timeout_seconds),
                     )
                 )
                 raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
@@ -1022,6 +1055,13 @@ if query and query.strip() and chat_ready:
                 st.session_state.last_retrieval_mode = final_mode
                 retrieval_warning = reranker_warning or first_stage_warning
                 retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                log_ask_stage(
+                    "retrieval_done",
+                    question=query,
+                    elapsed_ms=retrieval_elapsed_ms,
+                    chunks=len(raw_results),
+                    mode=final_mode,
+                )
 
                 for doc, score in raw_results:
                     doc.metadata["similarity"] = score
@@ -1048,7 +1088,7 @@ if query and query.strip() and chat_ready:
                 st.session_state.last_retrieved_docs = retrieved_docs
                 context = assemble_context(
                     context_results,
-                    use_page_separators=st.session_state.use_page_separators,
+                    use_page_separators=use_page_separators,
                 )
                 st.session_state.last_context = context
 
@@ -1062,13 +1102,17 @@ if query and query.strip() and chat_ready:
                     generation_elapsed_ms = 0.0
                 else:
                     generation_start = time.perf_counter()
-                    dummy_mode = st.session_state.dummy_generator_only
+                    log_ask_stage(
+                        "model_call_start",
+                        question=query,
+                        elapsed_ms=retrieval_elapsed_ms,
+                    )
                     try:
                         streamed = run_with_timeout(
                             lambda: _collect_generated_answer(
                                 context, query, dummy_mode
                             ),
-                            _ask_timeout_seconds(),
+                            remaining_timeout(total_start, timeout_seconds),
                         )
                         st.session_state.last_answer = (
                             streamed if isinstance(streamed, str) else None
@@ -1083,6 +1127,37 @@ if query and query.strip() and chat_ready:
                     generation_elapsed_ms = (
                         time.perf_counter() - generation_start
                     ) * 1000.0
+                    if generation_error is None:
+                        log_ask_stage(
+                            "model_call_end",
+                            question=query,
+                            elapsed_ms=generation_elapsed_ms,
+                        )
+                    else:
+                        log_ask_stage(
+                            "error",
+                            question=query,
+                            elapsed_ms=generation_elapsed_ms,
+                            reason=type(generation_error).__name__,
+                        )
+            except AskTimeoutError as e:
+                retrieval_error = e
+                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                log_ask_stage(
+                    "error",
+                    question=query,
+                    elapsed_ms=retrieval_elapsed_ms,
+                    reason=type(e).__name__,
+                )
+                st.session_state.last_retrieval_mode = "retrieval_failed"
+                raw_results = []
+                retrieved_docs = []
+                context = ""
+                st.session_state.last_query = query
+                st.session_state.last_raw_results = []
+                st.session_state.last_retrieved_docs = []
+                st.session_state.last_context = ""
+                st.session_state.last_answer = None
             except (
                 AttributeError,
                 KeyError,
@@ -1092,6 +1167,12 @@ if query and query.strip() and chat_ready:
             ) as e:
                 retrieval_error = e
                 retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                log_ask_stage(
+                    "error",
+                    question=query,
+                    elapsed_ms=retrieval_elapsed_ms,
+                    reason=type(e).__name__,
+                )
                 st.session_state.last_retrieval_mode = "retrieval_failed"
                 raw_results = []
                 retrieved_docs = []
@@ -1181,6 +1262,9 @@ if query and query.strip() and chat_ready:
     }
 
     ready_name = st.session_state.current_file or "Document"
+    if isinstance(retrieval_error, AskTimeoutError):
+        generation_error = retrieval_error
+        retrieval_error = None
     if retrieval_error is not None:
         retrieval_reason = (
             "I couldn't retrieve relevant document chunks right now. Please try again."

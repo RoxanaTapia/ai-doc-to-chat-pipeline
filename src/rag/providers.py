@@ -82,17 +82,27 @@ def _prompt_for_generation(context: str, query: str) -> str:
     return _format_prompt(prompt_template, context=context, query=query)
 
 
+def _ollama_base_url() -> str | None:
+    """Compose sets OLLAMA_HOST=http://ollama:11434; pass it through to ChatOllama."""
+    raw = (os.getenv("OLLAMA_HOST") or "").strip()
+    return raw or None
+
+
 def _build_ollama_llm(settings: dict[str, Any]) -> ChatOllama:
     """Construct a ChatOllama client from generation settings."""
     effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
-    return ChatOllama(
-        model=settings["model"],
-        temperature=effective_temperature,
-        top_p=settings["top_p"],
-        num_predict=settings["max_new_tokens"],
-        num_ctx=settings["num_ctx"],
-        timeout=settings["timeout_seconds"],
-    )
+    timeout_seconds = settings["timeout_seconds"]
+    kwargs: dict[str, Any] = {
+        "model": settings["model"],
+        "temperature": effective_temperature,
+        "top_p": settings["top_p"],
+        "num_predict": settings["max_new_tokens"],
+        "num_ctx": settings["num_ctx"],
+        "timeout": timeout_seconds,
+    }
+    if base_url := _ollama_base_url():
+        kwargs["base_url"] = base_url
+    return ChatOllama(**kwargs)
 
 
 def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropic:
