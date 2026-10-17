@@ -39,12 +39,16 @@ _CLIENT_COPY = {
         "Still reading the document. Wait until the status says ready, then ask."
     ),
     "chat_blocked_empty": ("Upload a PDF or try the sample NDA, then wait until it is ready."),
-    "privacy_ollama": ("Runs on this server: your PDF, search and answers never leave it."),
+    "privacy_ollama": (
+        "Runs on this server: your PDF, search and answers never leave it. "
+        "Files are deleted right after processing."
+    ),
     "privacy_anthropic": (
         "Your PDF and search stay on this server; only the few passages "
-        "needed for an answer are sent to the model."
+        "needed for an answer are sent to a hosted model (Anthropic). "
+        "Files are deleted right after processing."
     ),
-    "privacy_memory": ("Files are processed in memory and deleted right after processing."),
+    "privacy_memory": "Files are deleted right after processing.",
 }
 
 # Two questions the sample NDA answers; one it does not.
@@ -67,12 +71,11 @@ STARTER_CHIPS = (
 def privacy_line_for_provider(provider: str) -> str:
     """One accurate privacy line for the active generator. Do not overclaim."""
     name = (provider or "").strip().lower()
-    memory = _CLIENT_COPY["privacy_memory"]
     if name == "ollama":
-        return f"{_CLIENT_COPY['privacy_ollama']} {memory}"
+        return _CLIENT_COPY["privacy_ollama"]
     if name == "anthropic":
-        return f"{_CLIENT_COPY['privacy_anthropic']} {memory}"
-    return memory
+        return _CLIENT_COPY["privacy_anthropic"]
+    return _CLIENT_COPY["privacy_memory"]
 
 
 def _inject_demo_styles() -> None:

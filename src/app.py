@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 import streamlit as st
-import streamlit.components.v1 as components
 import yaml
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
@@ -224,35 +223,6 @@ def get_embeddings(model_name: str) -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(model_name=model_name)
 
 
-def _request_chat_scroll_to_bottom() -> None:
-    """After a new assistant turn, scroll main pane to the latest message."""
-    st.session_state._scroll_chat_to_bottom = True
-
-
-def _scroll_chat_to_bottom_if_requested() -> None:
-    if not st.session_state.pop("_scroll_chat_to_bottom", False):
-        return
-    components.html(
-        """
-        <script>
-        (function () {
-          const doc = window.parent.document;
-          const anchor = doc.getElementById("chat-scroll-anchor");
-          if (anchor) {
-            anchor.scrollIntoView({ behavior: "instant", block: "end" });
-            return;
-          }
-          const main = doc.querySelector("section.main");
-          if (main) {
-            main.scrollTop = main.scrollHeight;
-          }
-        })();
-        </script>
-        """,
-        height=0,
-    )
-
-
 @st.cache_resource(show_spinner=False)
 def _get_cross_encoder(model_name: str):
     """Cache cross-encoder reranker model."""
@@ -295,8 +265,6 @@ def _append_chat_message(
     st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
-    if role == "assistant":
-        _request_chat_scroll_to_bottom()
 
 
 def _ensure_bm25_index() -> tuple[object | None, str | None]:
@@ -813,47 +781,6 @@ if resolved_upload is not None:
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
 
-# Answer cards (newest sources stay open)
-turns = _paired_turns(st.session_state.messages)
-latest_turn = len(turns) - 1
-for turn_idx, (user_msg, assistant_msg) in enumerate(turns):
-    question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-    _render_answer_card(
-        question=question,
-        answer=assistant_msg.get("content") or "",
-        sources=assistant_msg.get("sources") or [],
-        refusal=assistant_msg.get("refusal"),
-        expanded=turn_idx == latest_turn,
-        timing=assistant_msg.get("timing"),
-        developer_mode=st.session_state.developer_mode,
-    )
-    if st.session_state.developer_mode and assistant_msg.get("sources"):
-        turn_label = f"turn {turn_idx + 1}"
-        _render_source_checklist(
-            assistant_msg["sources"],
-            target_section=assistant_msg.get("target_section"),
-            title=_dev_panel_title(
-                "Source checklist (eval)",
-                assistant_msg.get("for_question"),
-                fallback=turn_label,
-            ),
-        )
-        if assistant_msg.get("eval_context"):
-            _render_eval_context_panel(
-                assistant_msg["eval_context"],
-                target_section=assistant_msg.get("target_section"),
-                chunk_count=assistant_msg.get("eval_chunk_count"),
-                title=_dev_panel_title(
-                    "Exact context fed to LLM",
-                    assistant_msg.get("for_question"),
-                    fallback=turn_label,
-                ),
-                top_k=TOP_K,
-            )
-
-st.markdown('<div id="chat-scroll-anchor"></div>', unsafe_allow_html=True)
-_scroll_chat_to_bottom_if_requested()
-
 chat_ready = _document_is_indexed()
 if "pending_question" in st.session_state:
     st.session_state.ask_box = st.session_state.pop("pending_question")
@@ -1192,6 +1119,43 @@ elif query is not None and not chat_ready:
     paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
 elif query is not None:
     paint_status(status_slot, "error", "Please enter a non-empty question.")
+
+# Newest answer first so the last reply stays on screen without iframe scroll.
+turns = _paired_turns(st.session_state.messages)
+for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
+    question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+    _render_answer_card(
+        question=question,
+        answer=assistant_msg.get("content") or "",
+        sources=assistant_msg.get("sources") or [],
+        refusal=assistant_msg.get("refusal"),
+        expanded=turn_idx == 0,
+        timing=assistant_msg.get("timing"),
+        developer_mode=st.session_state.developer_mode,
+    )
+    if st.session_state.developer_mode and assistant_msg.get("sources"):
+        turn_label = f"turn {len(turns) - turn_idx}"
+        _render_source_checklist(
+            assistant_msg["sources"],
+            target_section=assistant_msg.get("target_section"),
+            title=_dev_panel_title(
+                "Source checklist (eval)",
+                assistant_msg.get("for_question"),
+                fallback=turn_label,
+            ),
+        )
+        if assistant_msg.get("eval_context"):
+            _render_eval_context_panel(
+                assistant_msg["eval_context"],
+                target_section=assistant_msg.get("target_section"),
+                chunk_count=assistant_msg.get("eval_chunk_count"),
+                title=_dev_panel_title(
+                    "Exact context fed to LLM",
+                    assistant_msg.get("for_question"),
+                    fallback=turn_label,
+                ),
+                top_k=TOP_K,
+            )
 
 if st.session_state.developer_mode:
     _render_persistent_generation_error()

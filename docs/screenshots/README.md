@@ -1,6 +1,6 @@
 # Storyboard stills
 
-Frames for the one-minute walkthrough. Answers are the storyboard wording so the stills stay usable offline.
+Design mockups for the one-minute walkthrough — theme-matched HTML, **not live Streamlit captures**. Answers use the storyboard wording so the stills stay usable offline.
 
 | File | What it shows |
 |------|----------------|

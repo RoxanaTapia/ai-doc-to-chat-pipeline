@@ -332,7 +332,6 @@ def _init_session_state(
         "last_generation_error": None,
         "last_response_timing": None,
         "_uploader_widget_had_file": False,
-        "_scroll_chat_to_bottom": False,
         "doc_status": "empty",
         "doc_status_detail": _CLIENT_COPY["doc_empty"],
         "ask_box": "",
