@@ -146,6 +146,31 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "0.72rem" not in _THEME_CSS
     assert "0.78rem" not in _THEME_CSS
     assert "0.82rem" not in _THEME_CSS
+    assert 'section.main .block-container > div[data-testid="stVerticalBlock"]' in _THEME_CSS
+    assert '[data-testid="column"]:has(.app-own-pdf) button' in _THEME_CSS
+    assert 'div[data-testid="stVerticalBlock"]:has(.app-own-pdf) button' not in _THEME_CSS
+    assert 'div[data-testid="stForm"] button' in _THEME_CSS
+    assert '[class*="st-key-chip_"] button' in _THEME_CSS
+    assert "max-width: 28rem" not in _THEME_CSS
+    assert ".app-lock__line" in _THEME_CSS
+    assert "max-width: none" in _THEME_CSS
+
+
+def test_readme_hosted_wording_does_not_overclaim() -> None:
+    text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    hosted = (
+        "Your PDF and search stay on this server; only the few passages "
+        "needed for an answer are sent to a hosted model (Anthropic). "
+        "Files are deleted right after processing."
+    )
+    assert hosted in text
+    assert "On your own server, it can run fully offline with a local model." in text
+    assert "on infrastructure you control" not in text
+    assert "processed in memory and never stored" not in text
+    pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0]
+    hosted_block = pilot.split("On your own server", 1)[0].lower()
+    assert "private" not in hosted_block
+    assert "local" not in hosted_block
 
 
 def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
