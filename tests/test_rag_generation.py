@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -381,6 +382,36 @@ def test_generate_answer_stream_dummy_yields_placeholder() -> None:
     assert len(chunks) == 1
     assert "no AI model is running here" in chunks[0]
     assert "live pilot" in chunks[0]
+
+
+def test_stub_llm_streams_canned_answer_token_by_token(monkeypatch) -> None:
+    monkeypatch.setenv("DEMO_STUB_LLM", "1")
+    monkeypatch.delenv("DEMO_STUB_STREAM_DELAY_MS", raising=False)
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Section 4 - Term. Three years from signing.",
+            query="How long does this agreement last?",
+            dummy_mode=True,
+        )
+    )
+    assert len(chunks) > 1
+    assert "".join(chunks).startswith("3 years")
+
+
+def test_stub_llm_stream_delay_pauses_between_tokens(monkeypatch) -> None:
+    monkeypatch.setenv("DEMO_STUB_LLM", "1")
+    monkeypatch.setenv("DEMO_STUB_STREAM_DELAY_MS", "20")
+    start = time.perf_counter()
+    chunks = list(
+        rag.generate_answer_stream(
+            context="Section 4 - Term. Three years from signing.",
+            query="How long does this agreement last?",
+            dummy_mode=True,
+        )
+    )
+    elapsed = time.perf_counter() - start
+    assert len(chunks) > 1
+    assert elapsed >= 0.02 * (len(chunks) - 1)
 
 
 def test_generate_answer_empty_context_uses_refusal_copy() -> None:

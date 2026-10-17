@@ -14,7 +14,8 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from api_client import api_base_url, chat_via_api, chat_via_api_stream
+from api_client import api_base_url, chat_via_api
+from ask_runtime import AskTimeoutError, run_with_timeout
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
@@ -28,7 +29,6 @@ from page_copy import (
     should_show_starter_chips,
 )
 from rag import (
-    generate_answer,
     generate_answer_stream,
     load_generation_config,
     resolve_llm_provider_name,
@@ -495,11 +495,21 @@ def _env_bool(name: str, default: bool) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
-def _stream_text_chunks(text: str, chunk_size: int = 40):
-    """Yield text in small chunks for progressive chat rendering."""
-    safe_text = text or ""
-    for i in range(0, len(safe_text), chunk_size):
-        yield safe_text[i : i + chunk_size]
+def _ask_timeout_seconds() -> float:
+    """Wall-clock cap for one look-up; matches generation.timeout_seconds."""
+    try:
+        return max(1.0, float(load_generation_config().get("timeout_seconds", 90)))
+    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
+        return 90.0
+
+
+def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
+    """Join token chunks in-process. A live UI stream can hang on the next Ask."""
+    if api_base_url():
+        return chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
+    return "".join(
+        generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode)
+    )
 
 
 def _render_ocr_status(
@@ -905,6 +915,7 @@ def _seed_capture_storyboard() -> None:
 
 chat_ready = _document_is_indexed()
 _seed_capture_storyboard()
+queued_question = st.session_state.pop("queued_question", None)
 if "pending_question" in st.session_state:
     st.session_state.ask_box = st.session_state.pop("pending_question")
 
@@ -925,7 +936,10 @@ with st.form("ask_form", clear_on_submit=True, border=False):
         type="primary",
         disabled=not chat_ready,
     )
-query = typed.strip() if submitted and typed else None
+if submitted and typed and typed.strip():
+    st.session_state.queued_question = typed.strip()
+    st.rerun()
+query = (queued_question or "").strip() or None
 
 if chat_ready and should_show_starter_chips(st.session_state.messages):
     st.markdown(
@@ -962,7 +976,6 @@ if query and query.strip() and chat_ready:
         timer_placeholder = st.empty()
         stop_timer = threading.Event()
         script_ctx = get_script_run_ctx()
-        need_stream_generation = False
         total_start = time.perf_counter()
 
         def _thinking_timer_loop() -> None:
@@ -1048,7 +1061,28 @@ if query and query.strip() and chat_ready:
                     )
                     generation_elapsed_ms = 0.0
                 else:
-                    need_stream_generation = True
+                    generation_start = time.perf_counter()
+                    dummy_mode = st.session_state.dummy_generator_only
+                    try:
+                        streamed = run_with_timeout(
+                            lambda: _collect_generated_answer(
+                                context, query, dummy_mode
+                            ),
+                            _ask_timeout_seconds(),
+                        )
+                        st.session_state.last_answer = (
+                            streamed if isinstance(streamed, str) else None
+                        )
+                        st.session_state.last_generation_error = None
+                    except AskTimeoutError as e:
+                        generation_error = e
+                        st.session_state.last_answer = None
+                    except Exception as e:
+                        generation_error = e
+                        st.session_state.last_answer = None
+                    generation_elapsed_ms = (
+                        time.perf_counter() - generation_start
+                    ) * 1000.0
             except (
                 AttributeError,
                 KeyError,
@@ -1073,47 +1107,6 @@ if query and query.strip() and chat_ready:
                 timer_thread.join(timeout=5.0)
             typing_slot.empty()
             timer_placeholder.empty()
-
-        # Stream tokens after retrieval so the UI feels responsive; fall back if needed.
-        # When API_BASE_URL is set, generation goes through the thin FastAPI /chat.
-        if need_stream_generation:
-            generation_start = time.perf_counter()
-            dummy_mode = st.session_state.dummy_generator_only
-            use_api = bool(api_base_url())
-            try:
-                try:
-                    stream_fn = chat_via_api_stream if use_api else generate_answer_stream
-                    streamed = st.write_stream(
-                        stream_fn(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                    )
-                except Exception:
-                    full_answer = (
-                        chat_via_api(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                        if use_api
-                        else generate_answer(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                    )
-                    streamed = st.write_stream(_stream_text_chunks(full_answer))
-                    if not streamed:
-                        streamed = full_answer
-                        st.markdown(full_answer)
-                st.session_state.last_answer = streamed if isinstance(streamed, str) else None
-                st.session_state.last_generation_error = None
-            except Exception as e:
-                generation_error = e
-                st.session_state.last_answer = None
-            generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
 
         total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
@@ -1204,7 +1197,10 @@ if query and query.strip() and chat_ready:
     elif generation_error is not None:
         e = generation_error
         st.session_state.last_answer = None
-        reason, _ = _generation_failure_reason(e)
+        if isinstance(e, AskTimeoutError):
+            reason = _CLIENT_COPY["doc_timeout"]
+        else:
+            reason, _ = _generation_failure_reason(e)
         st.session_state.last_generation_error = {
             "user_reason": reason,
             "detail": str(e),
