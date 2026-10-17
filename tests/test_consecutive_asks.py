@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -62,8 +63,8 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
     at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
-    at.session_state["enable_reranker"] = False
     at.run(timeout=30)
+    assert _session_get(at, "enable_reranker") is False
     assert not at.exception
     assert _session_get(at, "vector_store") is not None
 
@@ -95,3 +96,30 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
         for msg, text in zip(assistants, contents, strict=True)
     )
     assert any(msg.get("refusal") for msg in assistants)
+    metrics = _session_get(at, "last_retrieval_metrics") or {}
+    assert metrics.get("reranker_enabled") is False
+    assert float(metrics.get("rerank_ms") or 0) == 0.0
+
+
+def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
+    """Live-pilot default: first question must not load BAAI/bge-reranker-base."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "enable_reranker") is False
+    assert _session_get(at, "vector_store") is not None
+
+    started = time.perf_counter()
+    _ask(at, TERM_QUESTION)
+    elapsed = time.perf_counter() - started
+    assert not at.exception
+    assert elapsed < 5.0
+    messages = _session_get(at, "messages") or []
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert len(assistants) == 1
+    assert "3 years" in (assistants[0].get("content") or "")
+    metrics = _session_get(at, "last_retrieval_metrics") or {}
+    assert metrics.get("reranker_enabled") is False
+    assert float(metrics.get("retrieval_ms") or 0) < 2000.0
