@@ -132,8 +132,41 @@ def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
     assert created["kwargs"]["top_p"] == 0.9
     # do_sample=False should force deterministic temperature.
     assert created["kwargs"]["temperature"] == 0.0
+    assert "base_url" not in created["kwargs"]
     assert "CTX=Context text" in created["prompt"]
     assert "Q=Question text" in created["prompt"]
+
+
+def test_build_ollama_llm_passes_compose_host(monkeypatch) -> None:
+    created = {}
+
+    class FakeChatOllama:
+        def __init__(self, **kwargs):
+            created["kwargs"] = kwargs
+
+        def invoke(self, prompt):
+            return SimpleNamespace(content="ok")
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://ollama:11434")
+    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
+    monkeypatch.setattr(
+        rag.providers,
+        "load_generation_config",
+        lambda: {
+            "model": "phi3:mini",
+            "temperature": 0.0,
+            "top_p": 0.9,
+            "max_new_tokens": 64,
+            "do_sample": False,
+            "fallback_to_dummy_on_error": False,
+            "num_ctx": 2048,
+            "timeout_seconds": 30,
+        },
+    )
+    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}")
+    rag._generate_with_ollama("Context text", "Question text")
+    assert created["kwargs"]["base_url"] == "http://ollama:11434"
+    assert created["kwargs"]["timeout"] == 30
 
 
 def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
