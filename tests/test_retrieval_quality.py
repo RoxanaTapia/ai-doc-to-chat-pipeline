@@ -12,11 +12,13 @@ from rag.citations import (  # noqa: E402
     DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
     INSUFFICIENT_CONTEXT_ANSWER,
     build_sources_payload,
+    context_has_money_amount,
     context_has_obligation_markers,
     context_sufficient_for_query,
     dedupe_similar_chunks,
     filter_docs_overlapping_answer,
     is_insufficient_answer,
+    query_expects_amount,
     query_expects_obligations,
     sort_source_docs,
     token_overlap_score,
@@ -48,6 +50,22 @@ def test_context_insufficient_when_obligation_question_lacks_markers() -> None:
     )
     assert ok is False
     assert gap == "obligation_markers_missing"
+
+
+def test_amount_query_is_not_a_year_or_count() -> None:
+    assert query_expects_amount("What is the penalty fee if Beta Labs breaks this agreement?")
+    assert query_expects_amount("What amount is due on breach?")
+    assert not query_expects_amount("How long does this agreement last?")
+    assert not context_has_money_amount(
+        "This Agreement shall remain in effect for a period of three (3) years."
+    )
+    assert context_has_money_amount("liquidated damages of $5,000")
+    ok, gap = context_sufficient_for_query(
+        "What is the penalty fee if Beta Labs breaks this agreement?",
+        "Section 6 allows injunctive relief. No dollar figure is named.",
+    )
+    assert ok is False
+    assert gap == "amount_missing"
 
 
 def test_dedupe_similar_chunks_drops_near_duplicates() -> None:
@@ -232,14 +250,18 @@ def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
     assert "means any information" in payload[0]["preview"]
 
 
-def test_is_insufficient_answer_detects_exact_sentinel_only() -> None:
+def test_is_insufficient_answer_detects_core_phrase_and_unspecified() -> None:
     assert is_insufficient_answer(INSUFFICIENT_CONTEXT_ANSWER)
     assert is_insufficient_answer(f"### Summary\n{INSUFFICIENT_CONTEXT_ANSWER}")
+    assert is_insufficient_answer("This isn't in the document.")
+    assert is_insufficient_answer(
+        "This isn\u2019t in the document, so I won\u2019t guess. Ask about something it covers."
+    )
+    assert is_insufficient_answer("no fee is specified; Section 6 allows injunctive relief")
+    assert is_insufficient_answer("No penalty fee is specified; Section 6 allows injunctive relief")
     assert not is_insufficient_answer(
         "I could not find enough information in the document to answer."
     )
-    assert not is_insufficient_answer("This isn't in the document.")
-    assert not is_insufficient_answer("no fee is specified; Section 6 allows injunctive relief")
     assert not is_insufficient_answer(
         "Confidential Information means any information disclosed by Acme Corp."
     )

@@ -76,6 +76,8 @@ def test_rag_prompt_includes_reliability_rules() -> None:
     assert near_miss in template
     assert "Use the exact sentinel sentence instead" in template
     assert "I could not find enough information in the document to answer." not in template
+    assert "short one-line answer" in template
+    assert "Do not use ### Summary or ### Details headings." in template
 
 
 def test_streamlit_disables_browser_usage_stats() -> None:
@@ -154,3 +156,6 @@ def test_privacy_line_follows_generator_without_overclaiming() -> None:
     assert privacy_line_for_provider("openai") == _CLIENT_COPY["privacy_memory"]
     assert "never stored" not in dummy
     assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]
+    assert _CLIENT_COPY["hero_lead"] == (
+        "Ask your contract anything. Every answer shows the page it came from."
+    )

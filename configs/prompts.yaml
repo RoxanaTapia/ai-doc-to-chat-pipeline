@@ -19,10 +19,7 @@ rag_prompt:
       "This isn't in the document, so I won't guess. Ask about something it covers."
     - Do not give partial or adjacent answers. If the question asks for a penalty, fee, or amount that is not in the context, do not infer from nearby remedies, injunctive relief, or other sections. Do not write answers such as "no fee is specified; Section 6 allows injunctive relief". Use the exact sentinel sentence instead.
     - Format the answer in Markdown:
-      ### Summary
-      One or two sentences.
-      ### Details
-      Bullet points for lists or obligations.
+      Start with a short one-line answer on its own first line (a few words when the fact is short, e.g. "3 years" or "Spain / Madrid"). Then one sentence or bullets if needed. Keep the first line scannable. Do not use ### Summary or ### Details headings.
     - Do not add a separate "Source" or "Sources" section — the UI shows retrieved excerpts below the answer.
 
     Extracted context:

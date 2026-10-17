@@ -18,6 +18,7 @@ def _clear_llm_provider_env(monkeypatch) -> None:
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.delenv("DEMO_STUB_LLM", raising=False)
     rag.load_generation_config.cache_clear()
 
 

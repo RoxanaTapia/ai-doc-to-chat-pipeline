@@ -9,7 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from page_copy import _CLIENT_COPY
+from page_copy import _CLIENT_COPY, sample_preload_error_copy, should_preload_sample
 
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
@@ -37,6 +37,7 @@ def _on_new_browser_session() -> None:
     st.session_state.chunks = None
     st.session_state.indexed_doc_stats = None
     st.session_state.bm25_state = None
+    st.session_state.own_pdf_mode = False
     _set_doc_status("empty", _CLIENT_COPY["doc_empty"])
 
 
@@ -51,6 +52,18 @@ def _upload_in_flight(*, uploaded_file, resolved_upload: tuple[bytes, str] | Non
     )
 
 
+def page_text_counts(page_docs) -> tuple[int, int]:
+    """Return (pages with text, pages with none) from extracted page documents."""
+    text_pages = 0
+    blank_pages = 0
+    for doc in page_docs or []:
+        if (getattr(doc, "page_content", None) or "").strip():
+            text_pages += 1
+        else:
+            blank_pages += 1
+    return text_pages, blank_pages
+
+
 def _set_indexed_doc_stats(
     *,
     file_name: str,
@@ -59,8 +72,10 @@ def _set_indexed_doc_stats(
     reused_index: bool,
     header_split: bool,
     chunks: int | None = None,
+    text_pages: int | None = None,
+    blank_pages: int | None = None,
 ) -> None:
-    """Remember page counts for the ready line."""
+    """Remember page counts for the ready line and the refusal footnote."""
     st.session_state.indexed_doc_stats = {
         "file_name": file_name,
         "pages": pages,
@@ -68,6 +83,8 @@ def _set_indexed_doc_stats(
         "reused_index": reused_index,
         "chunks": chunks,
         "header_split": header_split,
+        "text_pages": pages if text_pages is None else text_pages,
+        "blank_pages": 0 if blank_pages is None else blank_pages,
     }
 
 
@@ -105,6 +122,49 @@ def _cache_upload(file_bytes: bytes, file_name: str) -> str:
     return file_hash
 
 
+def mark_sample_preload_failed(reason: str | None = None) -> None:
+    """Stop the first-paint spinner and remember a short retry banner."""
+    copy = sample_preload_error_copy()
+    _clear_cached_upload()
+    st.session_state.sample_preload_failed = True
+    _set_doc_status("error", reason or copy["error"])
+
+
+def retry_sample_nda() -> bool:
+    """Clear the preload error and try the walkthrough NDA again."""
+    st.session_state.sample_preload_failed = False
+    return load_sample_nda()
+
+
+def render_sample_preload_error() -> None:
+    """Short error plus a Use sample NDA retry when first-paint indexing fails."""
+    if not st.session_state.get("sample_preload_failed"):
+        return
+    copy = sample_preload_error_copy()
+    detail = st.session_state.get("doc_status_detail") or copy["error"]
+    st.error(detail)
+    if st.button(copy["retry"], key="retry_sample_nda"):
+        if retry_sample_nda():
+            st.rerun()
+
+
+def preload_sample_nda() -> bool:
+    """Load the walkthrough NDA on first paint when the visitor has not uploaded."""
+    if st.session_state.get("sample_preload_failed"):
+        return False
+    own_pdf_mode = bool(st.session_state.get("own_pdf_mode"))
+    has_upload = bool(st.session_state.get("uploaded_pdf_bytes")) or bool(
+        st.session_state.get("current_file")
+    )
+    if not should_preload_sample(
+        own_pdf_mode=own_pdf_mode,
+        has_upload=has_upload,
+        is_indexed=_document_is_indexed(),
+    ):
+        return False
+    return load_sample_nda()
+
+
 def load_sample_nda() -> bool:
     """Cache the walkthrough NDA so indexing starts without a widget upload."""
     path = sample_nda_path()
@@ -112,6 +172,7 @@ def load_sample_nda() -> bool:
         _set_doc_status("error", _CLIENT_COPY["sample_missing"])
         return False
     _reset_document_state(bump_uploader_key=True)
+    st.session_state.own_pdf_mode = False
     _cache_upload(path.read_bytes(), SAMPLE_NDA_NAME)
     _set_doc_status(
         "reading",
@@ -171,8 +232,18 @@ def _reading_message(name: str, step: str) -> str:
     return _CLIENT_COPY["doc_reading"].format(name=name, step=step)
 
 
-def _ready_message(name: str) -> str:
-    return _CLIENT_COPY["doc_ready"].format(name=name)
+def _ready_message(name: str, pages: int | None = None) -> str:
+    page_count = pages
+    if page_count is None:
+        stats = st.session_state.get("indexed_doc_stats") or {}
+        page_count = int(stats.get("pages") or 0)
+    if name == SAMPLE_NDA_NAME:
+        if page_count:
+            return _CLIENT_COPY["doc_ready"].format(pages=page_count)
+        return "Sample NDA"
+    if page_count:
+        return _CLIENT_COPY["doc_ready_named"].format(name=name, pages=page_count)
+    return name
 
 
 def _derive_document_status(
@@ -277,6 +348,7 @@ def _reset_document_state(*, bump_uploader_key: bool = False) -> None:
     st.session_state.bm25_state = None
     st.session_state.indexed_doc_stats = None
     st.session_state.last_generation_error = None
+    st.session_state.sample_preload_failed = False
     _clear_dev_index_logs()
     _clear_cached_upload()
     _reset_chat_state()
@@ -335,6 +407,10 @@ def _init_session_state(
         "doc_status": "empty",
         "doc_status_detail": _CLIENT_COPY["doc_empty"],
         "ask_box": "",
+        "own_pdf_mode": False,
+        "show_own_pdf": False,
+        "open_page_preview": None,
+        "sample_preload_failed": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:

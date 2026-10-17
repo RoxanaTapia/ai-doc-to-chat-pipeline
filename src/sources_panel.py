@@ -3,18 +3,78 @@
 from __future__ import annotations
 
 import html
+import re
 
 import streamlit as st
 from langchain_core.documents import Document
 
-from page_copy import _CLIENT_COPY
+from page_copy import checked_all_pages_note
+from page_preview import render_highlighted_page
 from rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
     build_sources_payload,
     is_insufficient_answer,
 )
 
+_HEADING_RE = re.compile(r"^#{1,6}\s+")
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+_SKIP_HEADINGS = frozenset({"summary", "details"})
+_EMPHASIS_RE = re.compile(r"(\*\*|__)(.*?)\1|([*_])(.*?)\3")
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
+
+
+def split_answer_headline(answer: str) -> tuple[str, str]:
+    """First short line in large type; the rest stays as supporting text."""
+    text = (answer or "").strip()
+    if not text:
+        return "", ""
+    lines = [_HEADING_RE.sub("", line).strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    if not lines:
+        return text, ""
+    if lines[0].lower() in _SKIP_HEADINGS and len(lines) > 1:
+        lines = lines[1:]
+    headline, remainder_lines = lines[0], lines[1:]
+    remainder = "\n".join(remainder_lines).strip()
+    if remainder_lines and remainder_lines[0].lower() in _SKIP_HEADINGS:
+        remainder = "\n".join(remainder_lines[1:]).strip()
+    if len(headline) > 80 and not remainder:
+        parts = _SENTENCE_RE.split(text, maxsplit=1)
+        if len(parts) == 2 and len(parts[0]) <= 120:
+            return parts[0].strip(), parts[1].strip()
+    return headline, remainder
+
+
+def strip_headline_markup(text: str) -> str:
+    """Drop markdown emphasis so the big one-liner reads as plain type."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return ""
+    previous = None
+    while previous != cleaned:
+        previous = cleaned
+        cleaned = _EMPHASIS_RE.sub(lambda match: match.group(2) or match.group(4) or "", cleaned)
+    return cleaned.strip()
+
+
+def headline_number_in_quote(headline: str, quote: str) -> bool:
+    """False when the one-liner names a number the quote does not contain."""
+    numbers = _NUMBER_RE.findall(headline or "")
+    if not numbers:
+        return True
+    haystack = quote or ""
+    return all(number in haystack for number in numbers)
+
+
+def display_answer_parts(answer: str, quote: str = "") -> tuple[str, str]:
+    """Headline plus body, with markup stripped and a quote-number safety net."""
+    headline, body = split_answer_headline(answer)
+    headline = strip_headline_markup(headline)
+    if quote and headline and not headline_number_in_quote(headline, quote):
+        return "", strip_headline_markup(answer)
+    return headline, body
 
 
 def _build_sources_payload(
@@ -74,24 +134,52 @@ def _paired_turns(messages: list[dict]) -> list[tuple[dict | None, dict]]:
     return pairs
 
 
-def _render_inline_sources(sources: list[dict], *, expanded: bool) -> None:
-    """Page badge and short quote; newest answer stays open."""
+def _render_page_preview(pdf_bytes: bytes | None, source: dict, *, key: str) -> None:
+    """Show the page with the passage highlighted when the quote is opened."""
+    preview_id = f"{key}:{source.get('page')}:{source.get('preview', '')[:40]}"
+    open_id = st.session_state.get("open_page_preview")
+    if st.button(
+        "Show page", key=f"preview_{key}", help="Open this page with the passage highlighted."
+    ):
+        st.session_state.open_page_preview = None if open_id == preview_id else preview_id
+        st.rerun()
+    if st.session_state.get("open_page_preview") != preview_id:
+        return
+    png = render_highlighted_page(
+        pdf_bytes or b"",
+        source.get("page"),
+        source.get("preview") or "",
+    )
+    if png:
+        st.image(png, use_container_width=True)
+    else:
+        st.caption("Could not open that page from the current PDF.")
+
+
+def _render_inline_sources(
+    sources: list[dict],
+    *,
+    expanded: bool,
+    pdf_bytes: bytes | None = None,
+    card_key: str = "0",
+) -> None:
+    """Page badge and quote; Show page opens the highlighted page."""
     if not sources:
         return
     visible = sources if expanded else sources[:1]
-    blocks: list[str] = []
-    for source in visible:
+    for source_idx, source in enumerate(visible):
         page = html.escape(str(source.get("page", "N/A")))
         preview = html.escape(source.get("preview") or "")
-        blocks.append(
+        st.markdown(
             f'<span class="app-page-badge">Page {page}</span>'
-            f'<blockquote class="app-inline-quote">{preview}</blockquote>'
+            f'<blockquote class="app-inline-quote">{preview}</blockquote>',
+            unsafe_allow_html=True,
         )
-    st.markdown("".join(blocks), unsafe_allow_html=True)
+        _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
     extra = sources[len(visible) :]
     if extra and not expanded:
         with st.expander("More pages", expanded=False):
-            for source in extra:
+            for source_idx, source in enumerate(extra, start=len(visible)):
                 page = html.escape(str(source.get("page", "N/A")))
                 preview = html.escape(source.get("preview") or "")
                 st.markdown(
@@ -99,6 +187,7 @@ def _render_inline_sources(sources: list[dict], *, expanded: bool) -> None:
                     f'<blockquote class="app-inline-quote">{preview}</blockquote>',
                     unsafe_allow_html=True,
                 )
+                _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
 
 
 def _render_answer_card(
@@ -110,22 +199,45 @@ def _render_answer_card(
     expanded: bool = False,
     timing: dict[str, float] | None = None,
     developer_mode: bool = False,
+    page_count: int = 0,
+    any_blank_pages: bool = False,
+    pdf_bytes: bytes | None = None,
+    card_key: str = "0",
 ) -> None:
-    """Grey question, larger semibold answer, page badge, or a distinct refusal."""
+    """Muted question, one-line headline, page badge, or a calm refusal."""
     is_refusal = bool(refusal) or is_insufficient_answer(answer)
     marker = "app-answer-card--refusal" if is_refusal else "app-answer-card"
     st.markdown(
         f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
         unsafe_allow_html=True,
     )
-    st.markdown(INSUFFICIENT_CONTEXT_ANSWER if is_refusal else answer)
     if is_refusal:
         st.markdown(
-            f'<p class="app-no-sources">{html.escape(_CLIENT_COPY["no_sources"])}</p>',
+            f'<p class="app-answer-headline">{html.escape(INSUFFICIENT_CONTEXT_ANSWER)}</p>',
             unsafe_allow_html=True,
         )
-    elif sources:
-        _render_inline_sources(sources, expanded=expanded)
+        note = checked_all_pages_note(page_count, any_blank=any_blank_pages)
+        st.markdown(
+            f'<p class="app-no-sources">{html.escape(note)}</p>',
+            unsafe_allow_html=True,
+        )
+    else:
+        quote = (sources[0].get("preview") if sources else "") or ""
+        headline, body = display_answer_parts(answer, quote)
+        if headline:
+            st.markdown(
+                f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                unsafe_allow_html=True,
+            )
+        if body:
+            st.markdown(body)
+        if sources:
+            _render_inline_sources(
+                sources,
+                expanded=expanded,
+                pdf_bytes=pdf_bytes,
+                card_key=card_key,
+            )
     _render_answer_timing(timing, developer_mode=developer_mode)
 
 
