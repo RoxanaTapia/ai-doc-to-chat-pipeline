@@ -165,6 +165,12 @@ def _card_questions(page) -> list[str]:
     ]
 
 
+def _finished_card_count(page) -> int:
+    answers = page.locator('[class*="st-key-answer_card_"]').count()
+    refusals = page.locator('[class*="st-key-refusal_card_"]').count()
+    return answers + refusals
+
+
 def _page_text(page) -> str:
     return page.locator("body").inner_text()
 
@@ -194,11 +200,23 @@ def _wait_ready(page, timeout_ms: int) -> None:
     )
 
 
-def _ask(page, question: str, *, PlaywrightTimeout, card_timeout_ms: int) -> dict:
-    before = _card_questions(page)
+def _ask(
+    page,
+    question: str,
+    *,
+    expect_text: str,
+    min_cards: int,
+    card_timeout_ms: int,
+) -> dict:
+    """Wait until looking-through ends and a finished card contains expect_text."""
+    from playwright.sync_api import expect
+
+    ask = page.get_by_role("button", name="Ask", exact=True)
+    expect(ask).to_be_enabled(timeout=card_timeout_ms)
     box = page.get_by_placeholder(READY_HINT)
     box.click()
     box.fill(question)
+    expect(ask).to_be_enabled(timeout=card_timeout_ms)
     started = time.perf_counter()
     page.get_by_role("button", name="Ask", exact=True).click()
     looking_seen = False
@@ -206,33 +224,58 @@ def _ask(page, question: str, *, PlaywrightTimeout, card_timeout_ms: int) -> dic
     while time.time() < deadline:
         if _looking_visible(page):
             looking_seen = True
+            time.sleep(0.2)
+            continue
+        body = _page_text(page)
         cards = _card_questions(page)
-        if len(cards) > len(before) and question in cards:
+        finished = _finished_card_count(page)
+        if expect_text in body and question in cards and finished >= min_cards:
             return {
                 "ok": True,
                 "seconds": round(time.perf_counter() - started, 2),
                 "looking_seen": looking_seen,
+                "looking_now": False,
                 "cards": cards,
+                "finished_cards": finished,
             }
-        time.sleep(0.25)
-    cards = _card_questions(page)
+        time.sleep(0.2)
+    body = _page_text(page)
     return {
         "ok": False,
         "seconds": round(time.perf_counter() - started, 2),
         "looking_seen": looking_seen or _looking_visible(page),
         "looking_now": _looking_visible(page),
-        "cards": cards,
-        "body_excerpt": _page_text(page)[:1500],
+        "cards": _card_questions(page),
+        "finished_cards": _finished_card_count(page),
+        "body_excerpt": body[:1500],
     }
 
 
-def _run_pass(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int) -> dict:
+def _run_pass(page, *, out_dir: Path, card_timeout_ms: int) -> dict:
     shots = []
-    q1 = _ask(page, TERM_QUESTION, PlaywrightTimeout=PlaywrightTimeout, card_timeout_ms=card_timeout_ms)
+    q1 = _ask(
+        page,
+        TERM_QUESTION,
+        expect_text="3 years",
+        min_cards=1,
+        card_timeout_ms=card_timeout_ms,
+    )
     shots.append(_screenshot(page, out_dir, "pass-q1-term.png"))
-    q2 = _ask(page, FEE_QUESTION, PlaywrightTimeout=PlaywrightTimeout, card_timeout_ms=card_timeout_ms)
+    q2 = _ask(
+        page,
+        FEE_QUESTION,
+        expect_text="isn't in the document",
+        min_cards=2,
+        card_timeout_ms=card_timeout_ms,
+    )
     shots.append(_screenshot(page, out_dir, "pass-q2-refusal.png"))
-    q3 = _ask(page, LAW_QUESTION, PlaywrightTimeout=PlaywrightTimeout, card_timeout_ms=card_timeout_ms)
+    q3 = _ask(
+        page,
+        LAW_QUESTION,
+        expect_text="Spain / Madrid",
+        min_cards=3,
+        card_timeout_ms=card_timeout_ms,
+    )
     shots.append(_screenshot(page, out_dir, "pass-q3-law-booking.png"))
     cards = _card_questions(page)
     body = _page_text(page)
@@ -244,9 +287,10 @@ def _run_pass(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int) -
         and FEE_QUESTION in cards
         and LAW_QUESTION in cards
         and "3 years" in body
-        and ("isn't in the document" in body or "won't guess" in body)
-        and "Spain" in body
+        and "isn't in the document" in body
+        and "Spain / Madrid" in body
         and _booking_visible(page)
+        and _finished_card_count(page) >= 3
     )
     return {
         "mode": "pass",
@@ -255,6 +299,7 @@ def _run_pass(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int) -
         "q2": q2,
         "q3": q3,
         "cards": cards,
+        "finished_cards": _finished_card_count(page),
         "booking": _booking_visible(page),
         "looking_while_q1": q1.get("looking_seen"),
         "looking_while_q2": q2.get("looking_seen"),
@@ -263,18 +308,35 @@ def _run_pass(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int) -
     }
 
 
-def _run_hang(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int, hang_wait: int) -> dict:
+def _run_hang(page, *, out_dir: Path, card_timeout_ms: int, hang_wait: int) -> dict:
     shots = []
-    q1 = _ask(page, TERM_QUESTION, PlaywrightTimeout=PlaywrightTimeout, card_timeout_ms=card_timeout_ms)
+    q1 = _ask(
+        page,
+        TERM_QUESTION,
+        expect_text="3 years",
+        min_cards=1,
+        card_timeout_ms=card_timeout_ms,
+    )
     shots.append(_screenshot(page, out_dir, "hang-q1-term.png"))
+    if not q1["ok"]:
+        return {
+            "mode": "hang",
+            "ok": False,
+            "reproduced_hang": False,
+            "q1": q1,
+            "cards": _card_questions(page),
+            "screenshots": shots,
+            "error": "first question did not finish, so the second-ask hang was not tested",
+        }
     q2 = _ask(
         page,
         LAW_QUESTION,
-        PlaywrightTimeout=PlaywrightTimeout,
+        expect_text="Spain / Madrid",
+        min_cards=2,
         card_timeout_ms=hang_wait * 1000,
     )
     shots.append(_screenshot(page, out_dir, "hang-q2-after-wait.png"))
-    hung = q1["ok"] and not q2["ok"] and len(q2.get("cards") or []) < 2
+    hung = (not q2["ok"]) and q2.get("finished_cards", 0) < 2
     return {
         "mode": "hang",
         "ok": hung,
@@ -282,6 +344,7 @@ def _run_hang(page, *, out_dir: Path, PlaywrightTimeout, card_timeout_ms: int, h
         "q1": q1,
         "q2": q2,
         "cards": _card_questions(page),
+        "finished_cards": _finished_card_count(page),
         "looking_after_wait": _looking_visible(page),
         "hang_wait_s": hang_wait,
         "screenshots": shots,
@@ -335,7 +398,6 @@ def main() -> int:
                     payload = _run_hang(
                         page,
                         out_dir=out_dir,
-                        PlaywrightTimeout=PlaywrightTimeout,
                         card_timeout_ms=args.card_timeout * 1000,
                         hang_wait=args.hang_wait,
                     )
@@ -343,7 +405,6 @@ def main() -> int:
                     payload = _run_pass(
                         page,
                         out_dir=out_dir,
-                        PlaywrightTimeout=PlaywrightTimeout,
                         card_timeout_ms=args.card_timeout * 1000,
                     )
                 browser.close()
