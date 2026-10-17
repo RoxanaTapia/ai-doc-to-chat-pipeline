@@ -11,8 +11,8 @@ showErrorLinks = false
 showErrorDetails = "type"
 
 [theme]
-# Neutral primary avoids Streamlit's default red/coral tint on chat input chrome.
-primaryColor = "#2563eb"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#31333f"
+# Match receipt-intelligence-demo: indigo accent, off-white paper, near-black ink.
+primaryColor = "#3d4fd8"
+backgroundColor = "#f6f7f9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1a1f24"

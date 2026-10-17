@@ -1,4 +1,4 @@
-"""Sources expander, timing captions, and the developer checklist."""
+"""Sources expander, answer cards, timing captions, and the developer checklist."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ import html
 import streamlit as st
 from langchain_core.documents import Document
 
-from rag.citations import build_sources_payload
+from page_copy import _CLIENT_COPY
+from rag.citations import build_sources_payload, is_insufficient_answer
 
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
 
@@ -53,6 +54,75 @@ def _sources_panel_title(message: dict) -> str:
     if preview:
         return f"Sources — {preview}"
     return "Sources — this answer"
+
+
+def _paired_turns(messages: list[dict]) -> list[tuple[dict | None, dict]]:
+    """Group chat history into (question, answer) pairs for answer cards."""
+    pairs: list[tuple[dict | None, dict]] = []
+    pending_user: dict | None = None
+    for message in messages:
+        if message.get("role") == "user":
+            pending_user = message
+            continue
+        if message.get("role") == "assistant":
+            pairs.append((pending_user, message))
+            pending_user = None
+    return pairs
+
+
+def _render_inline_sources(sources: list[dict], *, expanded: bool) -> None:
+    """Page badge and short quote; newest answer stays open."""
+    if not sources:
+        return
+    visible = sources if expanded else sources[:1]
+    blocks: list[str] = []
+    for source in visible:
+        page = html.escape(str(source.get("page", "N/A")))
+        preview = html.escape(source.get("preview") or "")
+        blocks.append(
+            f'<span class="app-page-badge">Page {page}</span>'
+            f'<blockquote class="app-inline-quote">{preview}</blockquote>'
+        )
+    st.markdown("".join(blocks), unsafe_allow_html=True)
+    extra = sources[len(visible) :]
+    if extra and not expanded:
+        with st.expander("More pages", expanded=False):
+            for source in extra:
+                page = html.escape(str(source.get("page", "N/A")))
+                preview = html.escape(source.get("preview") or "")
+                st.markdown(
+                    f'<span class="app-page-badge">Page {page}</span>'
+                    f'<blockquote class="app-inline-quote">{preview}</blockquote>',
+                    unsafe_allow_html=True,
+                )
+
+
+def _render_answer_card(
+    *,
+    question: str,
+    answer: str,
+    sources: list[dict] | None,
+    refusal: bool | None = None,
+    expanded: bool = False,
+    timing: dict[str, float] | None = None,
+    developer_mode: bool = False,
+) -> None:
+    """Grey question, larger semibold answer, page badge, or a distinct refusal."""
+    is_refusal = bool(refusal) or is_insufficient_answer(answer)
+    marker = "app-answer-card--refusal" if is_refusal else "app-answer-card"
+    st.markdown(
+        f'<p class="app-answer-q {marker}">{html.escape(question)}</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(answer)
+    if is_refusal:
+        st.markdown(
+            f'<p class="app-no-sources">{html.escape(_CLIENT_COPY["no_sources"])}</p>',
+            unsafe_allow_html=True,
+        )
+    elif sources:
+        _render_inline_sources(sources, expanded=expanded)
+    _render_answer_timing(timing, developer_mode=developer_mode)
 
 
 def _render_sources_panel(
