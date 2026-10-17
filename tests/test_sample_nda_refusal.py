@@ -26,7 +26,11 @@ from rag.ingestion import extract_pdf  # noqa: E402
 from rag.retrieval import build_bm25_index, tokenize_for_bm25  # noqa: E402
 
 PENALTY_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
+TERM_QUESTION = "How long does this agreement last?"
 NEAR_MISS = "no fee is specified; Section 6 allows injunctive relief"
+TERM_WITH_UNSPECIFIED = (
+    "The agreement lasts 3 years from the date of signing. The exact signing date is not specified."
+)
 SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
 
@@ -69,7 +73,8 @@ def test_sample_nda_penalty_question_uses_sentinel_refusal() -> None:
 
     assert answer == INSUFFICIENT_CONTEXT_ANSWER
     assert is_insufficient_answer(answer)
-    assert is_insufficient_answer(NEAR_MISS)
+    assert is_insufficient_answer(NEAR_MISS, PENALTY_QUESTION)
+    assert not is_insufficient_answer(NEAR_MISS, TERM_QUESTION)
     assert (
         build_sources_payload(
             retrieved,
@@ -99,7 +104,7 @@ def test_penalty_fee_question_refuses_on_sample_nda() -> None:
         "No penalty fee is specified; Section 6 allows injunctive relief",
     )
     for stub in stubs:
-        answer = visitor_refusal_answer(stub)
+        answer = visitor_refusal_answer(stub, PENALTY_QUESTION)
         assert answer == INSUFFICIENT_CONTEXT_ANSWER
         assert (
             build_sources_payload(
@@ -111,3 +116,20 @@ def test_penalty_fee_question_refuses_on_sample_nda() -> None:
             )
             == []
         )
+
+
+def test_term_answer_with_trailing_unspecified_keeps_sources() -> None:
+    retrieved = _retrieve_sample_nda(TERM_QUESTION)
+    assert retrieved, "retrieval should return the term clause from the NDA"
+    assert not is_insufficient_answer(TERM_WITH_UNSPECIFIED)
+    assert not is_insufficient_answer(TERM_WITH_UNSPECIFIED, TERM_QUESTION)
+    assert visitor_refusal_answer(TERM_WITH_UNSPECIFIED, TERM_QUESTION) == TERM_WITH_UNSPECIFIED
+    payload = build_sources_payload(
+        retrieved,
+        query=TERM_QUESTION,
+        answer=TERM_WITH_UNSPECIFIED,
+        display_max=3,
+        preview_chars=280,
+    )
+    assert payload
+    assert any(str(entry.get("page")) == "2" for entry in payload)

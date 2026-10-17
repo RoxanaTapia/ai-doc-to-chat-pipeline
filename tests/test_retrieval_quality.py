@@ -251,14 +251,31 @@ def test_build_sources_payload_drops_off_section_for_definition_query() -> None:
 
 
 def test_is_insufficient_answer_detects_core_phrase_and_unspecified() -> None:
+    penalty = "What is the penalty fee if Beta Labs breaks this agreement?"
+    term = "How long does this agreement last?"
+    term_answer = (
+        "The agreement lasts 3 years from the date of signing. "
+        "The exact signing date is not specified."
+    )
+    near_miss = "no fee is specified; Section 6 allows injunctive relief"
+
     assert is_insufficient_answer(INSUFFICIENT_CONTEXT_ANSWER)
     assert is_insufficient_answer(f"### Summary\n{INSUFFICIENT_CONTEXT_ANSWER}")
     assert is_insufficient_answer("This isn't in the document.")
     assert is_insufficient_answer(
         "This isn\u2019t in the document, so I won\u2019t guess. Ask about something it covers."
     )
-    assert is_insufficient_answer("no fee is specified; Section 6 allows injunctive relief")
-    assert is_insufficient_answer("No penalty fee is specified; Section 6 allows injunctive relief")
+    assert is_insufficient_answer(near_miss, penalty)
+    assert is_insufficient_answer(
+        "No penalty fee is specified; Section 6 allows injunctive relief",
+        penalty,
+    )
+    assert is_insufficient_answer("The fee is not specified.")
+    assert is_insufficient_answer("Not specified.")
+    assert not is_insufficient_answer(near_miss)
+    assert not is_insufficient_answer(near_miss, term)
+    assert not is_insufficient_answer(term_answer)
+    assert not is_insufficient_answer(term_answer, term)
     assert not is_insufficient_answer(
         "I could not find enough information in the document to answer."
     )

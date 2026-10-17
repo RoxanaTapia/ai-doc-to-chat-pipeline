@@ -146,6 +146,53 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "0.72rem" not in _THEME_CSS
     assert "0.78rem" not in _THEME_CSS
     assert "0.82rem" not in _THEME_CSS
+    assert 'section.main .block-container > div[data-testid="stVerticalBlock"]' in _THEME_CSS
+    assert '[data-testid="column"]:has(.app-own-pdf) button' in _THEME_CSS
+    assert 'div[data-testid="stVerticalBlock"]:has(.app-own-pdf) button' not in _THEME_CSS
+    assert 'div[data-testid="stVerticalBlock"]:has(.app-answer-q)' not in _THEME_CSS
+    assert 'div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal)' not in _THEME_CSS
+    assert '[class*="st-key-answer_card_"]' in _THEME_CSS
+    assert '[class*="st-key-refusal_card_"]' in _THEME_CSS
+    assert '[class*="st-key-answer_card_"] .app-answer-headline' in _THEME_CSS
+    assert '[class*="st-key-refusal_card_"] .app-answer-headline' in _THEME_CSS
+    assert "font-size: 2rem !important" in _THEME_CSS
+    assert "font-size: 1.2rem !important" in _THEME_CSS
+    assert 'div[data-testid="stForm"] button' in _THEME_CSS
+    assert '[class*="st-key-chip_"] button' in _THEME_CSS
+    assert "max-width: 28rem" not in _THEME_CSS
+    assert ".app-lock__line" in _THEME_CSS
+    assert "max-width: none" in _THEME_CSS
+    text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
+    assert 'st.container(key=f"{card_kind}_{card_key}")' in text
+    assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
+
+
+def test_readme_hosted_wording_does_not_overclaim() -> None:
+    text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    hosted = (
+        "Your PDF and search stay on this server; only the few passages "
+        "needed for an answer are sent to a hosted model (Anthropic). "
+        "Files are deleted right after processing."
+    )
+    assert hosted in text
+    assert text.startswith("# PDF Q&A with page citations\n")
+    assert "On your own server, it can run fully offline with a local model." in text
+    assert "on infrastructure you control" not in text
+    assert "processed in memory and never stored" not in text
+    assert "# Private PDF Q&A" not in text
+    assert "**On-server embeddings**" in text
+    assert "**Private embeddings**" not in text
+    heading = text.split("\n", 1)[0].lower()
+    assert "private" not in heading
+    pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0]
+    hosted_block = pilot.split("On your own server", 1)[0].lower()
+    assert "private" not in hosted_block
+    assert "local" not in hosted_block
+    arch = text.split("## How an answer is grounded", 1)[1].split("## ", 1)[0]
+    assert "docs/assets/aidoc_architecture.png" in arch
+    assert "caddy" not in arch.lower()
+    assert "```mermaid" not in arch
+    assert (PROJECT_ROOT / "docs" / "assets" / "aidoc_architecture.png").is_file()
 
 
 def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
@@ -281,3 +328,76 @@ def test_sample_nda_copy_matches_pdf() -> None:
     assert SECTION_4_SENTENCE in " ".join(pages[1].split())
     assert "Section 7 - Governing Law" in pages[2]
     assert GOVERNING_LAW_QUOTE in " ".join(pages[2].split())
+
+
+PAGE_BG = (247, 247, 245)  # --app-bg / --app-paper
+BEIGE_BG = (251, 246, 238)  # --app-warn-bg
+INK = (26, 31, 36)  # --app-ink
+BROWN = (107, 83, 48)  # --app-warn
+SCREENSHOTS = PROJECT_ROOT / "docs" / "screenshots"
+
+
+def _dist(pixel: tuple[int, ...], target: tuple[int, int, int]) -> int:
+    return sum((int(pixel[i]) - target[i]) ** 2 for i in range(3))
+
+
+def _closer_to(pixel: tuple[int, ...], a: tuple[int, int, int], b: tuple[int, int, int]) -> bool:
+    return _dist(pixel, a) < _dist(pixel, b)
+
+
+def test_storyboard_stills_keep_page_grey_and_ink_headlines() -> None:
+    from PIL import Image
+
+    page = Image.open(SCREENSHOTS / "05-page-and-privacy.png").convert("RGB")
+    # Title sits on the page, not inside a refusal panel. Sample the band
+    # behind "Ask your document" (upper third, content column).
+    width, height = page.size
+    samples = []
+    for y in range(int(height * 0.06), int(height * 0.16), 4):
+        for x in range(int(width * 0.08), int(width * 0.22), 6):
+            pixel = page.getpixel((x, y))
+            if pixel[0] + pixel[1] + pixel[2] > 680:
+                samples.append(pixel)
+    assert samples, "expected light page pixels behind the title"
+    beige_hits = sum(1 for pixel in samples if _closer_to(pixel, BEIGE_BG, PAGE_BG))
+    assert beige_hits * 4 < len(samples), "still 05 page background leaked beige"
+
+    term = Image.open(SCREENSHOTS / "02-term-answer.png").convert("RGB")
+    tw, th = term.size
+    dark = []
+    for y in range(int(th * 0.16), int(th * 0.38), 2):
+        for x in range(int(tw * 0.06), int(tw * 0.28), 2):
+            pixel = term.getpixel((x, y))
+            if pixel[0] + pixel[1] + pixel[2] < 180:
+                dark.append(pixel)
+    assert dark, "expected headline pixels in still 02"
+    brown_hits = sum(1 for pixel in dark if _closer_to(pixel, BROWN, INK))
+    assert brown_hits * 4 < len(dark), "still 02 answer headline rendered brown"
+
+    answer_h = _headline_ink_height(term, top_frac=0.12, bottom_frac=0.48)
+    refusal = Image.open(SCREENSHOTS / "03-not-in-document.png").convert("RGB")
+    refusal_h = _headline_ink_height(refusal, top_frac=0.18, bottom_frac=0.72)
+    assert answer_h > refusal_h, (
+        f"answer headline should be larger than refusal ({answer_h}px vs {refusal_h}px)"
+    )
+
+
+def _headline_ink_height(
+    image,
+    *,
+    top_frac: float,
+    bottom_frac: float,
+    luma_max: int = 200,
+) -> int:
+    """Tallest dark-ink run in the headline band of a card still."""
+    width, height = image.size
+    ys: list[int] = []
+    for y in range(int(height * top_frac), int(height * bottom_frac)):
+        for x in range(int(width * 0.05), int(width * 0.72)):
+            pixel = image.getpixel((x, y))
+            if pixel[0] + pixel[1] + pixel[2] < luma_max:
+                ys.append(y)
+                break
+    if not ys:
+        return 0
+    return max(ys) - min(ys) + 1

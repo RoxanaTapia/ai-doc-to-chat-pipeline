@@ -138,19 +138,30 @@ def normalize_refusal_text(text: str) -> str:
     return " ".join((text or "").translate(_CURLY_QUOTES).lower().split())
 
 
-def is_insufficient_answer(text: str) -> bool:
-    """True when the answer is a miss, including curly quotes and 'not specified'."""
+def query_expects_amount(query: str) -> bool:
+    """True when the question asks for a fee, penalty, or amount."""
+    return bool(AMOUNT_QUERY_RE.search(query or ""))
+
+
+def _has_substantive_content_besides_unspecified(normalized: str) -> bool:
+    """True when text still has a fact after the 'not specified' clause is removed."""
+    remainder = _UNSPECIFIED_RE.sub(" ", normalized)
+    tokens = [tok for tok in _TOKEN_RE.findall(remainder) if tok not in _OVERLAP_STOPWORDS]
+    return any(tok.isdigit() for tok in tokens) or len(tokens) >= 2
+
+
+def is_insufficient_answer(text: str, query: str | None = None) -> bool:
+    """True for the sentinel, or a 'not specified' miss on a fee question or empty reply."""
     normalized = normalize_refusal_text(text)
     if not normalized:
         return False
     if REFUSAL_CORE_PHRASE in normalized:
         return True
-    return bool(_UNSPECIFIED_RE.search(normalized))
-
-
-def query_expects_amount(query: str) -> bool:
-    """True when the question asks for a fee, penalty, or amount."""
-    return bool(AMOUNT_QUERY_RE.search(query or ""))
+    if not _UNSPECIFIED_RE.search(normalized):
+        return False
+    if query_expects_amount(query or ""):
+        return True
+    return not _has_substantive_content_besides_unspecified(normalized)
 
 
 def context_has_money_amount(context: str) -> bool:
@@ -158,9 +169,9 @@ def context_has_money_amount(context: str) -> bool:
     return bool(MONEY_AMOUNT_RE.search(context or ""))
 
 
-def visitor_refusal_answer(text: str) -> str:
+def visitor_refusal_answer(text: str, query: str | None = None) -> str:
     """Show the exact sentinel whenever the raw answer is a miss."""
-    if is_insufficient_answer(text):
+    if is_insufficient_answer(text, query):
         return INSUFFICIENT_CONTEXT_ANSWER
     return text or ""
 
@@ -306,7 +317,7 @@ def build_sources_payload(
     """Create a compact serializable source payload per assistant answer."""
     from rag.chunking import chunk_on_section, extract_target_section
 
-    if is_insufficient_answer(answer or ""):
+    if is_insufficient_answer(answer or "", query):
         return []
 
     target_section = extract_target_section(query) if query else None

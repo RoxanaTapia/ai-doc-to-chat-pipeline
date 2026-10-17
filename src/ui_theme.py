@@ -69,8 +69,16 @@ section.main h1 {
   margin: 0 0 1.75rem 0;
 }
 
+/* Outermost Streamlit block wraps the page; never inherit card or button :has() styles. */
+section.main .block-container > div[data-testid="stVerticalBlock"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .app-lock {
   display: inline-block;
+  max-width: 100%;
 }
 
 .app-lock summary {
@@ -98,6 +106,11 @@ section.main h1 {
   color: var(--app-accent);
 }
 
+.app-lock[open] {
+  display: block;
+  width: 100%;
+}
+
 .app-lock[open] summary {
   border-color: color-mix(in srgb, var(--app-accent) 35%, var(--app-line));
   color: var(--app-ink);
@@ -105,10 +118,28 @@ section.main h1 {
 
 .app-lock__line {
   margin: 0.45rem 0 0 0;
-  max-width: 28rem;
+  max-width: none;
+  width: 100%;
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--app-slate);
+}
+
+[data-testid="stHorizontalBlock"]:has(.app-lock) {
+  flex-wrap: wrap !important;
+  overflow: visible !important;
+}
+
+[data-testid="column"]:has(.app-lock),
+[data-testid="stColumn"]:has(.app-lock) {
+  overflow: visible !important;
+}
+
+[data-testid="column"]:has(.app-lock[open]),
+[data-testid="stColumn"]:has(.app-lock[open]) {
+  min-width: 100% !important;
+  flex: 1 1 100% !important;
+  width: 100% !important;
 }
 
 .app-status {
@@ -141,7 +172,8 @@ section.main h1 {
   font-size: 0.9rem;
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-own-pdf) button {
+[data-testid="column"]:has(.app-own-pdf) button,
+[data-testid="stColumn"]:has(.app-own-pdf) button {
   background: none !important;
   border: none !important;
   box-shadow: none !important;
@@ -165,27 +197,58 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="stTextInput"
   border-radius: 12px;
 }
 
+div[data-testid="stForm"] button,
+div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button,
+div[data-testid="stForm"] [data-testid="stBaseButton-primary"],
+div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"],
+div[data-testid="stForm"] button[kind="primary"],
+div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
+  background: var(--app-accent) !important;
+  background-color: var(--app-accent) !important;
+  color: var(--app-accent-ink) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  font-weight: 650 !important;
+  padding: 0.55rem 1.25rem !important;
+  min-height: 2.6rem !important;
+}
+
+div[data-testid="stForm"] button:hover,
+div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button:hover,
+div[data-testid="stForm"] [data-testid="stBaseButton-primary"]:hover,
+div[data-testid="stForm"] [data-testid="stBaseButton-primaryFormSubmit"]:hover {
+  background: var(--app-accent-hover) !important;
+  background-color: var(--app-accent-hover) !important;
+  color: var(--app-accent-ink) !important;
+}
+
 .app-chips-label {
   font-size: 0.9rem;
   color: var(--app-muted);
   margin: 0.15rem 0 0.35rem 0;
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-chip-mark) button,
-div[data-testid="stHorizontalBlock"]:has(.app-chip-mark) button {
-  border: 1px solid var(--app-line);
-  background: var(--app-panel);
-  color: var(--app-ink);
-  border-radius: 999px;
-  font-weight: 550;
-  box-shadow: none;
+[class*="st-key-chip_"] button,
+[class*="st-key-chip_"] [data-testid^="stBaseButton"] {
+  border: 1px solid var(--app-line) !important;
+  background: var(--app-panel) !important;
+  background-color: var(--app-panel) !important;
+  color: var(--app-ink) !important;
+  border-radius: 999px !important;
+  font-weight: 550 !important;
+  box-shadow: none !important;
+  padding: 0.4rem 0.95rem !important;
+  min-height: 2.25rem !important;
+  width: auto !important;
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-chip-mark) button:hover,
-div[data-testid="stHorizontalBlock"]:has(.app-chip-mark) button:hover {
-  border-color: var(--app-accent);
-  color: var(--app-accent);
-  background: var(--app-accent-soft);
+[class*="st-key-chip_"] button:hover,
+[class*="st-key-chip_"] [data-testid^="stBaseButton"]:hover {
+  border-color: var(--app-accent) !important;
+  color: var(--app-accent) !important;
+  background: var(--app-accent-soft) !important;
+  background-color: var(--app-accent-soft) !important;
 }
 
 .app-typing {
@@ -211,7 +274,8 @@ div[data-testid="stHorizontalBlock"]:has(.app-chip-mark) button:hover {
   75% { content: "..."; }
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-q) {
+[class*="st-key-answer_card_"],
+[class*="st-key-refusal_card_"] {
   background: var(--app-panel);
   border: 1px solid var(--app-line);
   border-radius: var(--app-radius);
@@ -220,7 +284,7 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-q) {
   margin: 0 0 1.1rem 0;
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
+[class*="st-key-refusal_card_"] {
   background: var(--app-warn-bg);
   border-color: color-mix(in srgb, var(--app-warn) 18%, var(--app-line));
   box-shadow: none;
@@ -242,6 +306,15 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
   color: var(--app-ink);
 }
 
+[class*="st-key-answer_card_"] .app-answer-headline,
+[class*="st-key-answer_card_"] [data-testid="stMarkdownContainer"] .app-answer-headline {
+  font-size: 2rem !important;
+  font-weight: 650 !important;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--app-ink) !important;
+}
+
 .app-answer-body {
   margin: 0 0 0.65rem 0;
   font-size: 1rem;
@@ -250,11 +323,12 @@ div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) {
   color: var(--app-slate);
 }
 
-div[data-testid="stVerticalBlock"]:has(.app-answer-card--refusal) .app-answer-headline {
-  font-size: 1.2rem;
+[class*="st-key-refusal_card_"] .app-answer-headline,
+[class*="st-key-refusal_card_"] [data-testid="stMarkdownContainer"] .app-answer-headline {
+  font-size: 1.2rem !important;
   letter-spacing: -0.02em;
-  font-weight: 600;
-  color: var(--app-warn);
+  font-weight: 600 !important;
+  color: var(--app-warn) !important;
 }
 
 .app-page-badge {

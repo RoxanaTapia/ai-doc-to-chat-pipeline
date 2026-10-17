@@ -1,8 +1,8 @@
-# Private PDF Q&A
+# PDF Q&A with page citations
 
-> Grounded answers from a confidential PDF, with page citations, on infrastructure you control.
+> Grounded answers from a confidential PDF, with page citations.
 
-Upload a policy, SOP, report, or contract. Ask in plain language. Every answer cites the page it used. Documents stay on **your server**.
+Upload a policy, SOP, report, or contract. Ask in plain language. Every answer cites the page it used.
 
 > **Takeaway:** This is a retrieval system, not a chatbot that guesses. If the document cannot answer, it says so.
 
@@ -16,7 +16,9 @@ Upload a policy, SOP, report, or contract. Ask in plain language. Every answer c
 - Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
 - Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
-Uploaded files are processed in memory and never stored. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+Your PDF and search stay on this server; only the few passages needed for an answer are sent to a hosted model (Anthropic). Files are deleted right after processing. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+
+On your own server, it can run fully offline with a local model.
 
 ---
 
@@ -24,7 +26,7 @@ Uploaded files are processed in memory and never stored. Each session starts fre
 
 Each step exists to keep the answer inside the PDF you uploaded.
 
-Upload PDF → Extract → Chunk → Embed locally → Hybrid search → Rerank → Cited answer
+![Upload a PDF, split by page, search on the server, send passages to the model, then answer with a page quote](docs/assets/aidoc_architecture.png)
 
 | Step | Technique | Why? |
 |------|-----------|------|
@@ -45,7 +47,7 @@ Each step is a module under [`src/rag/`](src/rag/). Map: [docs/README.md](docs/R
 |---------|-------------|
 | **Citations** | Page and excerpt on every answer |
 | **Model choice** | Ollama writes answers on your server. Anthropic is optional when you want quicker replies. Search and citations stay the same. |
-| **Private embeddings** | Vectors stay on your server |
+| **On-server embeddings** | Vectors stay on your server |
 | **Honest refusals** | Says so when the PDF does not contain the answer |
 | **Document types** | Policies, SOPs, reports, contracts |
 
