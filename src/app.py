@@ -6,15 +6,17 @@ import threading
 import time
 from pathlib import Path
 
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import streamlit as st
 import yaml
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from api_client import api_base_url, chat_via_api, chat_via_api_stream
+from api_client import api_base_url, chat_via_api
+from ask_runtime import AskTimeoutError, compute_answer, run_with_timeout
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
@@ -29,25 +31,17 @@ from page_copy import (
 )
 from rag import (
     generate_answer,
-    generate_answer_stream,
     load_generation_config,
     resolve_llm_provider_name,
 )
-from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract_target_section
+from rag.chunking import chunk_pages, extract_target_section
 from rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
-    assemble_context,
-    context_sufficient_for_query,
     is_insufficient_answer,
     visitor_refusal_answer,
 )
 from rag.ingestion import extract_pdf
-from rag.retrieval import (
-    RetrievalConfig,
-    build_bm25_index,
-    finalize_retrieval,
-    first_stage_retrieval,
-)
+from rag.retrieval import RetrievalConfig, build_bm25_index
 from session_upload import (
     SAMPLE_NDA_NAME,
     _cache_upload,
@@ -328,56 +322,6 @@ def _ensure_bm25_index() -> tuple[object | None, str | None]:
     return index, warning
 
 
-def _rerank_predict(pairs):
-    return _get_cross_encoder(RERANKER_MODEL_NAME).predict(pairs)
-
-
-def _run_first_stage_retrieval(
-    query: str,
-    *,
-    candidate_limit: int,
-) -> tuple[list[tuple[Document, float]], str, str | None, dict[str, int]]:
-    bm25_index, bm25_warning = _ensure_bm25_index()
-    results, mode, warning, diag = first_stage_retrieval(
-        query,
-        strategy=st.session_state.retrieval_strategy,
-        vector_store=st.session_state.vector_store,
-        chunks=st.session_state.chunks or [],
-        bm25_index=bm25_index,
-        bm25_warning=bm25_warning,
-        config=RETRIEVAL_CONFIG,
-        candidate_limit=candidate_limit,
-    )
-    if diag.get("used_global_fallback") and st.session_state.developer_mode:
-        st.caption(
-            f"No matches found in pages <= {EARLY_PAGE_MAX}. Showing best matches from all pages."
-        )
-    return results, mode, warning, diag
-
-
-def _finalize_retrieval_candidates(
-    query: str,
-    *,
-    candidate_pool: list[tuple[Document, float]],
-    mode: str,
-) -> tuple[list[tuple[Document, float]], str, str | None, float]:
-    rerank_elapsed_ms = 0.0
-    rerank_predict = _rerank_predict if st.session_state.enable_reranker else None
-    if rerank_predict is not None:
-        rerank_start = time.perf_counter()
-    pool, mode, warning = finalize_retrieval(
-        query,
-        candidate_pool=candidate_pool,
-        mode=mode,
-        enable_reranker=st.session_state.enable_reranker,
-        rerank_predict=rerank_predict,
-        config=RETRIEVAL_CONFIG,
-    )
-    if rerank_predict is not None:
-        rerank_elapsed_ms = (time.perf_counter() - rerank_start) * 1000.0
-    return pool, mode, warning, rerank_elapsed_ms
-
-
 def _ollama_recommended_models() -> list[str]:
     try:
         model_name = load_generation_config().get("model", "llama3.1:8b")
@@ -495,11 +439,150 @@ def _env_bool(name: str, default: bool) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
-def _stream_text_chunks(text: str, chunk_size: int = 40):
-    """Yield text in small chunks for progressive chat rendering."""
-    safe_text = text or ""
-    for i in range(0, len(safe_text), chunk_size):
-        yield safe_text[i : i + chunk_size]
+def _ask_timeout_seconds() -> float:
+    """Wall-clock cap for one look-up; matches generation.timeout_seconds."""
+    try:
+        return max(1.0, float(load_generation_config().get("timeout_seconds", 90)))
+    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
+        return 90.0
+
+
+def _generate_for_ask(context: str, query: str, dummy_mode: bool = True) -> str:
+    """In-process generation, or POST /chat when API_BASE_URL is set."""
+    if api_base_url():
+        return chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
+    return generate_answer(context=context, query=query, dummy_mode=dummy_mode)
+
+
+def _rerank_callable():
+    """Resolve the cached cross-encoder on the script thread."""
+    if not st.session_state.enable_reranker:
+        return None
+    try:
+        return _get_cross_encoder(RERANKER_MODEL_NAME).predict
+    except (ImportError, OSError, RuntimeError, ValueError):
+        return None
+
+
+def _store_ask_debug(query: str, result: dict, *, total_ms: float) -> None:
+    """Keep last-run retrieval fields for the developer expanders."""
+    raw_results = result.get("raw_results") or []
+    retrieved_docs = result.get("retrieved_docs") or []
+    context = result.get("context") or ""
+    st.session_state.last_query = query
+    st.session_state.last_raw_results = raw_results
+    st.session_state.last_retrieved_docs = retrieved_docs
+    st.session_state.last_context = context
+    st.session_state.last_retrieval_mode = result.get("mode")
+    st.session_state.last_answer = result.get("answer")
+    st.session_state.last_retrieval_metrics = {
+        "strategy": st.session_state.retrieval_strategy,
+        "mode": result.get("mode"),
+        "reranker_enabled": st.session_state.enable_reranker,
+        "retrieved_chunks": len(raw_results),
+        "context_chars": len(context),
+        "retrieval_ms": round(float(result.get("retrieval_ms") or 0.0), 1),
+        "rerank_ms": round(float(result.get("rerank_ms") or 0.0), 1),
+        "generation_ms": round(float(result.get("generation_ms") or 0.0), 1),
+        "total_ms": round(total_ms, 1),
+        **(result.get("diag") or {}),
+    }
+
+
+def _finish_ask_turn(
+    query: str,
+    result: dict,
+    *,
+    total_ms: float,
+    slot,
+    timeout_error: AskTimeoutError | None = None,
+) -> None:
+    """Append the assistant card and restore the ready/error status line."""
+    timing_payload = {
+        "total_ms": total_ms,
+        "retrieval_ms": float(result.get("retrieval_ms") or 0.0),
+        "generation_ms": float(result.get("generation_ms") or 0.0),
+    }
+    timing = timing_payload if total_ms > 0 else None
+    ready_name = st.session_state.current_file or "Document"
+    retrieval_error = result.get("retrieval_error")
+    generation_error = result.get("generation_error")
+
+    if timeout_error is not None:
+        reason = _CLIENT_COPY["doc_timeout"]
+        st.session_state.last_answer = None
+        st.session_state.last_generation_error = {
+            "user_reason": reason,
+            "detail": str(timeout_error),
+        }
+        _remember_response_timing(timing)
+        _append_chat_message(
+            "assistant",
+            reason,
+            timing=timing,
+            for_question=query,
+        )
+        paint_status(slot, "error", reason)
+        return
+
+    if retrieval_error is not None:
+        retrieval_reason = (
+            "I couldn't retrieve relevant document chunks right now. Please try again."
+        )
+        _remember_response_timing(timing)
+        _append_chat_message(
+            "assistant",
+            retrieval_reason,
+            timing=timing,
+            for_question=query,
+        )
+        paint_status(slot, "error", retrieval_reason)
+        return
+
+    if generation_error is not None:
+        st.session_state.last_answer = None
+        reason, _ = _generation_failure_reason(generation_error)
+        st.session_state.last_generation_error = {
+            "user_reason": reason,
+            "detail": str(generation_error),
+        }
+        assistant_message = f"I couldn't generate an answer right now. {reason}"
+        _remember_response_timing(timing)
+        _append_chat_message(
+            "assistant",
+            assistant_message,
+            timing=timing,
+            for_question=query,
+        )
+        paint_status(slot, "error", reason)
+        return
+
+    assistant_message = visitor_refusal_answer(
+        result.get("answer")
+        or "I could not generate an answer at this time. Please try again.",
+        query,
+    )
+    st.session_state.last_answer = assistant_message
+    st.session_state.last_generation_error = None
+    source_payload = _build_sources_payload(
+        result.get("retrieved_docs") or [],
+        query=query,
+        answer=assistant_message,
+        display_max=SOURCES_DISPLAY_MAX,
+        preview_chars=SOURCE_PREVIEW_CHARS,
+    )
+    _remember_response_timing(timing)
+    _append_chat_message(
+        "assistant",
+        assistant_message,
+        sources=source_payload,
+        timing=timing,
+        for_question=query,
+        eval_context=result.get("context") if st.session_state.developer_mode else None,
+        target_section=extract_target_section(query),
+        eval_chunk_count=len(result.get("raw_results") or []),
+    )
+    paint_status(slot, "ready", _ready_message(ready_name))
 
 
 def _render_ocr_status(
@@ -905,6 +988,7 @@ def _seed_capture_storyboard() -> None:
 
 chat_ready = _document_is_indexed()
 _seed_capture_storyboard()
+queued_question = st.session_state.pop("queued_question", None)
 if "pending_question" in st.session_state:
     st.session_state.ask_box = st.session_state.pop("pending_question")
 
@@ -925,7 +1009,9 @@ with st.form("ask_form", clear_on_submit=True, border=False):
         type="primary",
         disabled=not chat_ready,
     )
-query = typed.strip() if submitted and typed else None
+if submitted and typed and typed.strip():
+    st.session_state.queued_question = typed.strip()
+    st.rerun()
 
 if chat_ready and should_show_starter_chips(st.session_state.messages):
     st.markdown(
@@ -937,315 +1023,121 @@ if chat_ready and should_show_starter_chips(st.session_state.messages):
             st.session_state.pending_question = chip["question"]
             st.rerun()
 
-if query and query.strip() and chat_ready:
+query = (queued_question or "").strip() or None
+if query and chat_ready:
     query = query.strip()
     _append_chat_message("user", query)
     paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
+    bm25_index, bm25_warning = _ensure_bm25_index()
+    rerank_predict = _rerank_callable()
+    timeout_seconds = _ask_timeout_seconds()
+    vector_store = st.session_state.vector_store
+    chunks = st.session_state.chunks or []
+    retrieval_strategy = st.session_state.retrieval_strategy
+    enable_reranker = st.session_state.enable_reranker
+    dummy_mode = st.session_state.dummy_generator_only
+    use_page_separators = st.session_state.use_page_separators
+    timer_placeholder = st.empty()
+    stop_timer = threading.Event()
+    script_ctx = get_script_run_ctx()
+    total_start = time.perf_counter()
+    timeout_error: AskTimeoutError | None = None
+    result: dict = {}
 
-    retrieval_error = None
-    generation_error = None
-    raw_results: list[tuple[Document, float]] = []
-    retrieved_docs: list[Document] = []
-    context = ""
-    retrieval_warning: str | None = None
-    retrieval_diag: dict[str, int] = {}
-    retrieval_elapsed_ms = 0.0
-    rerank_elapsed_ms = 0.0
-    generation_elapsed_ms = 0.0
-    total_elapsed_ms = 0.0
+    def _thinking_timer_loop() -> None:
+        if script_ctx is not None:
+            add_script_run_ctx(threading.current_thread(), script_ctx)
+        t0 = time.perf_counter()
+        while not stop_timer.wait(0.12):
+            elapsed = time.perf_counter() - t0
+            timer_placeholder.caption(f"Working… {elapsed:.1f}s")
 
-    with st.container():
-        st.markdown(
-            f'<p class="app-answer-q">{html.escape(query)}</p>',
-            unsafe_allow_html=True,
+    typing_slot = st.empty()
+    typing_slot.markdown(
+        f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
+        '<span class="app-typing-dots"></span></p>',
+        unsafe_allow_html=True,
+    )
+    timer_thread = None
+    if script_ctx is not None and st.session_state.developer_mode:
+        timer_thread = threading.Thread(
+            target=_thinking_timer_loop,
+            daemon=True,
+            name="thinking-timer",
         )
-        timer_placeholder = st.empty()
-        stop_timer = threading.Event()
-        script_ctx = get_script_run_ctx()
-        need_stream_generation = False
-        total_start = time.perf_counter()
-
-        def _thinking_timer_loop() -> None:
-            if script_ctx is not None:
-                add_script_run_ctx(threading.current_thread(), script_ctx)
-            t0 = time.perf_counter()
-            while not stop_timer.wait(0.12):
-                elapsed = time.perf_counter() - t0
-                timer_placeholder.caption(f"Working… {elapsed:.1f}s")
-
-        typing_slot = st.empty()
-        typing_slot.markdown(
-            f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
-            '<span class="app-typing-dots"></span></p>',
-            unsafe_allow_html=True,
+        timer_thread.start()
+    try:
+        result = run_with_timeout(
+            lambda: compute_answer(
+                query,
+                vector_store=vector_store,
+                chunks=chunks,
+                retrieval_strategy=retrieval_strategy,
+                retrieval_config=RETRIEVAL_CONFIG,
+                top_k=TOP_K,
+                reranker_top_n=RERANKER_TOP_N,
+                enable_reranker=enable_reranker,
+                rerank_predict=rerank_predict,
+                dummy_mode=dummy_mode,
+                use_page_separators=use_page_separators,
+                section_hard_filter=SECTION_HARD_CONTEXT_FILTER,
+                section_context_min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
+                context_sufficiency_guard=CONTEXT_SUFFICIENCY_GUARD,
+                bm25_index=bm25_index,
+                bm25_warning=bm25_warning,
+                generate_fn=_generate_for_ask,
+            ),
+            timeout_seconds,
         )
-        timer_thread = None
-        if script_ctx is not None and st.session_state.developer_mode:
-            timer_thread = threading.Thread(
-                target=_thinking_timer_loop,
-                daemon=True,
-                name="thinking-timer",
-            )
-            timer_thread.start()
-        try:
-            retrieval_start = time.perf_counter()
-            try:
-                candidate_limit = (
-                    max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
-                )
-                candidate_pool, mode, first_stage_warning, retrieval_diag = (
-                    _run_first_stage_retrieval(
-                        query,
-                        candidate_limit=candidate_limit,
-                    )
-                )
-                raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
-                    _finalize_retrieval_candidates(
-                        query,
-                        candidate_pool=candidate_pool,
-                        mode=mode,
-                    )
-                )
-                st.session_state.last_retrieval_mode = final_mode
-                retrieval_warning = reranker_warning or first_stage_warning
-                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-
-                for doc, score in raw_results:
-                    doc.metadata["similarity"] = score
-                st.session_state.last_raw_results = raw_results
-
-                context_results, hard_filter_warning = apply_hard_section_context_filter(
-                    query,
-                    raw_results,
-                    all_chunks=st.session_state.chunks,
-                    top_k=TOP_K,
-                    enabled=SECTION_HARD_CONTEXT_FILTER,
-                    min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
-                )
-                if hard_filter_warning:
-                    retrieval_warning = " · ".join(
-                        part for part in (retrieval_warning, hard_filter_warning) if part
-                    )
-                    st.session_state.last_retrieval_mode = (
-                        f"{st.session_state.last_retrieval_mode}_section_filtered"
-                    )
-
-                retrieved_docs = [doc for doc, _score in context_results]
-                st.session_state.last_query = query
-                st.session_state.last_retrieved_docs = retrieved_docs
-                context = assemble_context(
-                    context_results,
-                    use_page_separators=st.session_state.use_page_separators,
-                )
-                st.session_state.last_context = context
-
-                context_ok, _context_gap = context_sufficient_for_query(query, context)
-                if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
-                    st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
-                    st.session_state.last_generation_error = None
-                    st.session_state.last_retrieval_mode = (
-                        f"{st.session_state.last_retrieval_mode}_context_guard"
-                    )
-                    generation_elapsed_ms = 0.0
-                else:
-                    need_stream_generation = True
-            except (
-                AttributeError,
-                KeyError,
-                TypeError,
-                ValueError,
-                RuntimeError,
-            ) as e:
-                retrieval_error = e
-                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                st.session_state.last_retrieval_mode = "retrieval_failed"
-                raw_results = []
-                retrieved_docs = []
-                context = ""
-                st.session_state.last_query = query
-                st.session_state.last_raw_results = []
-                st.session_state.last_retrieved_docs = []
-                st.session_state.last_context = ""
-                st.session_state.last_answer = None
-        finally:
-            if timer_thread is not None:
-                stop_timer.set()
-                timer_thread.join(timeout=5.0)
-            typing_slot.empty()
-            timer_placeholder.empty()
-
-        # Stream tokens after retrieval so the UI feels responsive; fall back if needed.
-        # When API_BASE_URL is set, generation goes through the thin FastAPI /chat.
-        if need_stream_generation:
-            generation_start = time.perf_counter()
-            dummy_mode = st.session_state.dummy_generator_only
-            use_api = bool(api_base_url())
-            try:
-                try:
-                    stream_fn = chat_via_api_stream if use_api else generate_answer_stream
-                    streamed = st.write_stream(
-                        stream_fn(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                    )
-                except Exception:
-                    full_answer = (
-                        chat_via_api(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                        if use_api
-                        else generate_answer(
-                            context=context,
-                            query=query,
-                            dummy_mode=dummy_mode,
-                        )
-                    )
-                    streamed = st.write_stream(_stream_text_chunks(full_answer))
-                    if not streamed:
-                        streamed = full_answer
-                        st.markdown(full_answer)
-                st.session_state.last_answer = streamed if isinstance(streamed, str) else None
-                st.session_state.last_generation_error = None
-            except Exception as e:
-                generation_error = e
-                st.session_state.last_answer = None
-            generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-
-        total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
-
-        if retrieval_warning and st.session_state.developer_mode:
-            st.caption(retrieval_warning)
-
-        st.session_state.last_retrieval_metrics = {
-            "strategy": st.session_state.retrieval_strategy,
-            "mode": st.session_state.last_retrieval_mode,
-            "reranker_enabled": st.session_state.enable_reranker,
-            "retrieved_chunks": len(raw_results),
-            "context_chars": len(context),
-            "retrieval_ms": round(retrieval_elapsed_ms, 1),
-            "rerank_ms": round(rerank_elapsed_ms, 1),
-            "generation_ms": round(generation_elapsed_ms, 1),
-            "total_ms": round(total_elapsed_ms, 1),
-            **retrieval_diag,
+    except AskTimeoutError as exc:
+        timeout_error = exc
+        result = {
+            "answer": None,
+            "retrieved_docs": [],
+            "raw_results": [],
+            "context": "",
+            "mode": "timed_out",
+            "warning": None,
+            "diag": {},
+            "retrieval_ms": 0.0,
+            "rerank_ms": 0.0,
+            "generation_ms": 0.0,
+            "retrieval_error": None,
+            "generation_error": None,
         }
-
-        if st.session_state.developer_mode:
-            query_preview = _question_preview(query)
-            if st.session_state.last_retrieval_metrics:
-                with st.expander(
-                    _dev_panel_title(
-                        "Retrieval metrics (last run)", query_preview, fallback="live"
-                    ),
-                    expanded=False,
-                ):
-                    metrics = st.session_state.last_retrieval_metrics
-                    st.markdown(
-                        f"- strategy: `{metrics['strategy']}`  \n"
-                        f"- mode: `{metrics['mode']}`  \n"
-                        f"- reranker enabled: `{metrics['reranker_enabled']}`  \n"
-                        f"- candidates (dense/sparse/fused): "
-                        f"`{metrics.get('dense_candidates', 0)}` / "
-                        f"`{metrics.get('sparse_candidates', 0)}` / "
-                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`"
-                        "  \n"
-                        f"- selected before rerank: "
-                        f"`{metrics.get('selected_before_rerank', 0)}`  \n"
-                        f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
-                        f"- context chars: `{metrics['context_chars']}`  \n"
-                        f"- timing ms (retrieval/rerank/generation/total): "
-                        f"`{metrics['retrieval_ms']}` / `{metrics['rerank_ms']}` / "
-                        f"`{metrics['generation_ms']}` / `{metrics['total_ms']}`"
-                    )
-                    if retrieval_warning:
-                        st.caption(f"Retrieval warning: {retrieval_warning}")
-            with st.expander(
-                _dev_panel_title("Exact context fed to LLM", query_preview, fallback="live"),
-                expanded=False,
-            ):
-                st.code(context, language="text")
-                st.caption(f"• {len(raw_results)} chunks • {len(context)} chars · top-k={TOP_K}")
-            with st.expander(
-                _dev_panel_title("Retrieved raw chunks + scores", query_preview, fallback="live"),
-                expanded=False,
-            ):
-                for i, (doc, _raw_score) in enumerate(raw_results, start=1):
-                    similarity = doc.metadata.get("similarity")
-                    score = round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A"
-                    st.markdown(
-                        f"**Chunk {i}** (similarity score: {score})  \n"
-                        f"Page: {doc.metadata.get('page', '?')}"
-                    )
-                    st.code(doc.page_content, language="text")
-
-    timing_payload = {
-        "total_ms": total_elapsed_ms,
-        "retrieval_ms": retrieval_elapsed_ms,
-        "generation_ms": generation_elapsed_ms,
-    }
-
-    ready_name = st.session_state.current_file or "Document"
-    if retrieval_error is not None:
-        retrieval_reason = (
-            "I couldn't retrieve relevant document chunks right now. Please try again."
-        )
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            retrieval_reason,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-        )
-        paint_status(status_slot, "error", retrieval_reason)
-        st.rerun()
-    elif generation_error is not None:
-        e = generation_error
-        st.session_state.last_answer = None
-        reason, _ = _generation_failure_reason(e)
-        st.session_state.last_generation_error = {
-            "user_reason": reason,
-            "detail": str(e),
+    except Exception as exc:
+        result = {
+            "answer": None,
+            "retrieved_docs": [],
+            "raw_results": [],
+            "context": "",
+            "mode": "ask_failed",
+            "warning": None,
+            "diag": {},
+            "retrieval_ms": 0.0,
+            "rerank_ms": 0.0,
+            "generation_ms": 0.0,
+            "retrieval_error": None,
+            "generation_error": exc,
         }
-        assistant_message = f"I couldn't generate an answer right now. {reason}"
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            assistant_message,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-        )
-        paint_status(status_slot, "error", reason)
-        st.rerun()
-    else:
-        assistant_message = visitor_refusal_answer(
-            st.session_state.last_answer
-            or "I could not generate an answer at this time. Please try again.",
-            query,
-        )
-        target_section = extract_target_section(query)
-        source_payload = _build_sources_payload(
-            retrieved_docs,
-            query=query,
-            answer=assistant_message,
-            display_max=SOURCES_DISPLAY_MAX,
-            preview_chars=SOURCE_PREVIEW_CHARS,
-        )
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            assistant_message,
-            sources=source_payload,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-            eval_context=context if st.session_state.developer_mode else None,
-            target_section=target_section,
-            eval_chunk_count=len(raw_results),
-        )
-        paint_status(status_slot, "ready", _ready_message(ready_name))
-        st.rerun()
+    finally:
+        if timer_thread is not None:
+            stop_timer.set()
+            timer_thread.join(timeout=5.0)
+        typing_slot.empty()
+        timer_placeholder.empty()
+
+    total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+    _store_ask_debug(query, result, total_ms=total_elapsed_ms)
+    if result.get("warning") and st.session_state.developer_mode:
+        st.caption(result["warning"])
+    _finish_ask_turn(
+        query,
+        result,
+        total_ms=total_elapsed_ms,
+        slot=status_slot,
+        timeout_error=timeout_error,
+    )
 elif query is not None and not chat_ready:
     paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
 elif query is not None:

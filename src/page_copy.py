@@ -22,6 +22,7 @@ _CLIENT_COPY = {
     "doc_ready": "Sample NDA · {pages} pages",
     "doc_ready_named": "{name} · {pages} pages",
     "doc_answering": "Looking through the document",
+    "doc_timeout": "That took too long, so I stopped. Please ask again.",
     "sample_button": "Use sample NDA",
     "sample_help": (
         "Loads the fictional walkthrough NDA in one click. "
