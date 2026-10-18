@@ -8,12 +8,11 @@ From the repo root:
 
 ```bash
 pip install -r requirements.txt
-pip install pytest ruff
+pip install pytest
 PYTHONPATH=src pytest tests/ -q
-ruff check .
 ```
 
-CI runs the same pytest suite on every pull request.
+CI runs this pytest suite on every pull request. `pyproject.toml` also has Ruff settings for local use.
 
 ## Layout
 
