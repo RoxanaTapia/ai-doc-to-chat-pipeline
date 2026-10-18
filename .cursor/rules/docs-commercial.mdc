@@ -36,7 +36,7 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 ### PR / issue copy
 
 - PRs follow the standard in `AGENTS.md` (template in `.github/pull_request_template.md`).
-- PR titles and bodies are client-facing. No prices, hostnames, hosting provider, server sizes, /root paths, private-repo links, or internal notes.
+- PR titles and bodies are client-facing. No prices, hostnames, hosting provider, server sizes, /root paths, private-repo links, internal notes, or "Cursor"/agent badges and links in PR bodies.
 - Issue DoD checkboxes should map cleanly into the PR Test checks.
 - Do not invent scope; do not close issues/PRs unless asked.
 

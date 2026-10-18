@@ -59,7 +59,7 @@ One or two lines on the user-visible change. Closes #184
 ```
 
 - **Commit story:** each commit in the PR is one logical step with the same `type(scope): ...` style. No "wip" or "address review" commits; clean them up before review.
-- **Deploy:** always the four items (exact script, services rebuilt, env or config changes, rollback). Repos with no deploy write "No deploy".
+- **Deploy:** always the four items Nicky checks (exact script, services rebuilt, env or config changes, rollback). Repos with no deploy write "No deploy".
 - **Double-check every command:** each command in a PR or review (deploy script, path, flag, test command) must be checked against the repo or the installed script before posting. Use only real names like `deploy-ai-doc`, never invented flags or paths. If an agent couldn't run or verify it, it says so in the PR.
 - **Where Cursor agents read it:** `.github/pull_request_template.md` and this section. `.cursor/rules` points here.
 
