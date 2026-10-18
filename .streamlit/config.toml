@@ -15,7 +15,8 @@ gatherUsageStats = false
 
 [theme]
 # Match receipt-intelligence-demo: indigo accent, off-white paper, near-black ink.
+# Keep backgroundColor equal to the static boot page so a cold start never flashes white.
 primaryColor = "#3d4fd8"
 backgroundColor = "#f6f7f9"
-secondaryBackgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f7f9"
 textColor = "#1a1f24"

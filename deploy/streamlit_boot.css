@@ -1,0 +1,40 @@
+/* First paint before any Streamlit/Python CSS. Calm blank + skeletons. */
+html, body {
+  background: #f6f7f9 !important;
+  margin: 0;
+}
+
+#app-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f6f7f9;
+  color: #5c6670;
+  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s ease;
+}
+
+#app-boot[data-done="1"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#app-boot[hidden] {
+  display: none !important;
+}
+
+/* Skeletons must never flash grey before theme CSS arrives. */
+[data-testid="stSkeleton"],
+.stSkeleton {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+}
