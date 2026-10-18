@@ -29,6 +29,8 @@ from page_preview import highlight_rects, page_index, render_highlighted_page  #
 from rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer  # noqa: E402
 from session_upload import page_text_counts  # noqa: E402
 from sources_panel import (  # noqa: E402
+    _format_elapsed_ms,
+    _response_timing_caption,
     display_answer_parts,
     split_answer_headline,
     strip_headline_markup,
@@ -49,9 +51,22 @@ SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
 def test_hero_is_one_subtitle() -> None:
     assert _CLIENT_COPY["hero_lead"] == (
-        "Ask your contract anything. It shows the best-matching page next to each answer."
+        "Ask your contract anything. It shows the best-matching page next to each "
+        "answer and says when the document doesn't cover the question."
     )
+    assert "doesn't cover the question" in _CLIENT_COPY["hero_lead"]
     assert not _CLIENT_COPY["hero_kicker"]
+
+
+def test_timing_caption_shows_sub_second_refusals() -> None:
+    """Fast context-guard refusals must not read as Answered in 0.0s."""
+    assert _format_elapsed_ms(32) == "0.03s"
+    assert _format_elapsed_ms(90) == "0.09s"
+    assert _format_elapsed_ms(100) == "0.1s"
+    assert _format_elapsed_ms(1500) == "1.5s"
+    assert _response_timing_caption(total_ms=32.0) == "Answered in 0.03s"
+    assert "0.0s" not in _response_timing_caption(total_ms=32.0)
+    assert "0.0s" not in _response_timing_caption(total_ms=90.0)
 
 
 def test_privacy_wording_matches_session_lifetime() -> None:
@@ -191,15 +206,22 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "--app-header-min-height" in _THEME_CSS
     assert "--app-status-line: 1.5rem" in _THEME_CSS
     assert "opening the note must not grow the header row" in _THEME_CSS
+    assert "Anchored to the lock summary" in _THEME_CSS
     assert "--app-lock-note-clearance" in _THEME_CSS
     assert (
         '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n'
         "  margin-bottom: var(--app-lock-note-clearance);\n"
         "}"
     ) in _THEME_CSS
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {\n'
+        "  position: relative !important;\n"
+        "}"
+    ) in _THEME_CSS
     assert "flex-wrap: nowrap !important" in _THEME_CSS
     assert "@media (max-width: 40rem)" in _THEME_CSS
     assert ".app-lock__line {\n  position: absolute;" in _THEME_CSS
+    assert "max-width: min(36rem, calc(100vw - 2.5rem))" in _THEME_CSS
     assert "position: static !important" in _THEME_CSS
     assert "text-overflow: ellipsis" not in _THEME_CSS
     assert ".app-status {\n  display: block;" in _THEME_CSS
@@ -210,8 +232,18 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     desktop, _, mobile = _THEME_CSS.partition("@media (max-width: 40rem)")
     assert "flex: 1 1 100%" not in desktop
     assert "margin-bottom: var(--app-lock-note-clearance)" in desktop
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {\n'
+        "  position: relative !important;\n"
+        "}"
+    ) in desktop
     assert ".app-lock[open] {\n    display: block;\n    width: 100%;\n  }" in mobile
     assert "position: static;" in mobile
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {\n'
+        "    position: static !important;\n"
+        "  }"
+    ) in mobile
     assert "flex: 1 1 100% !important" in mobile
     assert "never an overlay that covers status / own-PDF" in mobile
     assert (

@@ -126,18 +126,18 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 }
 
 /* Overlay above 40rem: opening the note must not grow the header row.
-   Positioned against the whole header row, not the lock column.
+   Anchored to the lock summary so a wrapped pill is never covered.
    Margin below the row clears the ask box so the note never covers it. */
 .app-lock__line {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
+  right: auto;
   z-index: 20;
   box-sizing: border-box;
   margin: 0.4rem 0 0 0;
-  width: auto;
-  max-width: 36rem;
+  width: 36rem;
+  max-width: min(36rem, calc(100vw - 2.5rem));
   padding: 0.7rem 0.85rem;
   background: var(--app-panel);
   border: 1px solid var(--app-line);
@@ -170,6 +170,12 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   position: static !important;
   overflow: visible !important;
   transform: none !important;
+}
+
+/* Open note uses the lock as its containing block (not the header row),
+   so top: 100% clears a multi-line privacy pill just above 40rem. */
+[data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {
+  position: relative !important;
 }
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"],
@@ -227,6 +233,10 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
     max-width: none;
     margin: 0.45rem 0 0 0;
     z-index: auto;
+  }
+
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {
+    position: static !important;
   }
 
   [data-testid="stHorizontalBlock"]:has(.app-lock[open]) > [data-testid="stColumn"]:has(.app-lock),
