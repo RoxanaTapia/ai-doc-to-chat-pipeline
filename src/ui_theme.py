@@ -31,6 +31,8 @@ _THEME_CSS = """
   --app-shadow: 0 1px 2px rgba(26, 31, 36, 0.04), 0 12px 32px rgba(26, 31, 36, 0.05);
   --app-header-min-height: 2.75rem;
   --app-status-line: 1.5rem;
+  /* Space under the status row while the absolute note is open (desktop). */
+  --app-lock-note-clearance: 7.75rem;
 }
 
 html, body, [class*="css"], .stApp, button, input, textarea {
@@ -124,7 +126,8 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 }
 
 /* Overlay above 40rem: opening the note must not grow the header row.
-   Positioned against the whole header row, not the lock column. */
+   Positioned against the whole header row, not the lock column.
+   Margin below the row clears the ask box so the note never covers it. */
 .app-lock__line {
   position: absolute;
   top: 100%;
@@ -152,6 +155,10 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   flex-wrap: nowrap !important;
   min-height: var(--app-header-min-height);
   overflow: visible !important;
+}
+
+[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {
+  margin-bottom: var(--app-lock-note-clearance);
 }
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"],
@@ -198,6 +205,11 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 @media (max-width: 40rem) {
   [data-testid="stHorizontalBlock"]:has(.app-lock) {
     flex-wrap: wrap !important;
+  }
+
+  /* In-flow note already pushes content; drop the desktop clearance. */
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) {
+    margin-bottom: 0;
   }
 
   .app-lock[open] {

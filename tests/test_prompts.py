@@ -162,5 +162,5 @@ def test_privacy_line_follows_generator_without_overclaiming() -> None:
     assert "never stored" not in dummy
     assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]
     assert _CLIENT_COPY["hero_lead"] == (
-        "Ask your contract anything. Every answer shows the page it came from."
+        "Ask your contract anything. It shows the best-matching page next to each answer."
     )
