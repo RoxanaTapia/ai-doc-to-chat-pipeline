@@ -20,7 +20,7 @@ flowchart LR
 
 | Piece | Role | Where it lives |
 |-------|------|----------------|
-| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. | [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
+| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. | A private shared-edge config (walkthrough on request) |
 | **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. | This repo (`src/`, `deploy/`) |
 | **Ollama** | Local model on the same VM, when that provider is selected. | This repo's Compose |
 | **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. | Env on the host |

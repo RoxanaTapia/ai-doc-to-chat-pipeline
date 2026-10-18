@@ -41,7 +41,7 @@ For contributors and operators. Moves the pipeline from a **reference deployment
 | Piece | Repo / project | Role |
 |-------|----------------|------|
 | **This product** | **ai-doc (this repo)** | Private RAG / document Q&A with sourced answers; pilot already live |
-| **Sibling** | [receipt-intelligence-n8n](https://github.com/RoxanaTapia/receipt-intelligence-n8n) | n8n + AI workflow automation |
+| **Sibling** | A private n8n workflow project (walkthrough on request) | n8n + AI workflow automation |
 | **Later** | Support MVP (separate project) | Website chat + RAG + escalate + n8n → CRM |
 
 **Out of scope for this repo’s north star**
@@ -134,7 +134,7 @@ GitHub milestone: [M7.8](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/
 
 ## M7.9: Interface polish (short UX pass)
 
-**Target:** part-time · **4 issues** · primary `streamlit-ux-designer` · serial on `src/app.py`
+**Target:** part-time · **4 issues** · serial on `src/app.py`
 
 Calm, elegant client UI for confidential document Q&A. Progressive polish only; preserve Generator status, ready-state, Sources, and developer diagnostics.
 
@@ -161,7 +161,7 @@ Cited answers only help when Sources feels like an audit trail: short, ranked, a
 
 > **Takeaway:** Fewer, better-ranked Sources that overlap the answer. Prefer shipping before the walkthrough video (#57).
 
-**Target:** part-time · **4 issues** · primary `rag-core-engineer` + `streamlit-engineer` · knobs via `config-guardian`
+**Target:** part-time · **4 issues** · knobs in `configs/`
 
 | Issue | Outcome | GitHub |
 |-------|---------|--------|
@@ -176,12 +176,12 @@ Cited answers only help when Sources feels like an audit trail: short, ranked, a
 (#80 ∥ #83) → #81 → #82 → [docs sync if needed]
 ```
 
-| Wave | Work | Agents | Parallel notes |
-|------|------|--------|----------------|
-| 1a ∥ 1b | **#80** display cap · **#83** section chunking | config + streamlit ∥ rag-core | YAML/UI vs `src/rag/chunking.py` |
-| 2 | **#81** sort on-section → score | rag-core → streamlit | After #83 preferred |
-| 3 | **#82** answer-overlap + fallback | rag-core → streamlit | After #80 + #81 |
-| * | verifier | every issue | pytest green before PR |
+| Wave | Work | Parallel notes |
+|------|------|----------------|
+| 1a ∥ 1b | **#80** display cap · **#83** section chunking | YAML/UI vs `src/rag/chunking.py` |
+| 2 | **#81** sort on-section → score | After #83 preferred |
+| 3 | **#82** answer-overlap + fallback | After #80 + #81 |
+| * | tests | pytest green before PR |
 
 **Out of scope:** New LLM providers, FastAPI, full UI redesign.
 
@@ -193,11 +193,11 @@ GitHub milestone: [M7.95 Sources trust](https://github.com/RoxanaTapia/ai-doc-to
 
 **Background**
 
-Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Agentic tooling (`.cursor/`, `AGENTS.md`) stays visible and intentional. Merged to **`main` only** during the milestone; **`deploy/stable` / v0.9.0** advanced later after the portfolio edge cutover (operator-approved; see #144).
+Clients who open the GitHub repo should see a calm, professional layout. Deploy assets consolidate under `deploy/` with **no root shims**. Contributing notes stay short and public. Merged to **`main` only** during the milestone; **`deploy/stable` / v0.9.0** advanced later after the shared-edge cutover (operator-approved; see #144).
 
-> **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, app containers in `deploy/`, agents in `.cursor/` + `AGENTS.md`. HTTPS lives in roxanatapia-edge.
+> **Takeaway:** One obvious tree: product in `src/` + `docs/product/`, app containers in `deploy/`, contributing notes in `AGENTS.md`. HTTPS lives in a private shared-edge config.
 
-**Target:** part-time · **5 issues** · primary `docs-writer` + `deploy-engineer`
+**Target:** part-time · **5 issues**
 
 | Issue | Outcome | GitHub |
 |-------|---------|--------|
@@ -213,12 +213,12 @@ Clients who open the GitHub repo should see a calm, professional layout. Deploy 
 (#89 ∥ #91) → #90 → #92 → #93
 ```
 
-| Wave | Work | Agents | Parallel notes |
-|------|------|--------|----------------|
-| 1a ∥ 1b | **#89** structure doc · **#91** agentic tidy | docs-writer ∥ docs-writer (split files) | No `deploy/` moves yet |
-| 2 | **#90** consolidate under `deploy/` | deploy-engineer → docs-writer → verifier | **No shims**; update compose contexts + DEPLOYMENT |
-| 3 | **#92** README + docs index | docs-writer | After paths final |
-| 4 | **#93** GitHub templates + pre-commit | config-guardian → docs-writer | Keep pre-commit |
+| Wave | Work | Parallel notes |
+|------|------|----------------|
+| 1a ∥ 1b | **#89** structure doc · **#91** agentic tidy | No `deploy/` moves yet |
+| 2 | **#90** consolidate under `deploy/` | **No shims**; update compose contexts + DEPLOYMENT |
+| 3 | **#92** README + docs index | After paths final |
+| 4 | **#93** GitHub templates + pre-commit | Keep pre-commit |
 
 **Out of scope (for M7.96 itself):** RAG/UI features, bumping `deploy/stable` during that milestone, inventing new product scope.
 
@@ -341,22 +341,20 @@ Browser → HTTPS (Caddy) → Streamlit and/or FastAPI
                               └── LLM (Ollama | Anthropic | OpenAI)
 ```
 
-**Today:** M7–M7.96 shipped (Streamlit + swappable LLM + FAISS per session; deploy under `deploy/`). Live HTTPS is [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge), alias `app:8501`. **Next:** packaging → thin M8 → video last.
+**Today:** M7–M7.96 shipped (Streamlit + swappable LLM + FAISS per session; deploy under `deploy/`). Live HTTPS is a private shared-edge config (walkthrough on request), alias `app:8501`. **Next:** packaging → thin M8 → video last.
 
 Client-readable diagram: [product/architecture.md](../product/architecture.md).
 
 ---
 
-## 🛠️ Cursor workflow
+## 🛠️ Contributing
 
 | Resource | Location |
 |----------|----------|
 | Operator guide | [PROJECT-DIRECTION.md](PROJECT-DIRECTION.md) |
 | Docs index | [docs/README.md](../README.md) |
-| Orchestration | [AGENTS.md](../../AGENTS.md) |
-| Commands | `/ship-issue`, `/ship-milestone`, `/verify` |
-| Rules | `.cursor/rules/milestone-workflow.mdc` |
+| Tests and layout | [AGENTS.md](../../AGENTS.md) |
 
-**Loop (train mode):** pick GitHub issue → conductor chat → `/ship-issue #NN` → verifier → orchestrator commit/PR/merge → status pulse → next issue. See [AGENTS.md](../../AGENTS.md).
+Changes are reviewed and tested before merge. See [AGENTS.md](../../AGENTS.md).
 
 Issue map: M7.8 [#53–#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/7) · M8 [#58–#60](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2) · M8.5 [#61](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/milestone/2)

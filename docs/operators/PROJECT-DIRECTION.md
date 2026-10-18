@@ -6,7 +6,7 @@
 
 How to finish this pipeline with Cursor discipline, code you understand, and a private document Q&A demo you can show without apologizing for latency.
 
-Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](../../AGENTS.md) · Docs index: [docs/README.md](../README.md)
+Full milestone detail: [ROADMAP.md](ROADMAP.md) · Contributor notes: [AGENTS.md](../../AGENTS.md) · Docs index: [docs/README.md](../README.md)
 
 > **Takeaway:** Start thin M8 at #58 (video is last). Deep production waits for a real client.
 
@@ -30,7 +30,7 @@ Full milestone detail: [ROADMAP.md](ROADMAP.md) · Agent playbook: [AGENTS.md](.
 | Piece | Where | Role |
 |-------|-------|------|
 | **This product** | **This repo** | Private RAG / document Q&A with sourced answers |
-| **Sibling** | receipt-intelligence-n8n | n8n + AI document→data workflows (separate repo) |
+| **Sibling** | A private n8n workflow project (walkthrough on request) | n8n + AI document→data workflows (separate repo) |
 | **Later** | Support MVP (new project) | Website chat + escalate + n8n → CRM |
 
 This repo’s north star is **not** a website support assistant. Escalate/CRM belongs in the Support MVP later. Deep production (M9–M11) is **client-triggered**.
@@ -47,14 +47,12 @@ If that sentence feels true after **demo + packaging + thin M8 + video**, this p
 
 ## 🧭 Three objectives
 
-### 1. Cursor best practices
+### 1. Contributor habits
 
 | Rule | Why |
 |------|-----|
 | **One GitHub issue → one branch → one PR** | Clean history; each merge is explainable |
-| **Orchestrator commits; specialists don’t** | Train mode: orchestrator also pushes/merges when green (see AGENTS.md) |
-| **Use `/ship-issue #NN`** | Prefer one conductor chat for the delivery train; split if context grows |
-| **`/verify` before PR** | pytest; skip full `docker build` unless infra changed |
+| **Run tests before a PR** | pytest; skip a full `docker build` unless `deploy/` changed |
 | **PR starts with `## Main contribution`** | Outcome first, not a file list |
 
 **Branch names**
@@ -65,7 +63,7 @@ feat/m7-8-anthropic        → closes #54
 feat/m8-fastapi-chat       → closes #59
 ```
 
-**When stuck:** invoke `blocker-reporter` format in AGENTS.md; update Human decisions log; STOP.
+**When stuck:** stop and ask; update Human decisions log.
 
 **Do not:** one mega-PR for multiple issues; parallel edits on `src/rag/` + `src/app.py` across two issues.
 
@@ -113,7 +111,7 @@ After each issue, you should answer **without opening Cursor**:
 
 **Milestones:** M7 (#33–#39)
 
-**Shipped:** Docker, Compose, live HTTPS pilot (Caddy now in roxanatapia-edge), architecture, demo storyboard.
+**Shipped:** Docker, Compose, live HTTPS pilot (Caddy in a private shared-edge config), architecture, demo storyboard.
 
 **Learnings:** Retrieval + citations are the core IP. CPU Ollama is an option, not the walkthrough default.
 
@@ -161,7 +159,7 @@ After thin M8 + video: **pause** for Support MVP unless a paid engagement needs 
 
 ### Phase 2b: Demo video (last)
 
-**Issue:** [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) — record walkthrough; link from README. Human films; agents prepare storyboard/README line.
+**Issue:** [#57](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/issues/57) — record walkthrough; link from README. Human films; storyboard lives in [`docs/product/demo-script.md`](../product/demo-script.md).
 
 **Env for recording (local, never commit)**
 
@@ -181,7 +179,7 @@ ANTHROPIC_API_KEY=sk-...
 
 ### Phase 3: Production depth (client-triggered)
 
-**Milestones:** M9, M10, M11 (issues TBD via `/ship-milestone M9`)
+**Milestones:** M9, M10, M11 (issues TBD when a client asks)
 
 Not required for the demo-ready pause.
 
@@ -198,9 +196,9 @@ Not required for the demo-ready pause.
 | Day | Activity |
 |-----|----------|
 | **Mon** | Pick one issue; move to In progress |
-| **Tue–Wed** | `/ship-issue` (or continue delivery train); understand diff |
-| **Thu** | `/verify`; PR; self-review |
-| **Fri** | Merge (or confirm train merge); optional learning notes; update board |
+| **Tue–Wed** | Implement the issue; understand the diff |
+| **Thu** | Run tests; open a PR; self-review |
+| **Fri** | Merge when checks are green; optional learning notes; update board |
 
 **One issue per week** is enough for M7.8 in about 5 weeks including video.
 
@@ -220,9 +218,7 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 
 | Command | When |
 |---------|------|
-| `/ship-issue #53` | Implement one issue end-to-end |
-| `/ship-milestone M7.8` | Run or plan a phase / delivery train |
-| `/verify` | Before every PR |
+| `PYTHONPATH=src pytest tests/ -q` | Before every PR |
 
 ---
 
@@ -236,7 +232,7 @@ Columns: `Backlog` | `Ready` | `In progress` | `In review` | `Done`
 | OpenAI | Optional after Anthropic works |
 | Pitch vertical | Confidential **documents**, not legal-only |
 | Support MVP / n8n CRM bot | Separate later project |
-| Commit / merge | Train mode in AGENTS.md (orchestrator merges when green) |
+| Commit / merge | Review and tests before merge |
 | Demo video order | **Last** after thin M8 (#57) | Not a blocker for packaging or M8 |
 | Streamlit Community Cloud | **Retired.** Invite pilot only; no public dummy Cloud app |
 
