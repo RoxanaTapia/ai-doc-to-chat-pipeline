@@ -12,3 +12,5 @@ alwaysApply: false
 - Do not document invite, SMTP, Turnstile, or TLS keys here. Those belong to a private shared-edge config (and the live host `.env`).
 - Never commit filled `.env` files or API keys.
 - For M12+, `generation.provider` in YAML should match env override docs.
+
+PRs and reviews follow the standard in `AGENTS.md`.

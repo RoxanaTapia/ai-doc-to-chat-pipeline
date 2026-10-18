@@ -18,7 +18,7 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 | **docs/product/** | Buyers / evaluators | Calm, clear, scannable, joy to read |
 | **docs/operators/running.md** | Operators | Local Compose and the live overlay. Not a client install guide |
 | **docs/operators/**, **AGENTS.md** | Contributors | Issues and contributing notes (warm + precise) |
-| **PR titles and descriptions** | Clients and buyers who open the PR | Outcome first (`## Main contribution`), product language, no file laundry |
+| **PR titles and descriptions** | Clients and buyers who open the PR | Follow `AGENTS.md`; product language, no file laundry |
 | **GitHub issues** | Operators | Outcome, scope, DoD checkboxes; light context |
 | **`docs-private/`** | Operator (local, gitignored) | Sales, switches, provider picks, full recording notes |
 
@@ -35,8 +35,9 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 
 ### PR / issue copy
 
-- PR titles and bodies are client-facing. Start with `## Main contribution`, then Summary, then Test plan. No issue numbers in the title.
-- Issue DoD checkboxes should map cleanly into the PR test plan.
+- PRs follow the standard in `AGENTS.md` (template in `.github/pull_request_template.md`).
+- PR titles and bodies are client-facing. No prices, hostnames, hosting provider, server sizes, /root paths, private-repo links, or internal notes.
+- Issue DoD checkboxes should map cleanly into the PR Test checks.
 - Do not invent scope; do not close issues/PRs unless asked.
 
 ## Rules

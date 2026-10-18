@@ -1,0 +1,6 @@
+---
+description: PRs and reviews follow the standard in AGENTS.md.
+alwaysApply: true
+---
+
+PRs and reviews follow the standard in `AGENTS.md` (template in `.github/pull_request_template.md`).
