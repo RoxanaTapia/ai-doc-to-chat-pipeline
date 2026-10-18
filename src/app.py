@@ -525,11 +525,19 @@ def _queue_question(text: str) -> bool:
 
 
 def _on_ask_box_commit() -> None:
-    """Enter in the question box should submit, same as Ask."""
+    """Queue on Enter or blur. The first Ask click is often only this commit."""
     if not _document_is_indexed():
         return
     if _queue_question(st.session_state.get("ask_box") or ""):
         st.session_state.ask_box = ""
+
+
+def _continue_queued_ask(already_taken: str | None) -> None:
+    """If on_change queued after we popped, rerun so that pass can look it up."""
+    if already_taken:
+        return
+    if st.session_state.get("queued_question"):
+        st.rerun()
 
 
 def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
@@ -969,6 +977,9 @@ submitted = st.button(
 )
 if submitted and _queue_question(typed):
     st.rerun()
+# First Ask click is often only a blur/commit. on_change queues after the pop
+# above, and Streamlit drops the button press. Continue that queued look-up.
+_continue_queued_ask(queued_question)
 query = (queued_question or "").strip() or None
 
 # Hide chips once a question is queued. Re-creating the buttons on the

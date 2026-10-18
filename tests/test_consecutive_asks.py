@@ -160,6 +160,39 @@ def test_starter_chip_submits_and_answers(stub_env) -> None:
     assert TERM_QUESTION in _card_questions(at)
 
 
+def test_type_then_click_ask_once_answers(stub_env) -> None:
+    """Type a question and click Ask once. The answer must land on that click.
+
+    In the browser the first Ask click often only blurs the field (Streamlit
+    commits ``st.text_input`` on blur/Enter, and drops the button press).
+    AppTest ``input()`` is that commit-only rerun: no button click. A second
+    ``click()`` must not be required.
+    """
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is not None
+    assert at.button(ASK_KEY) is not None
+    assert not at.button(ASK_KEY).disabled
+
+    at.text_input[0].input(LAW_QUESTION)
+    at.run(timeout=30)
+    assert not at.exception
+
+    messages = _session_get(at, "messages") or []
+    users = [m for m in messages if m.get("role") == "user"]
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert len(users) == 1
+    assert users[0]["content"] == LAW_QUESTION
+    assert len(assistants) == 1
+    assert "Spain" in (assistants[0].get("content") or "")
+    assert LAW_QUESTION in _card_questions(at)
+    assert _session_get(at, "queued_question") in {None, ""}
+    assert _session_get(at, "ask_box", "") in {"", None}
+
+
 def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
     """Live-pilot default: first question must not load BAAI/bge-reranker-base."""
     from streamlit.testing.v1 import AppTest

@@ -172,6 +172,11 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "font-size: 1.2rem !important" in _THEME_CSS
     assert '[class*="st-key-ask_submit"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
+    assert '[data-testid="InputInstructions"]' in _THEME_CSS
+    assert (
+        'div[data-testid="stVerticalBlock"]:has(.app-ask-mark) '
+        '[data-testid="InputInstructions"]'
+    ) in _THEME_CSS
     assert "max-width: 28rem" not in _THEME_CSS
     assert ".app-lock__line" in _THEME_CSS
     assert "max-width: none" in _THEME_CSS
@@ -328,6 +333,12 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "queued_question = chip" not in text
     assert '_queue_question(chip["question"])' in text
     assert "should_show_starter_chips(st.session_state.messages, query)" in text
+    assert "Press Enter to apply" not in text
+    assert "on_change=_on_ask_box_commit if chat_ready else None" in text
+    assert "_continue_queued_ask(queued_question)" in text
+    submit_at = text.find('key="ask_submit"')
+    continue_at = text.find("_continue_queued_ask(queued_question)")
+    assert submit_at != -1 and continue_at != -1 and submit_at < continue_at
 
 
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
