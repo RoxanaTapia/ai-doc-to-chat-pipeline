@@ -263,9 +263,10 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
     text = (PROJECT_ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     assert 'baseUrlPath = "app"' in text
     assert "gatherUsageStats = false" in text
-    # Match boot-page grey so Streamlit's own chrome does not flash white/skeleton.
+    # Page grey for chrome; keep secondary white so inputs stay contrasted.
+    # First-paint white flash is handled by deploy/streamlit_boot.css, not secondary.
     assert 'backgroundColor = "#f6f7f9"' in text
-    assert 'secondaryBackgroundColor = "#f6f7f9"' in text
+    assert 'secondaryBackgroundColor = "#ffffff"' in text
 
 
 def test_streamlit_boot_patch_covers_first_paint() -> None:
