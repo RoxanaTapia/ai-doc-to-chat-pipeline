@@ -88,6 +88,7 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 
 .app-lock {
   display: inline-block;
+  position: static;
   max-width: 100%;
 }
 
@@ -121,14 +122,20 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   color: var(--app-ink);
 }
 
-/* Overlay: opening the note must not grow the header row or wrap columns. */
+/* Overlay: opening the note must not grow the header row or wrap columns.
+   Positioned against the whole header row, not the lock column. Streamlit
+   columns/markdown are position:relative by default; that made top:100% sit
+   on the chip and cover wrapped status / own-PDF on a phone. */
 .app-lock__line {
   position: absolute;
   top: 100%;
   left: 0;
+  right: 0;
   z-index: 20;
+  box-sizing: border-box;
   margin: 0.4rem 0 0 0;
-  width: min(36rem, calc(100% - 0.5rem));
+  width: auto;
+  max-width: 36rem;
   padding: 0.7rem 0.85rem;
   background: var(--app-panel);
   border: 1px solid var(--app-line);
@@ -137,11 +144,7 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--app-slate);
-}
-
-[data-testid="stVerticalBlock"]:has(.app-lock),
-[data-testid="stMarkdownContainer"]:has(.app-lock) {
-  overflow: visible !important;
+  white-space: normal;
 }
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) {
@@ -152,15 +155,15 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   overflow: visible !important;
 }
 
-[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"],
-[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"] {
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stMarkdownContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) .app-lock {
+  position: static !important;
   overflow: visible !important;
-}
-
-[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"]:has(.app-status),
-[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"]:has(.app-status) {
-  min-width: 0;
-  overflow: hidden !important;
+  transform: none !important;
 }
 
 .app-status {
@@ -175,21 +178,13 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   background: transparent;
   color: var(--app-muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  overflow: visible;
   min-height: 1.4em;
 }
 
 @media (max-width: 40rem) {
   [data-testid="stHorizontalBlock"]:has(.app-lock) {
     flex-wrap: wrap !important;
-  }
-
-  .app-lock__line {
-    left: 0;
-    right: 0;
-    width: auto;
   }
 }
 

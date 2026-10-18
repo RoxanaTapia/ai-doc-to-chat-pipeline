@@ -188,6 +188,13 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "flex: 1 1 100%" not in _THEME_CSS
     assert ".app-lock[open] {\n  display: block;\n  width: 100%;\n}" not in _THEME_CSS
     assert ".app-lock__line {\n  position: absolute;" in _THEME_CSS
+    assert "position: static !important" in _THEME_CSS
+    assert "cover wrapped status / own-PDF" in _THEME_CSS
+    assert ":has(.app-status)" not in _THEME_CSS
+    assert "text-overflow: ellipsis" not in _THEME_CSS
+    assert ".app-status {\n  display: inline-flex;" in _THEME_CSS
+    assert "overflow: hidden !important" not in _THEME_CSS
+    assert "overflow: visible;" in _THEME_CSS
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
     assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
@@ -352,6 +359,9 @@ def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
     assert 'class="app-lock"' in badge
     assert 'class="app-lock__line"' in badge
     assert "<details" in badge
+    assert "[data-testid=\"stHorizontalBlock\"]:has(.app-lock) .app-lock" in _THEME_CSS
+    assert "right: 0;" in _THEME_CSS
+    assert "max-width: 36rem" in _THEME_CSS
 
 
 def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
