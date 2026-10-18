@@ -547,6 +547,10 @@ def _render_starter_chips(*, chat_ready: bool, query: str | None):
     look-up pass) can clear the previous buttons before slow work starts.
     Without the placeholder, Streamlit keeps last-run chips on screen,
     greyed, under "Looking through the document…".
+
+    Theme CSS hides ``.app-chip-mark`` / chip buttons until the hero and
+    question input have painted, and reserves height on this container so a
+    fresh load cannot flash chips low then jump them up.
     """
     slot = st.empty()
     if not should_show_starter_chips(

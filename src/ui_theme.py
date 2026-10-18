@@ -299,6 +299,53 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="InputInstruc
   margin: 0.15rem 0 0.35rem 0;
 }
 
+/* Reserve the final chip stack height while first-paint CSS keeps chips hidden. */
+div[data-testid="stVerticalBlock"]:has(.app-chip-mark),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chip-mark) {
+  min-height: 11rem;
+  box-sizing: border-box;
+}
+
+/*
+  Fresh loads: Streamlit hydrates chip markdown/buttons before the hero and
+  question input, so chips flash low then jump up. Keep them invisible until
+  both are present. Skeletons may linger in the DOM, so they are not part of
+  this gate — they are only made transparent below.
+
+  Streamlit 1.54 uses section[data-testid=stMain] (not section.main) and
+  [data-testid=stHeading] for the title.
+*/
+.app-chips-label.app-chip-mark,
+[class*="st-key-chip_"],
+[class*="st-key-chip_"] button,
+[class*="st-key-chip_"] [data-testid^="stBaseButton"] {
+  visibility: hidden;
+}
+
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
+  .app-chips-label.app-chip-mark,
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
+  [class*="st-key-chip_"],
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
+  [class*="st-key-chip_"]
+  button,
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
+  [class*="st-key-chip_"]
+  [data-testid^="stBaseButton"] {
+  visibility: visible;
+}
+
+/* Grey slivers are Streamlit skeletons painting early; keep layout, hide paint. */
+[data-testid="stMain"] [data-testid="stSkeleton"],
+section.main [data-testid="stSkeleton"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
 [class*="st-key-chip_"] button,
 [class*="st-key-chip_"] [data-testid^="stBaseButton"] {
   border: 1px solid var(--app-line) !important;
