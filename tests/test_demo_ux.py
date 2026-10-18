@@ -179,7 +179,26 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     ) in _THEME_CSS
     assert "max-width: 28rem" not in _THEME_CSS
     assert ".app-lock__line" in _THEME_CSS
-    assert "max-width: none" in _THEME_CSS
+    assert ".app-toolbar-mark" in _THEME_CSS
+    assert "--app-header-min-height" in _THEME_CSS
+    assert "--app-status-line: 1.5rem" in _THEME_CSS
+    assert "opening the note must not grow the header row" in _THEME_CSS
+    assert "flex-wrap: nowrap !important" in _THEME_CSS
+    assert "@media (max-width: 40rem)" in _THEME_CSS
+    assert ".app-lock__line {\n  position: absolute;" in _THEME_CSS
+    assert "position: static !important" in _THEME_CSS
+    assert "text-overflow: ellipsis" not in _THEME_CSS
+    assert ".app-status {\n  display: block;" in _THEME_CSS
+    assert "white-space: normal" in _THEME_CSS
+    assert "min-height: var(--app-status-line)" in _THEME_CSS
+    assert "overflow: hidden !important" not in _THEME_CSS
+    assert "overflow: visible;" in _THEME_CSS
+    desktop, _, mobile = _THEME_CSS.partition("@media (max-width: 40rem)")
+    assert "flex: 1 1 100%" not in desktop
+    assert ".app-lock[open] {\n    display: block;\n    width: 100%;\n  }" in mobile
+    assert "position: static;" in mobile
+    assert "flex: 1 1 100% !important" in mobile
+    assert "never an overlay that covers status / own-PDF" in mobile
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
     assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
@@ -327,6 +346,26 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
     assert 'paint_status(status_slot, "answering"' in text
     assert "Looking through the document" in _CLIENT_COPY["doc_answering"]
     assert _CLIENT_COPY["doc_timeout"] == ("That took too long, so I stopped. Please ask again.")
+
+
+def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
+    """The three header cells stay siblings; the data note overlays only above 40rem."""
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    assert 'class="app-toolbar-mark"' in text
+    assert "st.columns([1.1, 2.2, 1.4])" in text
+    assert "_render_privacy_badge(" in text
+    assert "status_slot = status_col.empty()" in text
+    assert 'key="own_pdf_toggle"' in text
+    assert text.find('class="app-toolbar-mark"') < text.find("st.columns([1.1, 2.2, 1.4])")
+    assert text.find("_render_privacy_badge") < text.find("status_slot = status_col.empty()")
+    assert text.find("status_slot = status_col.empty()") < text.find('key="own_pdf_toggle"')
+    badge = (SRC_DIR / "page_copy.py").read_text(encoding="utf-8")
+    assert 'class="app-lock"' in badge
+    assert 'class="app-lock__line"' in badge
+    assert "<details" in badge
+    assert "[data-testid=\"stHorizontalBlock\"]:has(.app-lock) .app-lock" in _THEME_CSS
+    assert "right: 0;" in _THEME_CSS
+    assert "max-width: 36rem" in _THEME_CSS
 
 
 def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:

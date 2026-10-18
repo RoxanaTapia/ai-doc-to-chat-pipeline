@@ -721,6 +721,7 @@ if preload_sample_nda():
 
 _render_client_hero(hide_sidebar=not _show_sidebar)
 
+st.markdown('<div class="app-toolbar-mark" aria-hidden="true"></div>', unsafe_allow_html=True)
 privacy_col, status_col, own_col = st.columns([1.1, 2.2, 1.4])
 with privacy_col:
     _render_privacy_badge(

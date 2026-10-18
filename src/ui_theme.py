@@ -29,6 +29,8 @@ _THEME_CSS = """
   --app-radius: 16px;
   --app-space: 8px;
   --app-shadow: 0 1px 2px rgba(26, 31, 36, 0.04), 0 12px 32px rgba(26, 31, 36, 0.05);
+  --app-header-min-height: 2.75rem;
+  --app-status-line: 1.5rem;
 }
 
 html, body, [class*="css"], .stApp, button, input, textarea {
@@ -61,11 +63,20 @@ section.main h1 {
   max-width: 34rem;
 }
 
+.app-toolbar-mark {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 .app-toolbar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-height: var(--app-header-min-height);
   margin: 0 0 1.75rem 0;
 }
 
@@ -78,6 +89,7 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 
 .app-lock {
   display: inline-block;
+  position: static;
   max-width: 100%;
 }
 
@@ -106,53 +118,111 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   color: var(--app-accent);
 }
 
-.app-lock[open] {
-  display: block;
-  width: 100%;
-}
-
 .app-lock[open] summary {
   border-color: color-mix(in srgb, var(--app-accent) 35%, var(--app-line));
   color: var(--app-ink);
 }
 
+/* Overlay above 40rem: opening the note must not grow the header row.
+   Positioned against the whole header row, not the lock column. */
 .app-lock__line {
-  margin: 0.45rem 0 0 0;
-  max-width: none;
-  width: 100%;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  margin: 0.4rem 0 0 0;
+  width: auto;
+  max-width: 36rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--app-panel);
+  border: 1px solid var(--app-line);
+  border-radius: 12px;
+  box-shadow: var(--app-shadow);
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--app-slate);
+  white-space: normal;
 }
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) {
-  flex-wrap: wrap !important;
+  position: relative;
+  align-items: stretch !important;
+  flex-wrap: nowrap !important;
+  min-height: var(--app-header-min-height);
   overflow: visible !important;
 }
 
-[data-testid="column"]:has(.app-lock),
-[data-testid="stColumn"]:has(.app-lock) {
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stMarkdownContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) .app-lock {
+  position: static !important;
   overflow: visible !important;
+  transform: none !important;
 }
 
-[data-testid="column"]:has(.app-lock[open]),
-[data-testid="stColumn"]:has(.app-lock[open]) {
-  min-width: 100% !important;
-  flex: 1 1 100% !important;
-  width: 100% !important;
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"] {
+  min-height: var(--app-status-line);
+}
+
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status),
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"]:has(.app-status),
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stMarkdownContainer"] {
+  min-height: var(--app-status-line);
+  height: auto !important;
+  overflow: visible !important;
 }
 
 .app-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-space);
+  display: block;
   font-size: 0.9rem;
   line-height: 1.4;
   margin: 0;
-  padding: 0;
+  padding: 0.15rem 0;
   border: none;
   background: transparent;
   color: var(--app-muted);
+  white-space: normal;
+  overflow: visible;
+  min-height: var(--app-status-line);
+  box-sizing: border-box;
+}
+
+@media (max-width: 40rem) {
+  [data-testid="stHorizontalBlock"]:has(.app-lock) {
+    flex-wrap: wrap !important;
+  }
+
+  .app-lock[open] {
+    display: block;
+    width: 100%;
+  }
+
+  /* In flow below the chip, never an overlay that covers status / own-PDF. */
+  .app-lock__line {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    max-width: none;
+    margin: 0.45rem 0 0 0;
+    z-index: auto;
+  }
+
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) > [data-testid="stColumn"]:has(.app-lock),
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) > [data-testid="column"]:has(.app-lock) {
+    flex: 1 1 100% !important;
+    min-width: 100%;
+    max-width: 100%;
+  }
 }
 
 .app-status--reading,
