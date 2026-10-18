@@ -197,6 +197,12 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="stTextInput"
   border-radius: 12px;
 }
 
+/* Streamlit paints this while the field is dirty (uncommitted). Hide it; Enter
+   still commits, and Ask/Enter both submit via the question-box callback. */
+div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="InputInstructions"] {
+  display: none !important;
+}
+
 [class*="st-key-ask_submit"] button,
 [class*="st-key-ask_submit"] [data-testid^="stBaseButton"] {
   background: var(--app-accent) !important;
