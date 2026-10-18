@@ -540,6 +540,31 @@ def _continue_queued_ask(already_taken: str | None) -> None:
         st.rerun()
 
 
+def _render_starter_chips(*, chat_ready: bool, query: str | None):
+    """Paint starter chips in a replaceable slot; empty until chat is ready.
+
+    Always occupy this slot with ``st.empty()`` so a chip click (or the
+    look-up pass) can clear the previous buttons before slow work starts.
+    Without the placeholder, Streamlit keeps last-run chips on screen,
+    greyed, under "Looking through the document…".
+    """
+    slot = st.empty()
+    if not should_show_starter_chips(
+        st.session_state.messages, query, chat_ready=chat_ready
+    ):
+        return slot
+    with slot.container():
+        st.markdown(
+            '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
+            unsafe_allow_html=True,
+        )
+        for chip in STARTER_CHIPS:
+            if st.button(chip["label"], key=f"chip_{chip['label']}"):
+                if _queue_question(chip["question"]):
+                    st.rerun()
+    return slot
+
+
 def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
     """Join token chunks in-process. A live UI stream can hang on the next Ask."""
     if api_base_url():
@@ -982,20 +1007,13 @@ if submitted and _queue_question(typed):
 _continue_queued_ask(queued_question)
 query = (queued_question or "").strip() or None
 
-# Hide chips once a question is queued. Re-creating the buttons on the
-# look-up run makes Streamlit flash their labels as plain text under Ask.
-if chat_ready and should_show_starter_chips(st.session_state.messages, query):
-    st.markdown(
-        '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
-        unsafe_allow_html=True,
-    )
-    for chip in STARTER_CHIPS:
-        if st.button(chip["label"], key=f"chip_{chip['label']}"):
-            if _queue_question(chip["question"]):
-                st.rerun()
+# Same slot every run. Empty until the document is indexed; emptied again
+# before look-up so last-run chips cannot linger as stale widgets.
+chip_slot = _render_starter_chips(chat_ready=chat_ready, query=query)
 
 if query and query.strip() and chat_ready:
     query = query.strip()
+    chip_slot.empty()
     _append_chat_message("user", query)
     paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
 
