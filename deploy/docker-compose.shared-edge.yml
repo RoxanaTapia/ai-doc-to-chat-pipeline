@@ -1,16 +1,17 @@
-# Shared-host overlay. Another process (roxanatapia-edge Caddy) owns 80/443.
+# Shared-host overlay. A private shared-edge config (walkthrough on request)
+# owns ports 80 and 443.
 #
-# Create the network once on the VPS:
+# Create the network once on the host:
 #   docker network create edge
 #
 # From repo root:
 #   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
 #     -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 #
-# This repo has no Caddy service. Do not start one on the portfolio VPS.
+# This repo has no Caddy service. Do not start one on the live host.
 #
-# Stable alias for the edge Caddyfile: app:8501
-# Caddy forwards /app* to that alias and keeps the /app prefix
+# Stable alias for the edge reverse proxy: app:8501
+# The proxy forwards /app* to that alias and keeps the /app prefix
 # (Streamlit baseUrlPath). Do not publish 8501 on that host.
 # Operator notes: docs/operators/running.md
 

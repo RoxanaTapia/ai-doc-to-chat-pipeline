@@ -21,7 +21,7 @@ deploy/
 
 - No root copies of Dockerfile or Compose files.
 - No stub files that say “Moved to …”.
-- No Caddyfile or invite service here. Canonical HTTPS: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
+- No Caddyfile or invite service here. Canonical HTTPS lives in a private shared-edge config (walkthrough on request).
 - Local and VPS commands: [running.md](running.md).
 
 ---
@@ -39,11 +39,9 @@ deploy/
 
 ## Cursor surface
 
-Keep these in the open tree. They are how issues ship.
+Keep these in the open tree. They are short and public.
 
 | Path | Role |
 |------|------|
-| [`AGENTS.md`](../../AGENTS.md) | One issue, one branch, one PR |
-| [`.cursor/agents/`](../../.cursor/agents/) | Specialist prompts |
-| [`.cursor/commands/`](../../.cursor/commands/) | `/ship-issue`, `/verify` |
-| [`.cursor/rules/`](../../.cursor/rules/) | Always-on conventions |
+| [`AGENTS.md`](../../AGENTS.md) | Tests, layout, and review |
+| [`.cursor/rules/`](../../.cursor/rules/) | Coding conventions |

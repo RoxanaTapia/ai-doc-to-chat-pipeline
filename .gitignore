@@ -17,7 +17,7 @@ build/
 venv/
 ENV/
 
-# Legacy HTTPS leftovers (Caddy now lives in roxanatapia-edge)
+# Legacy HTTPS leftovers (edge TLS files do not belong in this repo)
 deploy/caddy-basicauth.conf
 deploy/certs/
 
@@ -43,15 +43,11 @@ uploaded/
 .huggingface/
 .cache/huggingface/
 
-# Cursor: track rules, agents, commands; ignore the rest
+# Cursor: track public coding rules; ignore the rest
 .cursor/*
 !.cursor/README.md
 !.cursor/rules/
 !.cursor/rules/**
-!.cursor/agents/
-!.cursor/agents/**
-!.cursor/commands/
-!.cursor/commands/**
 .vscode/
 .idea/
 

@@ -4,7 +4,7 @@
 
 This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
-> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites live in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
+> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites live in a private shared-edge config (walkthrough on request).
 
 ---
 
@@ -13,12 +13,12 @@ This page is the map of the repository. The [root README](../README.md) is the p
 ```text
 .
 ├── README.md          Client overview and live pilot
-├── AGENTS.md          How Cursor agents ship issues
+├── AGENTS.md          Tests, layout, and review
 ├── src/               Application code
 ├── configs/           Chunking, retrieval, and prompt tunables
 ├── tests/             pytest suite
 ├── deploy/            App image + Compose (Ollama; optional API)
-├── .cursor/           Agent roles, rules, slash commands
+├── .cursor/           Coding conventions
 └── docs/              You are here
       product/         Architecture, walkthrough, sample NDA
       operators/       Roadmap, how to run the stack, layout rules
@@ -37,7 +37,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/api/`](../src/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
 | [`configs/prompts.yaml`](../configs/prompts.yaml) | Grounded-answer prompt |
-| [`deploy/`](../deploy/) | App + Ollama Compose. Public HTTPS: [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) |
+| [`deploy/`](../deploy/) | App + Ollama Compose. Public HTTPS: a private shared-edge config (walkthrough on request) |
 | [`docs/product/architecture.md`](product/architecture.md) | What runs on the VM vs at the edge |
 | [`docs/operators/REPO-STRUCTURE.md`](operators/REPO-STRUCTURE.md) | Extra layout rules |
 
@@ -49,7 +49,7 @@ Two layers: the running services, then the Python modules that do the retrieval 
 
 ### Runtime
 
-The browser never talks to the index or the model directly. Caddy (in the edge repo) terminates HTTPS. Streamlit holds the session (PDF, chunks, FAISS) in memory. The LLM is either Ollama on the same VM or Anthropic when that provider is selected.
+The browser never talks to the index or the model directly. Caddy (in a private shared-edge config) terminates HTTPS. Streamlit holds the session (PDF, chunks, FAISS) in memory. The LLM is either Ollama on the same VM or Anthropic when that provider is selected.
 
 ```mermaid
 flowchart LR
@@ -116,16 +116,7 @@ The FastAPI app in `src/api/` exposes the same generation path as `/chat`. It do
 
 ## How work ships
 
-This repo includes a Cursor setup that can take a GitHub issue to a pull request without hand-wiring the steps.
-
-| Piece | Role |
-|-------|------|
-| [`AGENTS.md`](../AGENTS.md) | Playbook: one issue, one branch, one PR |
-| [`.cursor/agents/`](../.cursor/agents/) | Specialists (RAG, Streamlit, docs, deploy, verifier) |
-| [`.cursor/commands/`](../.cursor/commands/) | `/ship-issue`, `/ship-milestone`, `/verify` |
-| [`.cursor/rules/`](../.cursor/rules/) | Always-on coding and docs conventions |
-
-Specialists edit only what they own. They do not commit. The milestone orchestrator commits, opens the PR, and can merge when checks are green. Full queue and human gates: [AGENTS.md](../AGENTS.md). Direction and sequencing: [operators/PROJECT-DIRECTION.md](operators/PROJECT-DIRECTION.md) · [operators/ROADMAP.md](operators/ROADMAP.md).
+See [AGENTS.md](../AGENTS.md) for how to run the tests, the repo layout, and review. Changes are reviewed and tested before merge. Direction and sequencing: [operators/PROJECT-DIRECTION.md](operators/PROJECT-DIRECTION.md) · [operators/ROADMAP.md](operators/ROADMAP.md).
 
 ---
 

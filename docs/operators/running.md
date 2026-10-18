@@ -4,7 +4,7 @@
 
 ## Background
 
-This repo runs the PDF Q&A app and Ollama. HTTPS, the invite gate, and TLS live in [roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge).
+This repo runs the PDF Q&A app and Ollama. HTTPS, the invite gate, and TLS live in a private shared-edge config (walkthrough on request).
 
 > **Takeaway:** Compose here is `app` + `ollama` (optional `api`). Public ports 80/443 are not this tree.
 
@@ -32,9 +32,9 @@ Host venv instead of Docker for the UI: `pip install -r requirements.txt` then `
 
 ---
 
-## Live pilot (portfolio VPS)
+## Live pilot (shared host)
 
-[roxanatapia-edge](https://github.com/RoxanaTapia/roxanatapia-edge) terminates TLS and runs the invite gate. This app does not. Join Docker network `edge` and leave ports 80 and 443 alone.
+A private shared-edge config (walkthrough on request) terminates TLS and runs the invite gate. This app does not. Join Docker network `edge` and leave ports 80 and 443 alone.
 
 ```bash
 docker network create edge   # once; ignore the error if it already exists
@@ -51,6 +51,6 @@ Expect: `ollama` healthy, `app` up, **no** `caddy` service. The host does not pu
 
 Caddy forwards `/app*` to `app:8501` and **keeps** the `/app` prefix. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`). The public gate owns `/`.
 
-Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Edge Compose uses `-p roxanatapia-edge` and reads `/root/ai-doc-to-chat-pipeline/.env` for invite and TLS keys. Those keys are not in this repo's `.env.example`. **Do not overwrite the server `.env` with the example file.**
+Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. The shared-edge stack uses its own compose project name and reads the `.env` next to the compose file for invite and TLS keys. Those keys are not in this repo's `.env.example`. **Do not overwrite the server `.env` with the example file.**
 
-Mint and Caddy reloads happen in roxanatapia-edge. Confirm that stack is up before recreating `app`.
+Invite minting and TLS reloads happen in that shared-edge config. Confirm that stack is up before recreating `app`.
