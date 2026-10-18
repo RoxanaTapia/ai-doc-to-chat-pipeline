@@ -11,6 +11,8 @@ alwaysApply: false
 - Self-host profile: `USE_DUMMY_GENERATOR=false`.
 - Persist Ollama models via a named volume; document `ollama pull` in `docs/operators/running.md`.
 - Do not bake secrets into images; use env files excluded from git.
-- Expose Streamlit on 8501 for local Compose. On a shared host, use `docker-compose.shared-edge.yml` so only the edge reverse proxy publishes 80/443.
+- Expose Streamlit on 8501 for local Compose. On a shared host, use `deploy/docker-compose.shared-edge.yml` so only the edge reverse proxy publishes 80/443.
 - Healthcheck Ollama before app depends on it when possible.
 - Do not add a Caddyfile or invite service here. Those live in a private shared-edge config.
+
+PRs and reviews follow the standard in `AGENTS.md`.

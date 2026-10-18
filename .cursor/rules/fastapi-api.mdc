@@ -12,3 +12,5 @@ alwaysApply: false
 - No Streamlit imports in `src/api/`.
 - Reuse prompts from `configs/prompts.yaml`; do not duplicate prompt text in routes.
 - Auth (M10) belongs in middleware or proxy, not hardcoded keys in source.
+
+PRs and reviews follow the standard in `AGENTS.md`.

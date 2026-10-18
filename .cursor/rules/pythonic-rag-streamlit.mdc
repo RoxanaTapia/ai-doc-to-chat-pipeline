@@ -61,3 +61,5 @@ When generating or editing code:
 - Explain big decisions briefly if asked.
 
 Write elegant, maintainable, production-grade Python, every time.
+
+PRs and reviews follow the standard in `AGENTS.md`.

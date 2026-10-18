@@ -6,4 +6,4 @@ Public coding conventions used in this repo. How to run tests and find files: [`
 |--------|------|
 | **`rules/`** | Language, config, and deploy conventions applied in Cursor chats. |
 
-Contributor changes are reviewed and tested before merge.
+PRs and reviews follow the standard in [`AGENTS.md`](../AGENTS.md).
