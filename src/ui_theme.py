@@ -130,12 +130,13 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
    Margin below the row clears the ask box so the note never covers it. */
 .app-lock__line {
   position: absolute;
-  top: 100%;
+  /* calc() — Streamlit zeroes <p> margin, so do not rely on margin-top. */
+  top: calc(100% + 0.4rem);
   left: 0;
   right: auto;
   z-index: 20;
   box-sizing: border-box;
-  margin: 0.4rem 0 0 0;
+  margin: 0;
   width: 36rem;
   max-width: min(36rem, calc(100vw - 2.5rem));
   padding: 0.7rem 0.85rem;

@@ -416,8 +416,13 @@ def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
     assert 'class="app-lock__line"' in badge
     assert "<details" in badge
     assert "[data-testid=\"stHorizontalBlock\"]:has(.app-lock) .app-lock" in _THEME_CSS
-    assert "right: 0;" in _THEME_CSS
-    assert "max-width: 36rem" in _THEME_CSS
+    assert "right: auto;" in _THEME_CSS
+    assert "max-width: min(36rem, calc(100vw - 2.5rem))" in _THEME_CSS
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) .app-lock {\n'
+        "  position: relative !important;\n"
+        "}"
+    ) in _THEME_CSS
 
 
 def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
