@@ -232,7 +232,13 @@ def test_booking_env_is_documented() -> None:
 
 def test_starter_chips_hide_after_first_answer() -> None:
     assert should_show_starter_chips([])
+    assert should_show_starter_chips([], chat_ready=True)
     assert should_show_starter_chips([{"role": "user", "content": "How long?"}])
+    assert not should_show_starter_chips([], chat_ready=False)
+    assert not should_show_starter_chips(
+        [{"role": "user", "content": "How long?"}],
+        chat_ready=False,
+    )
     assert not should_show_starter_chips(
         [
             {"role": "user", "content": "How long?"},
@@ -332,7 +338,15 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "pending_question" not in text
     assert "queued_question = chip" not in text
     assert '_queue_question(chip["question"])' in text
-    assert "should_show_starter_chips(st.session_state.messages, query)" in text
+    assert "def _render_starter_chips" in text
+    assert "slot = st.empty()" in text
+    assert "with slot.container()" in text
+    assert "should_show_starter_chips(" in text
+    assert "chat_ready=chat_ready" in text
+    assert "chip_slot = _render_starter_chips(chat_ready=chat_ready, query=query)" in text
+    assert "chip_slot.empty()" in text
+    assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
+    assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')
     assert "Press Enter to apply" not in text
     assert "on_change=_on_ask_box_commit if chat_ready else None" in text
     assert "_continue_queued_ask(queued_question)" in text

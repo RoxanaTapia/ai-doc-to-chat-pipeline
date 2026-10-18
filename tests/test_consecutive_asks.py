@@ -133,6 +133,51 @@ def _plain_markdown_values(at) -> list[str]:
     return values
 
 
+def _chip_label_visible(at) -> bool:
+    """True when the starter-chip label or a chip button is on the page."""
+    if _chip_button_keys(at):
+        return True
+    for block in at.markdown:
+        value = block.value or ""
+        if "app-chip-mark" in value or "Try a starter question" in value:
+            return True
+    return False
+
+
+def test_starter_chips_hidden_until_chat_ready(stub_env) -> None:
+    """No chips before the document is indexed; they appear once chat is ready."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.session_state["sample_preload_failed"] = True
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is None
+    assert not _chip_button_keys(at)
+    assert not _chip_label_visible(at)
+    assert at.button(ASK_KEY).disabled
+
+    at.session_state["sample_preload_failed"] = False
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is not None
+    assert TERM_CHIP_KEY in _chip_button_keys(at)
+    assert len(_chip_button_keys(at)) == 3
+    assert _chip_label_visible(at)
+    assert not at.button(ASK_KEY).disabled
+
+    at.button(TERM_CHIP_KEY).click()
+    at.run(timeout=30)
+    assert not at.exception
+    messages = _session_get(at, "messages") or []
+    users = [m for m in messages if m.get("role") == "user"]
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert users and users[0]["content"] == TERM_QUESTION
+    assert assistants and "3 years" in (assistants[0].get("content") or "")
+    assert not _chip_button_keys(at)
+    assert not _chip_label_visible(at)
+
+
 def test_starter_chip_submits_and_answers(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
