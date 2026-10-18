@@ -29,6 +29,7 @@ _THEME_CSS = """
   --app-radius: 16px;
   --app-space: 8px;
   --app-shadow: 0 1px 2px rgba(26, 31, 36, 0.04), 0 12px 32px rgba(26, 31, 36, 0.05);
+  --app-header-min-height: 2.75rem;
 }
 
 html, body, [class*="css"], .stApp, button, input, textarea {
@@ -61,11 +62,20 @@ section.main h1 {
   max-width: 34rem;
 }
 
+.app-toolbar-mark {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 .app-toolbar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-height: var(--app-header-min-height);
   margin: 0 0 1.75rem 0;
 }
 
@@ -106,40 +116,51 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   color: var(--app-accent);
 }
 
-.app-lock[open] {
-  display: block;
-  width: 100%;
-}
-
 .app-lock[open] summary {
   border-color: color-mix(in srgb, var(--app-accent) 35%, var(--app-line));
   color: var(--app-ink);
 }
 
+/* Overlay: opening the note must not grow the header row or wrap columns. */
 .app-lock__line {
-  margin: 0.45rem 0 0 0;
-  max-width: none;
-  width: 100%;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin: 0.4rem 0 0 0;
+  width: min(36rem, calc(100% - 0.5rem));
+  padding: 0.7rem 0.85rem;
+  background: var(--app-panel);
+  border: 1px solid var(--app-line);
+  border-radius: 12px;
+  box-shadow: var(--app-shadow);
   font-size: 0.9rem;
   line-height: 1.45;
   color: var(--app-slate);
 }
 
+[data-testid="stVerticalBlock"]:has(.app-lock),
+[data-testid="stMarkdownContainer"]:has(.app-lock) {
+  overflow: visible !important;
+}
+
 [data-testid="stHorizontalBlock"]:has(.app-lock) {
-  flex-wrap: wrap !important;
+  position: relative;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  min-height: var(--app-header-min-height);
   overflow: visible !important;
 }
 
-[data-testid="column"]:has(.app-lock),
-[data-testid="stColumn"]:has(.app-lock) {
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"] {
   overflow: visible !important;
 }
 
-[data-testid="column"]:has(.app-lock[open]),
-[data-testid="stColumn"]:has(.app-lock[open]) {
-  min-width: 100% !important;
-  flex: 1 1 100% !important;
-  width: 100% !important;
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"]:has(.app-status),
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"]:has(.app-status) {
+  min-width: 0;
+  overflow: hidden !important;
 }
 
 .app-status {
@@ -153,6 +174,23 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   border: none;
   background: transparent;
   color: var(--app-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-height: 1.4em;
+}
+
+@media (max-width: 40rem) {
+  [data-testid="stHorizontalBlock"]:has(.app-lock) {
+    flex-wrap: wrap !important;
+  }
+
+  .app-lock__line {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
 }
 
 .app-status--reading,

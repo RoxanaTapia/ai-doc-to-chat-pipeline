@@ -183,7 +183,7 @@ def _render_client_hero(*, hide_sidebar: bool = True) -> None:
 
 
 def _render_privacy_badge(provider: str) -> None:
-    """Lock badge that expands to the model-dependent privacy line."""
+    """Lock badge. The note overlays so the header row does not grow."""
     line = html.escape(privacy_line_for_provider(provider))
     label = html.escape(privacy_badge_for_provider(provider))
     st.markdown(

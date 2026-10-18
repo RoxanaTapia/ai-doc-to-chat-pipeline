@@ -102,6 +102,45 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     assert float(metrics.get("rerank_ms") or 0) == 0.0
 
 
+def test_header_stays_intact_through_load_ask_and_answer(stub_env) -> None:
+    """Privacy badge, status, and own-PDF stay on the page from load through answer.
+
+    The data note lives in the lock details; CSS overlays it so this row cannot
+    wrap the status under the note or shove "Try your own PDF" aside.
+    """
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.session_state["sample_preload_failed"] = True
+    at.run(timeout=30)
+    assert not at.exception
+    _assert_header_intact(at)
+    assert not _chip_button_keys(at)
+
+    at.session_state["sample_preload_failed"] = False
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is not None
+    _assert_header_intact(at)
+    assert TERM_CHIP_KEY in _chip_button_keys(at)
+    blob = _markdown_blob(at)
+    assert "How your data is handled" in blob or "Runs on this server" in blob
+    assert "app-lock__line" in blob
+
+    at.button(TERM_CHIP_KEY).click()
+    at.run(timeout=30)
+    assert not at.exception
+    _assert_header_intact(at)
+    assert not _chip_button_keys(at)
+    messages = _session_get(at, "messages") or []
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert assistants and "3 years" in (assistants[0].get("content") or "")
+    assert TERM_QUESTION in _card_questions(at)
+    assert "Missing Submit Button" not in " ".join(
+        str(getattr(err, "value", err)) for err in at.error
+    )
+
+
 def test_client_first_load_has_no_missing_submit_button(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
@@ -122,6 +161,30 @@ def _chip_button_keys(at) -> set[str]:
         if key and str(key).startswith("chip_"):
             keys.add(str(key))
     return keys
+
+
+def _markdown_blob(at) -> str:
+    return "\n".join(block.value or "" for block in at.markdown)
+
+
+def _header_parts_present(at) -> dict[str, bool]:
+    """The header row must keep its three cells through load, ask, and answer."""
+    blob = _markdown_blob(at)
+    own_keys = {str(getattr(btn, "key", "") or "") for btn in at.button}
+    return {
+        "toolbar": "app-toolbar-mark" in blob,
+        "lock": 'class="app-lock"' in blob or "app-lock" in blob,
+        "lock_line": "app-lock__line" in blob,
+        "status": "app-status" in blob,
+        "own_pdf": "own_pdf_toggle" in own_keys,
+        "ask": ASK_KEY in own_keys,
+    }
+
+
+def _assert_header_intact(at) -> None:
+    parts = _header_parts_present(at)
+    missing = [name for name, present in parts.items() if not present]
+    assert not missing, f"header missing {missing} in {parts}"
 
 
 def _plain_markdown_values(at) -> list[str]:
