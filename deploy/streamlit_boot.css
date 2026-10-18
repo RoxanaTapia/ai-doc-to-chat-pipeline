@@ -1,0 +1,73 @@
+/* First paint before any Streamlit/Python CSS. Calm blank + skeletons. */
+html, body {
+  background: #f6f7f9 !important;
+  margin: 0;
+}
+
+#app-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f6f7f9;
+  color: #5c6670;
+  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s ease;
+}
+
+#app-boot[data-done="1"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#app-boot[hidden] {
+  display: none !important;
+}
+
+/* Skeletons must never flash grey before theme CSS arrives. */
+[data-testid="stSkeleton"],
+.stSkeleton {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+/*
+  Chip widgets can still land in a delta before the input has height, even on
+  a later rerun. This gate lives in index.html so it applies before Python CSS.
+  Wait for the ready status too, so the toolbar/status row cannot shove chips
+  after they first become visible.
+*/
+.app-chips-label.app-chip-mark,
+[class*="st-key-chip_"],
+[class*="st-key-chip_"] button,
+[class*="st-key-chip_"] [data-testid^="stBaseButton"] {
+  visibility: hidden;
+}
+
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input):has(.app-status--ready)
+  .app-chips-label.app-chip-mark,
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input):has(.app-status--ready)
+  [class*="st-key-chip_"],
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input):has(.app-status--ready)
+  [class*="st-key-chip_"] button,
+body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input):has(.app-status--ready)
+  [class*="st-key-chip_"] [data-testid^="stBaseButton"] {
+  visibility: visible;
+}
+
+.app-chips-reserve,
+div[data-testid="stVerticalBlock"]:has(.app-chip-mark),
+div[data-testid="stVerticalBlock"]:has(.app-chips-reserve),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chip-mark),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chips-reserve) {
+  min-height: 11rem;
+  box-sizing: border-box;
+}

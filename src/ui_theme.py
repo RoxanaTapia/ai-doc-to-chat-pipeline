@@ -322,45 +322,21 @@ div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="InputInstruc
   margin: 0.15rem 0 0.35rem 0;
 }
 
-/* Reserve the final chip stack height while first-paint CSS keeps chips hidden. */
+/* Hold the chip stack height on the shell-only pass so chips do not jump in. */
+.app-chips-reserve,
 div[data-testid="stVerticalBlock"]:has(.app-chip-mark),
-[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chip-mark) {
+div[data-testid="stVerticalBlock"]:has(.app-chips-reserve),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chip-mark),
+[data-testid="stVerticalBlockBorderWrapper"]:has(.app-chips-reserve) {
   min-height: 11rem;
   box-sizing: border-box;
 }
 
-/*
-  Fresh loads: Streamlit hydrates chip markdown/buttons before the hero and
-  question input, so chips flash low then jump up. Keep them invisible until
-  both are present. Skeletons may linger in the DOM, so they are not part of
-  this gate — they are only made transparent below.
-
-  Streamlit 1.54 uses section[data-testid=stMain] (not section.main) and
-  [data-testid=stHeading] for the title.
-*/
-.app-chips-label.app-chip-mark,
-[class*="st-key-chip_"],
-[class*="st-key-chip_"] button,
-[class*="st-key-chip_"] [data-testid^="stBaseButton"] {
-  visibility: hidden;
-}
-
-body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
-  .app-chips-label.app-chip-mark,
-body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
-  [class*="st-key-chip_"],
-body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
-  [class*="st-key-chip_"]
-  button,
-body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)
-  [class*="st-key-chip_"]
-  [data-testid^="stBaseButton"] {
-  visibility: visible;
-}
-
-/* Grey slivers are Streamlit skeletons painting early; keep layout, hide paint. */
+/* Defense in depth: theme CSS also hides skeletons if the boot patch is absent. */
 [data-testid="stMain"] [data-testid="stSkeleton"],
-section.main [data-testid="stSkeleton"] {
+section.main [data-testid="stSkeleton"],
+[data-testid="stSkeleton"],
+.stSkeleton {
   background: transparent !important;
   background-color: transparent !important;
   border: none !important;

@@ -524,6 +524,11 @@ def _queue_question(text: str) -> bool:
     return True
 
 
+def _on_chip_click(question: str) -> None:
+    """Queue in the widget callback so busy UI lands on the same run as typed Enter."""
+    _queue_question(question)
+
+
 def _on_ask_box_commit() -> None:
     """Queue on Enter or blur. The first Ask click is often only this commit."""
     if not _document_is_indexed():
@@ -540,7 +545,15 @@ def _continue_queued_ask(already_taken: str | None) -> None:
         st.rerun()
 
 
-def _render_starter_chips(*, chat_ready: bool, query: str | None):
+_ASK_SHELL_EMITTED_KEY = "_ask_shell_emitted"
+
+
+def _render_starter_chips(
+    *,
+    chat_ready: bool,
+    query: str | None,
+    shell_ready: bool,
+):
     """Paint starter chips in a replaceable slot; empty until chat is ready.
 
     Always occupy this slot with ``st.empty()`` so a chip click (or the
@@ -548,14 +561,23 @@ def _render_starter_chips(*, chat_ready: bool, query: str | None):
     Without the placeholder, Streamlit keeps last-run chips on screen,
     greyed, under "Looking through the document…".
 
-    Theme CSS hides ``.app-chip-mark`` / chip buttons until the hero and
-    question input have painted, and reserves height on this container so a
-    fresh load cannot flash chips low then jump them up.
+    Chips are emitted only after a prior run has already painted the hero and
+    question input (``shell_ready``). A CSS gate is not enough: theme CSS
+    arrives via ``st.markdown`` after early deltas, so chip widgets must not
+    exist in the first paint stream. The reserve placeholder keeps height
+    stable on that shell-only pass.
     """
     slot = st.empty()
     if not should_show_starter_chips(
         st.session_state.messages, query, chat_ready=chat_ready
     ):
+        return slot
+    if not shell_ready:
+        with slot.container():
+            st.markdown(
+                '<div class="app-chips-reserve" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
         return slot
     with slot.container():
         st.markdown(
@@ -563,9 +585,12 @@ def _render_starter_chips(*, chat_ready: bool, query: str | None):
             unsafe_allow_html=True,
         )
         for chip in STARTER_CHIPS:
-            if st.button(chip["label"], key=f"chip_{chip['label']}"):
-                if _queue_question(chip["question"]):
-                    st.rerun()
+            st.button(
+                chip["label"],
+                key=f"chip_{chip['label']}",
+                on_click=_on_chip_click,
+                args=(chip["question"],),
+            )
     return slot
 
 
@@ -1012,9 +1037,26 @@ if submitted and _queue_question(typed):
 _continue_queued_ask(queued_question)
 query = (queued_question or "").strip() or None
 
+# Ask shell (hero already above + this input) must exist for one full run
+# before chip widgets are created, so they cannot paint ahead of the header.
+shell_was_ready = bool(st.session_state.get(_ASK_SHELL_EMITTED_KEY))
+st.session_state[_ASK_SHELL_EMITTED_KEY] = True
+
 # Same slot every run. Empty until the document is indexed; emptied again
 # before look-up so last-run chips cannot linger as stale widgets.
-chip_slot = _render_starter_chips(chat_ready=chat_ready, query=query)
+chip_slot = _render_starter_chips(
+    chat_ready=chat_ready,
+    query=query,
+    shell_ready=shell_was_ready,
+)
+if (
+    chat_ready
+    and not shell_was_ready
+    and should_show_starter_chips(
+        st.session_state.messages, query, chat_ready=True
+    )
+):
+    st.rerun()
 
 if query and query.strip() and chat_ready:
     query = query.strip()

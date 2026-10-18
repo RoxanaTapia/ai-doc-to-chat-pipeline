@@ -187,14 +187,17 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "font-size: 1.2rem !important" in _THEME_CSS
     assert '[class*="st-key-ask_submit"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
+    assert ".app-chips-reserve" in _THEME_CSS
     assert "div[data-testid=\"stVerticalBlock\"]:has(.app-chip-mark)" in _THEME_CSS
     assert "min-height: 11rem" in _THEME_CSS
-    assert "visibility: hidden" in _THEME_CSS
-    assert (
-        'body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)'
-        in _THEME_CSS
+    # First-paint chip flash is fixed by deferring chip widgets, not a CSS :has gate.
+    assert ".app-chips-label.app-chip-mark" not in _THEME_CSS
+    assert 'body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)' not in (
+        _THEME_CSS
     )
     assert '[data-testid="stMain"] [data-testid="stSkeleton"]' in _THEME_CSS
+    assert ".stSkeleton" in _THEME_CSS
+    assert "opacity: 0 !important" in _THEME_CSS
     assert '[data-testid="InputInstructions"]' in _THEME_CSS
     assert (
         'div[data-testid="stVerticalBlock"]:has(.app-ask-mark) '
@@ -292,6 +295,30 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
     text = (PROJECT_ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     assert 'baseUrlPath = "app"' in text
     assert "gatherUsageStats = false" in text
+    # Page grey for chrome; keep secondary white so inputs stay contrasted.
+    # First-paint white flash is handled by deploy/streamlit_boot.css, not secondary.
+    assert 'backgroundColor = "#f6f7f9"' in text
+    assert 'secondaryBackgroundColor = "#ffffff"' in text
+
+
+def test_streamlit_boot_patch_covers_first_paint() -> None:
+    """Static boot CSS/JS must exist before Python theme CSS can load."""
+    boot_css = (PROJECT_ROOT / "deploy" / "streamlit_boot.css").read_text(encoding="utf-8")
+    boot_js = (PROJECT_ROOT / "deploy" / "streamlit_boot.js").read_text(encoding="utf-8")
+    patcher = (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").read_text(encoding="utf-8")
+    dockerfile = (PROJECT_ROOT / "deploy" / "Dockerfile").read_text(encoding="utf-8")
+    assert 'id="app-boot"' in boot_js or "getElementById(\"app-boot\")" in boot_js
+    assert "Loading the document…" in patcher
+    assert "[data-testid=\"stSkeleton\"]" in boot_css
+    assert "opacity: 0 !important" in boot_css
+    assert "background: #f6f7f9" in boot_css
+    # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
+    assert "visibility: hidden" in boot_css
+    assert 'body:has([data-testid="stHeading"] h1)' in boot_css
+    assert ':has([data-testid="stTextInput"] input)' in boot_css
+    assert ":has(.app-status--ready)" in boot_css
+    assert "python deploy/patch_streamlit_index.py" in dockerfile
+    assert "deploy/streamlit_boot.css" in dockerfile
 
 
 def test_booking_env_is_documented() -> None:
@@ -433,13 +460,18 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert 'key="ask_submit"' in text
     assert "pending_question" not in text
     assert "queued_question = chip" not in text
-    assert '_queue_question(chip["question"])' in text
+    assert "def _on_chip_click" in text
+    assert "on_click=_on_chip_click" in text
     assert "def _render_starter_chips" in text
+    assert "shell_ready: bool" in text
+    assert 'class="app-chips-reserve"' in text
+    assert "_ASK_SHELL_EMITTED_KEY" in text
     assert "slot = st.empty()" in text
     assert "with slot.container()" in text
     assert "should_show_starter_chips(" in text
     assert "chat_ready=chat_ready" in text
-    assert "chip_slot = _render_starter_chips(chat_ready=chat_ready, query=query)" in text
+    assert "shell_ready=shell_was_ready" in text
+    assert "chip_slot = _render_starter_chips(" in text
     assert "chip_slot.empty()" in text
     assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
     assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')
