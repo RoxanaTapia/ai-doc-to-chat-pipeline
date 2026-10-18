@@ -181,20 +181,24 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert ".app-lock__line" in _THEME_CSS
     assert ".app-toolbar-mark" in _THEME_CSS
     assert "--app-header-min-height" in _THEME_CSS
+    assert "--app-status-line: 1.5rem" in _THEME_CSS
     assert "opening the note must not grow the header row" in _THEME_CSS
     assert "flex-wrap: nowrap !important" in _THEME_CSS
     assert "@media (max-width: 40rem)" in _THEME_CSS
-    assert ":has(.app-lock[open])" not in _THEME_CSS
-    assert "flex: 1 1 100%" not in _THEME_CSS
-    assert ".app-lock[open] {\n  display: block;\n  width: 100%;\n}" not in _THEME_CSS
     assert ".app-lock__line {\n  position: absolute;" in _THEME_CSS
     assert "position: static !important" in _THEME_CSS
-    assert "cover wrapped status / own-PDF" in _THEME_CSS
-    assert ":has(.app-status)" not in _THEME_CSS
     assert "text-overflow: ellipsis" not in _THEME_CSS
-    assert ".app-status {\n  display: inline-flex;" in _THEME_CSS
+    assert ".app-status {\n  display: block;" in _THEME_CSS
+    assert "white-space: normal" in _THEME_CSS
+    assert "min-height: var(--app-status-line)" in _THEME_CSS
     assert "overflow: hidden !important" not in _THEME_CSS
     assert "overflow: visible;" in _THEME_CSS
+    desktop, _, mobile = _THEME_CSS.partition("@media (max-width: 40rem)")
+    assert "flex: 1 1 100%" not in desktop
+    assert ".app-lock[open] {\n    display: block;\n    width: 100%;\n  }" in mobile
+    assert "position: static;" in mobile
+    assert "flex: 1 1 100% !important" in mobile
+    assert "never an overlay that covers status / own-PDF" in mobile
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
     assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
@@ -345,7 +349,7 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
 
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
-    """The three header cells stay siblings; the data note is an overlay."""
+    """The three header cells stay siblings; the data note overlays only above 40rem."""
     text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
     assert 'class="app-toolbar-mark"' in text
     assert "st.columns([1.1, 2.2, 1.4])" in text

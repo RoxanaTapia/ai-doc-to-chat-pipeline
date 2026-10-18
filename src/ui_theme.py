@@ -30,6 +30,7 @@ _THEME_CSS = """
   --app-space: 8px;
   --app-shadow: 0 1px 2px rgba(26, 31, 36, 0.04), 0 12px 32px rgba(26, 31, 36, 0.05);
   --app-header-min-height: 2.75rem;
+  --app-status-line: 1.5rem;
 }
 
 html, body, [class*="css"], .stApp, button, input, textarea {
@@ -122,10 +123,8 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   color: var(--app-ink);
 }
 
-/* Overlay: opening the note must not grow the header row or wrap columns.
-   Positioned against the whole header row, not the lock column. Streamlit
-   columns/markdown are position:relative by default; that made top:100% sit
-   on the chip and cover wrapped status / own-PDF on a phone. */
+/* Overlay above 40rem: opening the note must not grow the header row.
+   Positioned against the whole header row, not the lock column. */
 .app-lock__line {
   position: absolute;
   top: 100%;
@@ -149,7 +148,7 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) {
   position: relative;
-  align-items: center !important;
+  align-items: stretch !important;
   flex-wrap: nowrap !important;
   min-height: var(--app-header-min-height);
   overflow: visible !important;
@@ -166,25 +165,63 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
   transform: none !important;
 }
 
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="column"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) > [data-testid="stColumn"] {
+  min-height: var(--app-status-line);
+}
+
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status),
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"]:has(.app-status),
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stMarkdownContainer"] {
+  min-height: var(--app-status-line);
+  height: auto !important;
+  overflow: visible !important;
+}
+
 .app-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-space);
+  display: block;
   font-size: 0.9rem;
   line-height: 1.4;
   margin: 0;
-  padding: 0;
+  padding: 0.15rem 0;
   border: none;
   background: transparent;
   color: var(--app-muted);
-  white-space: nowrap;
+  white-space: normal;
   overflow: visible;
-  min-height: 1.4em;
+  min-height: var(--app-status-line);
+  box-sizing: border-box;
 }
 
 @media (max-width: 40rem) {
   [data-testid="stHorizontalBlock"]:has(.app-lock) {
     flex-wrap: wrap !important;
+  }
+
+  .app-lock[open] {
+    display: block;
+    width: 100%;
+  }
+
+  /* In flow below the chip, never an overlay that covers status / own-PDF. */
+  .app-lock__line {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    max-width: none;
+    margin: 0.45rem 0 0 0;
+    z-index: auto;
+  }
+
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) > [data-testid="stColumn"]:has(.app-lock),
+  [data-testid="stHorizontalBlock"]:has(.app-lock[open]) > [data-testid="column"]:has(.app-lock) {
+    flex: 1 1 100% !important;
+    min-width: 100%;
+    max-width: 100%;
   }
 }
 
