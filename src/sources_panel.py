@@ -341,6 +341,9 @@ def _format_elapsed_ms(elapsed_ms: float) -> str:
     """Turn milliseconds into a short caption."""
     seconds = max(0.0, elapsed_ms / 1000.0)
     if seconds < 60:
+        # Sub-0.1s refusals (context guard, no model call) must not read as 0.0s.
+        if seconds < 0.1:
+            return f"{seconds:.2f}s"
         return f"{seconds:.1f}s"
     minutes = int(seconds // 60)
     rem = int(round(seconds % 60))
@@ -387,4 +390,7 @@ def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bo
         generation_ms=timing.get("generation_ms", 0.0),
         developer_mode=developer_mode,
     )
+    # Hide a true zero that would still format as 0.00s.
+    if caption.startswith("Answered in 0.00s"):
+        return
     st.markdown(f'<p class="app-timing">{html.escape(caption)}</p>', unsafe_allow_html=True)
