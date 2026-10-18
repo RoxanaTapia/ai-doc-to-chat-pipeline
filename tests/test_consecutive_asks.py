@@ -202,7 +202,12 @@ def _chip_label_visible(at) -> bool:
         return True
     for block in at.markdown:
         value = block.value or ""
-        if "app-chip-mark" in value or "Try a starter question" in value:
+        # Theme CSS also mentions .app-chip-mark; ignore <style> blocks.
+        if "<style" in value:
+            continue
+        if 'class="app-chips-label app-chip-mark"' in value:
+            return True
+        if "Try a starter question" in value:
             return True
     return False
 

@@ -172,6 +172,14 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "font-size: 1.2rem !important" in _THEME_CSS
     assert '[class*="st-key-ask_submit"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
+    assert "div[data-testid=\"stVerticalBlock\"]:has(.app-chip-mark)" in _THEME_CSS
+    assert "min-height: 11rem" in _THEME_CSS
+    assert "visibility: hidden" in _THEME_CSS
+    assert (
+        'body:has([data-testid="stHeading"] h1):has([data-testid="stTextInput"] input)'
+        in _THEME_CSS
+    )
+    assert '[data-testid="stMain"] [data-testid="stSkeleton"]' in _THEME_CSS
     assert '[data-testid="InputInstructions"]' in _THEME_CSS
     assert (
         'div[data-testid="stVerticalBlock"]:has(.app-ask-mark) '
