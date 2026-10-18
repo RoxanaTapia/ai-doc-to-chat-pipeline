@@ -279,6 +279,11 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert "[data-testid=\"stSkeleton\"]" in boot_css
     assert "opacity: 0 !important" in boot_css
     assert "background: #f6f7f9" in boot_css
+    # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
+    assert "visibility: hidden" in boot_css
+    assert 'body:has([data-testid="stHeading"] h1)' in boot_css
+    assert ':has([data-testid="stTextInput"] input)' in boot_css
+    assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
 
