@@ -12,7 +12,9 @@ from ui_theme import inject_theme
 # Visitor-facing lines for the pilot. The page script looks them up by key.
 _CLIENT_COPY = {
     "hero_title": "Ask your document",
-    "hero_lead": ("Ask your contract anything. Every answer shows the page it came from."),
+    "hero_lead": (
+        "Ask your contract anything. It shows the best-matching page next to each answer."
+    ),
     "hero_kicker": "",
     "chat_ready": "Ask about this document…",
     "chat_indexing": "Reading the document…",
@@ -183,7 +185,7 @@ def _render_client_hero(*, hide_sidebar: bool = True) -> None:
 
 
 def _render_privacy_badge(provider: str) -> None:
-    """Lock badge. The note overlays so the header row does not grow."""
+    """Lock badge. Above 40rem the note overlays; CSS clears the ask box."""
     line = html.escape(privacy_line_for_provider(provider))
     label = html.escape(privacy_badge_for_provider(provider))
     st.markdown(

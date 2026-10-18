@@ -49,7 +49,7 @@ SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
 def test_hero_is_one_subtitle() -> None:
     assert _CLIENT_COPY["hero_lead"] == (
-        "Ask your contract anything. Every answer shows the page it came from."
+        "Ask your contract anything. It shows the best-matching page next to each answer."
     )
     assert not _CLIENT_COPY["hero_kicker"]
 
@@ -183,6 +183,12 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "--app-header-min-height" in _THEME_CSS
     assert "--app-status-line: 1.5rem" in _THEME_CSS
     assert "opening the note must not grow the header row" in _THEME_CSS
+    assert "--app-lock-note-clearance" in _THEME_CSS
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n'
+        "  margin-bottom: var(--app-lock-note-clearance);\n"
+        "}"
+    ) in _THEME_CSS
     assert "flex-wrap: nowrap !important" in _THEME_CSS
     assert "@media (max-width: 40rem)" in _THEME_CSS
     assert ".app-lock__line {\n  position: absolute;" in _THEME_CSS
@@ -195,10 +201,16 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "overflow: visible;" in _THEME_CSS
     desktop, _, mobile = _THEME_CSS.partition("@media (max-width: 40rem)")
     assert "flex: 1 1 100%" not in desktop
+    assert "margin-bottom: var(--app-lock-note-clearance)" in desktop
     assert ".app-lock[open] {\n    display: block;\n    width: 100%;\n  }" in mobile
     assert "position: static;" in mobile
     assert "flex: 1 1 100% !important" in mobile
     assert "never an overlay that covers status / own-PDF" in mobile
+    assert (
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n'
+        "    margin-bottom: 0;\n"
+        "  }"
+    ) in mobile
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
     assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
