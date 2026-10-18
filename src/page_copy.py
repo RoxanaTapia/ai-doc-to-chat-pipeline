@@ -13,7 +13,8 @@ from ui_theme import inject_theme
 _CLIENT_COPY = {
     "hero_title": "Ask your document",
     "hero_lead": (
-        "Ask your contract anything. It shows the best-matching page next to each answer."
+        "Ask your contract anything. It shows the best-matching page next to each "
+        "answer and says when the document doesn't cover the question."
     ),
     "hero_kicker": "",
     "chat_ready": "Ask about this document…",
