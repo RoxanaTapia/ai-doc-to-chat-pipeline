@@ -129,12 +129,17 @@ def should_show_booking(url: str | None = None) -> bool:
 def should_show_starter_chips(
     messages: list[dict] | None,
     query: str | None = None,
+    *,
+    chat_ready: bool = True,
 ) -> bool:
-    """Starter chips stay until the first answer, and hide while a question runs.
+    """Starter chips wait until the index is ready, then hide after the first ask.
 
-    Hiding them on the in-flight ask run avoids Streamlit painting the button
-    labels as plain text while the look-up spinner catches up.
+    They stay off while the document is still loading, and again while a
+    question is in flight, so Streamlit cannot leave greyed chip buttons
+    under "Looking through the document…".
     """
+    if not chat_ready:
+        return False
     if (query or "").strip():
         return False
     return not any((message or {}).get("role") == "assistant" for message in (messages or []))
