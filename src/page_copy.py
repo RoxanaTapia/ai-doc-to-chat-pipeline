@@ -42,6 +42,7 @@ _CLIENT_COPY = {
     "checked_pages": "Searched all {n} pages",
     "checked_one_page": "Searched the whole page",
     "sample_preload_error": "Could not load the sample NDA.",
+    "pdf_unreadable": "We couldn't read this PDF. Try another file.",
     "booking_prompt": "Want this on your documents?",
     "booking_action": "Message me on Upwork.",
     "progress_prepare": "preparing",
