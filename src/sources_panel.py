@@ -240,7 +240,10 @@ def _render_answer_card(
                     pdf_bytes=pdf_bytes,
                     card_key=card_key,
                 )
-        _render_answer_timing(timing, developer_mode=developer_mode)
+        # Refusals and "not covered" answers are near-instant; a 0.01s caption
+        # looks like a broken timer rather than a real look-up.
+        if not is_refusal:
+            _render_answer_timing(timing, developer_mode=developer_mode)
 
 
 def _render_sources_panel(

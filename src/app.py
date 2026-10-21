@@ -5,6 +5,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import hashlib
 import html
+import logging
 import tempfile
 import threading
 import time
@@ -69,6 +70,7 @@ from session_upload import (
     _set_indexed_doc_stats,
     _set_processed_document,
     mark_sample_preload_failed,
+    mark_upload_unreadable,
     page_text_counts,
     paint_status,
     preload_sample_nda,
@@ -98,6 +100,7 @@ st.set_page_config(
 APP_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
+logger = logging.getLogger(__name__)
 
 
 def _presentation_mode() -> str:
@@ -568,9 +571,7 @@ def _render_starter_chips(
     stable on that shell-only pass.
     """
     slot = st.empty()
-    if not should_show_starter_chips(
-        st.session_state.messages, query, chat_ready=chat_ready
-    ):
+    if not should_show_starter_chips(st.session_state.messages, query, chat_ready=chat_ready):
         return slot
     if not shell_ready:
         with slot.container():
@@ -959,10 +960,12 @@ if resolved_upload is not None:
                 )
                 paint_status(status_slot, "ready", _ready_message(file_name))
 
-        except (OSError, ValueError, RuntimeError) as e:
-            paint_status(status_slot, "error", f"Could not read this PDF. {e}")
-            if st.session_state.developer_mode:
-                st.exception(e)
+        except (OSError, ValueError, RuntimeError):
+            logger.exception("Could not read uploaded PDF %s", file_name)
+            mark_upload_unreadable()
+            paint_status(status_slot, "error", _CLIENT_COPY["pdf_unreadable"])
+            # Clear the bad widget file and show Use sample NDA on the next paint.
+            st.rerun()
         finally:
             if tmp_path and tmp_path.exists():
                 tmp_path.unlink(missing_ok=True)
@@ -1052,9 +1055,7 @@ chip_slot = _render_starter_chips(
 if (
     chat_ready
     and not shell_was_ready
-    and should_show_starter_chips(
-        st.session_state.messages, query, chat_ready=True
-    )
+    and should_show_starter_chips(st.session_state.messages, query, chat_ready=True)
 ):
     st.rerun()
 

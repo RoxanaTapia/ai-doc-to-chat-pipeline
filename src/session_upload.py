@@ -130,6 +130,22 @@ def mark_sample_preload_failed(reason: str | None = None) -> None:
     _set_doc_status("error", reason or copy["error"])
 
 
+def mark_upload_unreadable() -> None:
+    """Drop a bad upload and leave Ask off until a valid document is ready.
+
+    Clears the leftover index so answers cannot keep coming from the sample
+    while an upload error is on screen. Offers the same Use sample NDA retry
+    as a failed first-paint preload.
+    """
+    message = _CLIENT_COPY["pdf_unreadable"]
+    _reset_document_state(bump_uploader_key=True)
+    st.session_state.own_pdf_mode = True
+    st.session_state.show_own_pdf = True
+    st.session_state.sample_preload_failed = True
+    st.session_state._uploader_widget_had_file = False
+    _set_doc_status("error", message)
+
+
 def retry_sample_nda() -> bool:
     """Clear the preload error and try the walkthrough NDA again."""
     st.session_state.sample_preload_failed = False

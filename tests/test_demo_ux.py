@@ -58,8 +58,8 @@ def test_hero_is_one_subtitle() -> None:
     assert not _CLIENT_COPY["hero_kicker"]
 
 
-def test_timing_caption_shows_sub_second_refusals() -> None:
-    """Fast context-guard refusals must not read as Answered in 0.0s."""
+def test_timing_caption_formats_sub_second() -> None:
+    """Sub-second look-ups keep two decimals; refusals hide timing in the card."""
     assert _format_elapsed_ms(32) == "0.03s"
     assert _format_elapsed_ms(90) == "0.09s"
     assert _format_elapsed_ms(100) == "0.1s"
@@ -188,7 +188,7 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert '[class*="st-key-ask_submit"] button' in _THEME_CSS
     assert '[class*="st-key-chip_"] button' in _THEME_CSS
     assert ".app-chips-reserve" in _THEME_CSS
-    assert "div[data-testid=\"stVerticalBlock\"]:has(.app-chip-mark)" in _THEME_CSS
+    assert 'div[data-testid="stVerticalBlock"]:has(.app-chip-mark)' in _THEME_CSS
     assert "min-height: 11rem" in _THEME_CSS
     # First-paint chip flash is fixed by deferring chip widgets, not a CSS :has gate.
     assert ".app-chips-label.app-chip-mark" not in _THEME_CSS
@@ -200,8 +200,7 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "opacity: 0 !important" in _THEME_CSS
     assert '[data-testid="InputInstructions"]' in _THEME_CSS
     assert (
-        'div[data-testid="stVerticalBlock"]:has(.app-ask-mark) '
-        '[data-testid="InputInstructions"]'
+        'div[data-testid="stVerticalBlock"]:has(.app-ask-mark) [data-testid="InputInstructions"]'
     ) in _THEME_CSS
     assert "max-width: 28rem" not in _THEME_CSS
     assert ".app-lock__line" in _THEME_CSS
@@ -250,9 +249,7 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert "flex: 1 1 100% !important" in mobile
     assert "never an overlay that covers status / own-PDF" in mobile
     assert (
-        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n'
-        "    margin-bottom: 0;\n"
-        "  }"
+        '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n    margin-bottom: 0;\n  }'
     ) in mobile
     text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
@@ -307,9 +304,9 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     boot_js = (PROJECT_ROOT / "deploy" / "streamlit_boot.js").read_text(encoding="utf-8")
     patcher = (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").read_text(encoding="utf-8")
     dockerfile = (PROJECT_ROOT / "deploy" / "Dockerfile").read_text(encoding="utf-8")
-    assert 'id="app-boot"' in boot_js or "getElementById(\"app-boot\")" in boot_js
+    assert 'id="app-boot"' in boot_js or 'getElementById("app-boot")' in boot_js
     assert "Loading the document…" in patcher
-    assert "[data-testid=\"stSkeleton\"]" in boot_css
+    assert '[data-testid="stSkeleton"]' in boot_css
     assert "opacity: 0 !important" in boot_css
     assert "background: #f6f7f9" in boot_css
     # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
@@ -442,7 +439,7 @@ def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
     assert 'class="app-lock"' in badge
     assert 'class="app-lock__line"' in badge
     assert "<details" in badge
-    assert "[data-testid=\"stHorizontalBlock\"]:has(.app-lock) .app-lock" in _THEME_CSS
+    assert '[data-testid="stHorizontalBlock"]:has(.app-lock) .app-lock' in _THEME_CSS
     assert "right: auto;" in _THEME_CSS
     assert "max-width: min(36rem, calc(100vw - 2.5rem))" in _THEME_CSS
     assert (
