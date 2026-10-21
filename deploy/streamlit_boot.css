@@ -9,8 +9,10 @@ html, body {
   inset: 0;
   z-index: 99999;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.85rem;
   background: #f6f7f9;
   color: #5c6670;
   font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
@@ -26,6 +28,53 @@ html, body {
 
 #app-boot[hidden] {
   display: none !important;
+}
+
+.app-boot__busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 0.55rem;
+}
+
+.app-boot__busy > span {
+  display: block;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #5c6670;
+  opacity: 0.35;
+  animation: app-boot-pulse 1s ease-in-out infinite;
+}
+
+.app-boot__busy > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.app-boot__busy > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes app-boot-pulse {
+  0%, 80%, 100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-0.15rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-boot__busy > span {
+    animation: none;
+    opacity: 0.7;
+  }
+
+  #app-boot {
+    transition: none;
+  }
 }
 
 /* Skeletons must never flash grey before theme CSS arrives. */

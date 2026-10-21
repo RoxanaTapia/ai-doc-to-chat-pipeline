@@ -6,7 +6,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 MARKER = "<!-- ai-doc-boot -->"
 
 
@@ -26,9 +25,12 @@ def patch(index: Path, css: str, js: str) -> bool:
 
     head = f"{MARKER}\n<style>\n{css.rstrip()}\n</style>\n"
     body = (
-        f'{MARKER}\n'
+        f"{MARKER}\n"
         f'<div id="app-boot" role="status" aria-live="polite">'
-        f"Loading the document…"
+        f'<span class="app-boot__label">Loading the document…</span>'
+        f'<span class="app-boot__busy" aria-hidden="true">'
+        f"<span></span><span></span><span></span>"
+        f"</span>"
         f"</div>\n"
         f"<script>\n{js.rstrip()}\n</script>\n"
     )
