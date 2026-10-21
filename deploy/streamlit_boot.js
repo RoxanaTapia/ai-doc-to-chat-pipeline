@@ -107,13 +107,6 @@
       window.requestAnimationFrame(poll);
     };
 
-    // Prefer the load event when Streamlit (or us) ships theme as <link rel="stylesheet">.
-    const themeLinks = document.querySelectorAll('link[rel="stylesheet"][data-app-theme], link[rel="stylesheet"][href*="theme"]');
-    for (const link of themeLinks) {
-      if (link.sheet) continue;
-      link.addEventListener("load", () => poll(), { once: true });
-      link.addEventListener("error", () => poll(), { once: true });
-    }
     poll();
   };
 
