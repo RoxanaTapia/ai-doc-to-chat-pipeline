@@ -162,7 +162,6 @@ def test_refusal_timing_is_skipped() -> None:
         )
         timing_blocks = [block for block in markdowns if "app-timing" in block]
         assert len(timing_blocks) == 1
-        assert "app-answer-headline" in timing_blocks[0]
         assert "Answered in" in timing_blocks[0]
     finally:
         sources_panel.st = previous_st

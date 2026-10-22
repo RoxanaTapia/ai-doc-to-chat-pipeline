@@ -226,20 +226,20 @@ def _render_answer_card(
         else:
             quote = (sources[0].get("preview") if sources else "") or ""
             headline, body = display_answer_parts(answer, quote)
-            # Timing ships in the same markdown as the headline so older cards
-            # do not pop their "Answered in" line in a later paint after reload.
+            # Timing ships in the same markdown as the answer body (or headline)
+            # so older cards do not pop "Answered in" in a later paint after reload.
             timing_html = _answer_timing_html(timing, developer_mode=developer_mode)
-            head_bits: list[str] = []
             if headline:
-                head_bits.append(
-                    f'<p class="app-answer-headline">{html.escape(headline)}</p>'
+                st.markdown(
+                    f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                    unsafe_allow_html=True,
                 )
-            if timing_html:
-                head_bits.append(timing_html)
-            if head_bits:
-                st.markdown("".join(head_bits), unsafe_allow_html=True)
-            if body:
+            if body and timing_html:
+                st.markdown(f"{body}{timing_html}", unsafe_allow_html=True)
+            elif body:
                 st.markdown(body)
+            elif timing_html:
+                st.markdown(timing_html, unsafe_allow_html=True)
             if sources:
                 _render_inline_sources(
                     sources,
