@@ -30,6 +30,12 @@ def stub_demo_answer(query: str) -> str | None:
     if not _env_flag("DEMO_STUB_LLM"):
         return None
     lowered = (query or "").lower()
+    # Browser/HTML escape probe: answer body must render as text, not markup.
+    if _env_flag("DEMO_STUB_HTML_ANSWER") or "html escape probe" in lowered:
+        return (
+            "<img src=x onerror=alert(1)>\n\n"
+            "<script>alert(1)</script> payload about Spain / Madrid"
+        )
     if "penalty" in lowered or "fee" in lowered:
         return INSUFFICIENT_CONTEXT_ANSWER
     if "law" in lowered or "dispute" in lowered:

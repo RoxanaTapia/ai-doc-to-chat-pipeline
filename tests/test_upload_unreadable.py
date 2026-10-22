@@ -120,7 +120,7 @@ def test_refusal_timing_is_skipped() -> None:
     from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
     from sources_panel import _render_answer_card
 
-    markdowns: list[str] = []
+    markdowns: list[tuple[str, dict]] = []
 
     class _FakeSt:
         def container(self, *args, **kwargs):
@@ -133,7 +133,7 @@ def test_refusal_timing_is_skipped() -> None:
             return False
 
         def markdown(self, *args, **kwargs):
-            markdowns.append(str(args[0]) if args else "")
+            markdowns.append((str(args[0]) if args else "", dict(kwargs)))
 
     previous_st = sources_panel.st
     sources_panel.st = _FakeSt()
@@ -148,7 +148,7 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t",
         )
-        assert not any("app-timing" in block for block in markdowns)
+        assert not any("Answered in" in block for block, _ in markdowns)
         markdowns.clear()
         _render_answer_card(
             question="How long?",
@@ -160,8 +160,60 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t2",
         )
-        timing_blocks = [block for block in markdowns if "app-timing" in block]
+        timing_blocks = [block for block, _ in markdowns if "Answered in" in block]
         assert len(timing_blocks) == 1
-        assert "Answered in" in timing_blocks[0]
+        assert "<script>" not in timing_blocks[0]
+    finally:
+        sources_panel.st = previous_st
+
+
+def test_answer_body_html_is_escaped() -> None:
+    """Model/PDF HTML in the body must not be rendered as markup."""
+    import sources_panel
+    from sources_panel import _render_answer_card
+
+    markdowns: list[tuple[str, dict]] = []
+
+    class _FakeSt:
+        def container(self, *args, **kwargs):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def markdown(self, *args, **kwargs):
+            markdowns.append((str(args[0]) if args else "", dict(kwargs)))
+
+    previous_st = sources_panel.st
+    sources_panel.st = _FakeSt()
+    try:
+        _render_answer_card(
+            question="html escape probe: which law?",
+            answer="<script>alert(1)</script>\n\n<span>Spain</span>",
+            sources=None,
+            refusal=False,
+            timing={"total_ms": 500.0},
+            developer_mode=False,
+            page_count=3,
+            card_key="html",
+        )
+        body_blocks = [
+            (text, kwargs)
+            for text, kwargs in markdowns
+            if "script" in text.lower() or "Spain" in text or "Answered in" in text
+        ]
+        assert body_blocks
+        for text, kwargs in body_blocks:
+            if kwargs.get("unsafe_allow_html"):
+                # Headline may use escaped HTML wrappers; body must not.
+                assert "<script>" not in text
+                assert "&lt;script&gt;" in text or "Spain" not in text
+            else:
+                assert "<script>" not in text
+                assert "&lt;script&gt;" in text or "Answered in" in text
+                assert kwargs.get("unsafe_allow_html") in {None, False}
     finally:
         sources_panel.st = previous_st

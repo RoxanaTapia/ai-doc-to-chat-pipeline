@@ -419,9 +419,12 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
     assert "AskTimeoutError" in text
     assert "run_with_timeout" in text
     assert "_collect_generated_answer" in text
-    # Do not empty the busy line in finally: that opened a gap before the card.
-    assert "typing_slot.empty()" not in text
+    # finally still clears typing/timer so an uncaught error cannot leave them up.
+    assert text.find("run_with_timeout") < text.find("typing_slot.empty()")
+    assert text.find("_collect_generated_answer") < text.find("typing_slot.empty()")
     assert 'paint_status(status_slot, "answering"' in text
+    assert 'id="app-ask-done"' in text
+    assert "ask_paint_id" in text
     assert "Looking through the document" in _CLIENT_COPY["doc_answering"]
     assert _CLIENT_COPY["doc_timeout"] == ("That took too long, so I stopped. Please ask again.")
 

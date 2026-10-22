@@ -129,3 +129,22 @@ body.app-ask-pending [class*="st-key-answer_card_"],
 body.app-ask-pending [class*="st-key-refusal_card_"] {
   display: none !important;
 }
+
+/* Client-owned busy line; Streamlit's .app-status is only hidden, never rewritten. */
+.app-ask-busy {
+  display: none;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #2f6fed;
+  min-height: 1.5rem;
+}
+
+body.app-ask-pending .app-ask-busy {
+  display: block;
+}
+
+body.app-ask-pending .app-status {
+  display: none !important;
+}

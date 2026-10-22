@@ -138,32 +138,88 @@
 })();
 
 (() => {
-  // Hide prior answer cards and show the busy status as soon as the visitor
-  // asks again, without waiting for the next Streamlit round-trip.
+  // Hide prior answer cards and show a client-owned busy line as soon as a real
+  // ask starts, without waiting for the next Streamlit round-trip.
   const BUSY_COPY = "Looking through the document";
   const PENDING = "app-ask-pending";
-  const CARD_SEL = '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]';
-  const FAILSAFE_MS = 30000;
-  let pendingSince = 0;
+  const DONE_SEL = "#app-ask-done";
+  const FAILSAFE_MS = () => {
+    const override = Number(window.__APP_ASK_FAILSAFE_MS);
+    return Number.isFinite(override) && override > 0 ? override : 30000;
+  };
 
-  const markPending = () => {
-    document.body.classList.add(PENDING);
-    pendingSince = performance.now();
+  let pendingBaseline = null;
+  let failsafeTimer = null;
+
+  const askInput = () => document.querySelector('[data-testid="stTextInput"] input');
+
+  const askControl = (fromEl) => {
+    const wrap = fromEl && fromEl.closest ? fromEl.closest('[class*="st-key-ask_submit"]') : null;
+    if (!wrap) return null;
+    return wrap.querySelector("button") || wrap.querySelector('[data-testid^="stBaseButton"]') || wrap;
+  };
+
+  const askEnabled = (fromEl) => {
+    const control = askControl(fromEl) || document.querySelector(
+      '[class*="st-key-ask_submit"] button, [class*="st-key-ask_submit"] [data-testid^="stBaseButton"]'
+    );
+    if (!control) return false;
+    if (control.disabled) return false;
+    if (control.getAttribute("aria-disabled") === "true") return false;
+    if (control.hasAttribute("disabled")) return false;
+    return true;
+  };
+
+  const trimmedAskValue = () => ((askInput() && askInput().value) || "").trim();
+
+  const doneAskId = () => {
+    const el = document.querySelector(DONE_SEL);
+    return el ? el.getAttribute("data-ask-id") || "0" : "0";
+  };
+
+  const ensureBusyEl = () => {
+    let el = document.getElementById("app-ask-busy");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "app-ask-busy";
+    el.className = "app-ask-busy";
+    el.setAttribute("role", "status");
+    el.textContent = BUSY_COPY;
     const status = document.querySelector(".app-status");
-    if (status) {
-      status.className = "app-status app-status--answering";
-      status.textContent = BUSY_COPY;
+    if (status && status.parentNode) {
+      status.parentNode.insertBefore(el, status);
+    } else {
+      document.body.appendChild(el);
+    }
+    return el;
+  };
+
+  const clearFailsafe = () => {
+    if (failsafeTimer !== null) {
+      window.clearTimeout(failsafeTimer);
+      failsafeTimer = null;
     }
   };
 
   const clearPending = () => {
     document.body.classList.remove(PENDING);
-    pendingSince = 0;
+    pendingBaseline = null;
+    clearFailsafe();
   };
 
-  const isAskSubmit = (el) => {
-    if (!el || !el.closest) return false;
-    return !!el.closest('[class*="st-key-ask_submit"]');
+  const restoreFully = () => {
+    // Unhide cards and drop the client busy line so Streamlit's status shows again.
+    clearPending();
+  };
+
+  const markPending = () => {
+    ensureBusyEl();
+    document.body.classList.add(PENDING);
+    pendingBaseline = doneAskId();
+    clearFailsafe();
+    failsafeTimer = window.setTimeout(() => {
+      restoreFully();
+    }, FAILSAFE_MS());
   };
 
   const isChipButton = (el) => {
@@ -171,40 +227,61 @@
     return !!el.closest('[class*="st-key-chip_"]');
   };
 
-  const onActivate = (event) => {
+  const isAskSubmit = (el) => {
+    if (!el || !el.closest) return false;
+    return !!el.closest('[class*="st-key-ask_submit"]');
+  };
+
+  const onClick = (event) => {
+    // Primary button only (ignore right-click / aux buttons).
+    if (typeof event.button === "number" && event.button !== 0) return;
+    if (event.defaultPrevented) return;
     const t = event.target;
-    if (isAskSubmit(t) || isChipButton(t)) {
+    if (isChipButton(t)) {
       markPending();
+      return;
     }
+    if (!isAskSubmit(t)) return;
+    if (!askEnabled(t)) return;
+    if (!trimmedAskValue()) return;
+    markPending();
   };
 
   const onKey = (event) => {
     if (event.key !== "Enter") return;
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.defaultPrevented) return;
     const t = event.target;
     if (!t || t.tagName !== "INPUT") return;
     if (!t.closest || !t.closest('[data-testid="stTextInput"]')) return;
+    if (!askEnabled(t)) return;
+    if (!trimmedAskValue()) return;
     markPending();
   };
 
-  document.addEventListener("pointerdown", onActivate, true);
+  document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKey, true);
 
   const syncPending = () => {
     if (!document.body.classList.contains(PENDING)) return;
-    // Drop the client hide once the server has cleared the card slot so the
-    // idle run can paint new cards. Do not key off answering alone: we set
-    // that class ourselves on click while old cards are still in the DOM.
-    if (!document.querySelector(CARD_SEL)) {
-      clearPending();
-      return;
-    }
-    if (pendingSince && performance.now() - pendingSince >= FAILSAFE_MS) {
+    // Clear only when the server paints a new ask-done id (answer or refusal).
+    // Do not key off "zero cards": fast refusals can swap cards in one mutation.
+    if (pendingBaseline !== null && doneAskId() !== pendingBaseline) {
       clearPending();
     }
   };
 
+  // Test hook: browser suite arms pending without a live Streamlit ask.
+  window.__appAskPending = {
+    markPending,
+    clearPending,
+    restoreFully,
+    isPending: () => document.body.classList.contains(PENDING),
+  };
+
   const obs = new MutationObserver(() => syncPending());
   const start = () => {
+    ensureBusyEl();
     obs.observe(document.body, { childList: true, subtree: true, attributes: true });
     syncPending();
   };

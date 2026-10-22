@@ -86,7 +86,19 @@ def test_boot_hides_prior_cards_on_ask_click() -> None:
     assert "st-key-ask_submit" in js
     assert "st-key-chip_" in js
     assert "Looking through the document" in js
-    assert "app-status--answering" in js
+    assert "app-ask-busy" in js
+    assert "app-ask-busy" in css
+    assert "app-ask-done" in js
+    assert "__APP_ASK_FAILSAFE_MS" in js
+    assert "setTimeout" in js
+    assert "restoreFully" in js
+    assert "__appAskPending" in js
+    assert "isComposing" in js
+    assert "event.button" in js
+    assert "trimmedAskValue" in js
     assert "st-key-answer_card_" in css
     assert "st-key-refusal_card_" in css
     assert "display: none !important" in css
+    # Must not rewrite Streamlit's status text/class.
+    assert "status.textContent" not in js
+    assert 'status.className = "app-status' not in js
