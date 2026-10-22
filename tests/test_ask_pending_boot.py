@@ -1,4 +1,4 @@
-"""Unit checks for ask-pending client delivery (no Streamlit package patch)."""
+"""Unit checks for #207 ask-pending delivery (st.html + theme, not the index patch)."""
 
 from __future__ import annotations
 
@@ -9,29 +9,19 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
 ASK_JS = SRC_DIR / "ask_pending.js"
+DEPLOY_DIR = PROJECT_ROOT / "deploy"
 
 
-def test_no_streamlit_package_patch_in_repo() -> None:
-    """Follow-up busy must not rewrite site-packages/streamlit/static."""
-    assert not (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").exists()
-    assert not (PROJECT_ROOT / "deploy" / "streamlit_boot.js").exists()
-    assert not (PROJECT_ROOT / "deploy" / "streamlit_boot.css").exists()
-    dockerfile = (PROJECT_ROOT / "deploy" / "Dockerfile").read_text(encoding="utf-8")
-    ci = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "patch_streamlit_index" not in dockerfile
-    assert "ai-doc-boot" not in dockerfile
-    assert "patch_streamlit_index" not in ci
-    assert "ai-doc-boot" not in ci
-
-
-def test_installed_streamlit_index_is_unpatched() -> None:
-    """CI/local Streamlit install must stay stock (no ai-doc-boot rewrite)."""
-    index = Path(st.__file__).resolve().parent / "static" / "index.html"
-    text = index.read_text(encoding="utf-8")
-    assert "ai-doc-boot" not in text
-    assert "app-ask-pending" not in text
-    assert "Looking through the document" not in text
-    assert not (index.parent / "ai-doc-boot.js").exists()
+def test_ask_pending_does_not_extend_first_load_patch() -> None:
+    """First-load patch stays as on main; ask-pending must not be wired into it."""
+    boot_css = (DEPLOY_DIR / "streamlit_boot.css").read_text(encoding="utf-8")
+    boot_js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
+    patcher = (DEPLOY_DIR / "patch_streamlit_index.py").read_text(encoding="utf-8")
+    assert "app-ask-pending" not in boot_css
+    assert "app-ask-pending" not in boot_js
+    assert "ask_pending" not in patcher
+    assert "ai-doc-boot.js" not in patcher
+    assert "Looking through the document" not in boot_css
 
 
 def test_ask_pending_js_guards_and_failsafe() -> None:
@@ -79,3 +69,11 @@ def test_app_timing_specificity_beats_markdown_p() -> None:
     assert '[data-testid="stMarkdownContainer"] p.app-timing' in _THEME_CSS
     assert "font-size: 0.9rem !important" in _THEME_CSS
     assert "color: var(--app-muted) !important" in _THEME_CSS
+
+
+def test_stock_streamlit_has_no_ask_pending_in_index() -> None:
+    """Ask-pending must not require rewriting Streamlit's installed index."""
+    index = Path(st.__file__).resolve().parent / "static" / "index.html"
+    text = index.read_text(encoding="utf-8")
+    assert "app-ask-pending" not in text
+    assert "Looking through the document" not in text

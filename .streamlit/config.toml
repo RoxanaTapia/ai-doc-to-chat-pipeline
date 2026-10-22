@@ -16,7 +16,7 @@ gatherUsageStats = false
 [theme]
 # Match receipt-intelligence-demo: indigo accent, off-white paper, near-black ink.
 # Page grey is backgroundColor; keep secondary white so inputs/chips stay contrasted.
-# Page grey matches the theme; secondary stays white for contrasted inputs.
+# The static boot CSS (not secondaryBackgroundColor) prevents a white first-paint flash.
 primaryColor = "#3d4fd8"
 backgroundColor = "#f6f7f9"
 secondaryBackgroundColor = "#ffffff"

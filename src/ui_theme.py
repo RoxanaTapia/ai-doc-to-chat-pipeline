@@ -1,7 +1,8 @@
 """Streamlit-safe theme for the answer-first client demo.
 
 Off-white paper, near-black ink, one indigo accent, rounded cards, no sidebar.
-Ask-pending client CSS lives here (not a site-packages index.html patch).
+Ask-pending (#207) CSS lives here and loads with the theme; the first-load
+overlay/gates stay on deploy/streamlit_boot.* via the existing index patch.
 Busy copy is supplied at inject time via ``--app-doc-answering``.
 """
 

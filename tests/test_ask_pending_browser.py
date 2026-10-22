@@ -1,13 +1,15 @@
 """Browser checks for client ask-pending busy (Playwright).
 
-Runs against an unpatched Streamlit install. Covers busy visibility in the
-status row, refusal/answer/chip flows, empty Enter/click, right-click,
-failsafe via a real submit, and escaped HTML.
+Runs against an unpatched Streamlit install so #207 does not depend on the
+first-load index patch. Covers busy visibility in the status row,
+refusal/answer/chip flows, empty Enter/click, right-click, failsafe via a
+real submit, and escaped HTML.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -39,9 +41,36 @@ STUB_ENV = {
 }
 
 
-def _assert_streamlit_unpatched() -> None:
-    """Prove this suite does not rely on rewriting Streamlit's static index."""
+def _ensure_streamlit_unpatched() -> None:
+    """Strip any leftover first-load patch so #207 is proven on a stock install."""
     index = Path(st.__file__).resolve().parent / "static" / "index.html"
+    text = index.read_text(encoding="utf-8")
+    if "ai-doc-boot" in text:
+        text = re.sub(
+            r"<!-- ai-doc-boot -->\s*<style>.*?</style>\s*",
+            "",
+            text,
+            count=1,
+            flags=re.DOTALL,
+        )
+        text = re.sub(
+            r"<!-- ai-doc-boot -->\s*<div id=\"app-boot\".*?</script>\s*",
+            "",
+            text,
+            count=1,
+            flags=re.DOTALL,
+        )
+        # Legacy external-script shape from an earlier PR revision.
+        text = re.sub(
+            r"<!-- ai-doc-boot -->\s*<script src=\"\./ai-doc-boot\.js\"></script>\s*",
+            "",
+            text,
+            count=1,
+        )
+        index.write_text(text, encoding="utf-8")
+        js_path = index.parent / "ai-doc-boot.js"
+        if js_path.exists():
+            js_path.unlink()
     text = index.read_text(encoding="utf-8")
     assert "ai-doc-boot" not in text
     assert "app-ask-pending" not in text
@@ -219,7 +248,7 @@ def _ask_and_wait(page, expect, question: str, *, expect_text: str, min_cards: i
 
 def test_unpatched_streamlit_sets_busy_on_ask() -> None:
     """Fresh Streamlit install (no index patch): click still sets app-ask-pending."""
-    _assert_streamlit_unpatched()
+    _ensure_streamlit_unpatched()
     sync_playwright, expect = _import_playwright()
     with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="80") as url:
         with sync_playwright() as playwright:
@@ -247,11 +276,11 @@ def test_unpatched_streamlit_sets_busy_on_ask() -> None:
                 timeout=60000,
             )
             browser.close()
-    _assert_streamlit_unpatched()
+    _ensure_streamlit_unpatched()
 
 
 def test_busy_line_visible_in_status_row_within_100ms() -> None:
-    _assert_streamlit_unpatched()
+    _ensure_streamlit_unpatched()
     sync_playwright, expect = _import_playwright()
     with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="80") as url:
         with sync_playwright() as playwright:
