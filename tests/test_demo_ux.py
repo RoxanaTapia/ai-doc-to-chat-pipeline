@@ -293,6 +293,7 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
     assert 'baseUrlPath = "app"' in text
     assert "gatherUsageStats = false" in text
     # Page grey for chrome; keep secondary white so inputs stay contrasted.
+    # Page grey for chrome; keep secondary white so inputs stay contrasted.
     # First-paint white flash is handled by deploy/streamlit_boot.css, not secondary.
     assert 'backgroundColor = "#f6f7f9"' in text
     assert 'secondaryBackgroundColor = "#ffffff"' in text
@@ -316,6 +317,22 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
+    # Follow-up busy (#207) must not ride this first-load patch.
+    assert "app-ask-pending" not in boot_css
+    assert "app-ask-pending" not in boot_js
+
+
+def test_ask_pending_ships_via_theme_and_st_html() -> None:
+    """#207 ask-pending CSS/JS load through the app, not the first-load index patch."""
+    from ui_theme import _THEME_CSS
+
+    theme = (PROJECT_ROOT / "src" / "ui_theme.py").read_text(encoding="utf-8")
+    ask_js = (PROJECT_ROOT / "src" / "ask_pending.js").read_text(encoding="utf-8")
+    assert "app-ask-pending" in _THEME_CSS
+    assert "var(--app-doc-answering)" in _THEME_CSS
+    assert "unsafe_allow_javascript=True" in theme
+    assert "app-ask-pending" in ask_js
+    assert "inject_ask_pending_client" in theme
 
 
 def test_booking_env_is_documented() -> None:
@@ -417,11 +434,33 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
     assert "queued_question" in text
     assert "st.write_stream(" not in text
     assert "AskTimeoutError" in text
+    assert "run_with_timeout" in text
+    assert "_collect_generated_answer" in text
+    # finally still clears typing/timer so an uncaught error cannot leave them up.
     assert text.find("run_with_timeout") < text.find("typing_slot.empty()")
     assert text.find("_collect_generated_answer") < text.find("typing_slot.empty()")
     assert 'paint_status(status_slot, "answering"' in text
+    assert 'id="app-ask-done"' in text
+    assert "ask_paint_id" in text
     assert "Looking through the document" in _CLIENT_COPY["doc_answering"]
     assert _CLIENT_COPY["doc_timeout"] == ("That took too long, so I stopped. Please ask again.")
+
+
+def test_followup_keeps_answering_until_cards_paint() -> None:
+    """Success path must not paint ready before the post-ask rerun (busy gap)."""
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    success_marker = "eval_chunk_count=len(raw_results),"
+    success_at = text.find(success_marker)
+    assert success_at != -1
+    after_append = text[success_at : success_at + 500]
+    assert "st.rerun()" in after_append
+    ready_before_rerun = after_append.find('paint_status(status_slot, "ready"')
+    rerun_at = after_append.find("st.rerun()")
+    assert ready_before_rerun == -1 or ready_before_rerun > rerun_at
+    # Idle run releases answering only after answer cards are painted.
+    cards_at = text.find("with answers_slot.container()")
+    release_at = text.find('doc_status") == "answering"')
+    assert cards_at != -1 and release_at != -1 and cards_at < release_at
 
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:

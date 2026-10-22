@@ -226,13 +226,23 @@ def _render_answer_card(
         else:
             quote = (sources[0].get("preview") if sources else "") or ""
             headline, body = display_answer_parts(answer, quote)
+            # Escape body + timing in one markdown call so the timing line cannot
+            # paint a frame after the body. Markup from the model/PDF cannot inject.
+            timing_line = _answer_timing_line(timing, developer_mode=developer_mode)
             if headline:
                 st.markdown(
                     f'<p class="app-answer-headline">{html.escape(headline)}</p>',
                     unsafe_allow_html=True,
                 )
+            body_parts: list[str] = []
             if body:
-                st.markdown(body)
+                body_parts.append(html.escape(body))
+            if timing_line:
+                body_parts.append(
+                    f'<p class="app-timing">{html.escape(timing_line)}</p>'
+                )
+            if body_parts:
+                st.markdown("\n\n".join(body_parts), unsafe_allow_html=True)
             if sources:
                 _render_inline_sources(
                     sources,
@@ -240,10 +250,6 @@ def _render_answer_card(
                     pdf_bytes=pdf_bytes,
                     card_key=card_key,
                 )
-        # Refusals and "not covered" answers are near-instant; a 0.01s caption
-        # looks like a broken timer rather than a real look-up.
-        if not is_refusal:
-            _render_answer_timing(timing, developer_mode=developer_mode)
 
 
 def _render_sources_panel(
@@ -383,10 +389,10 @@ def _remember_response_timing(timing: dict[str, float] | None) -> None:
         st.session_state.last_response_timing = timing
 
 
-def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bool) -> None:
-    """Put the timing caption under the answer, not inside it."""
+def _answer_timing_line(timing: dict[str, float] | None, *, developer_mode: bool) -> str:
+    """Plain timing caption, or empty when there is nothing to show."""
     if not timing or timing.get("total_ms", 0) <= 0:
-        return
+        return ""
     caption = _response_timing_caption(
         total_ms=timing["total_ms"],
         retrieval_ms=timing.get("retrieval_ms", 0.0),
@@ -395,5 +401,23 @@ def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bo
     )
     # Hide a true zero that would still format as 0.00s.
     if caption.startswith("Answered in 0.00s"):
-        return
-    st.markdown(f'<p class="app-timing">{html.escape(caption)}</p>', unsafe_allow_html=True)
+        return ""
+    return caption
+
+
+def _answer_timing_html(timing: dict[str, float] | None, *, developer_mode: bool) -> str:
+    """HTML for the timing caption, or empty when there is nothing to show."""
+    caption = _answer_timing_line(timing, developer_mode=developer_mode)
+    if not caption:
+        return ""
+    return f'<p class="app-timing">{html.escape(caption)}</p>'
+
+
+def _render_answer_timing(timing: dict[str, float] | None, *, developer_mode: bool) -> None:
+    """Put the timing caption under the answer, not inside it."""
+    caption = _answer_timing_line(timing, developer_mode=developer_mode)
+    if caption:
+        st.markdown(
+            f'<p class="app-timing">{html.escape(caption)}</p>',
+            unsafe_allow_html=True,
+        )

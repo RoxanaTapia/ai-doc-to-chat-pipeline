@@ -325,6 +325,9 @@ def _append_chat_message(
         if eval_chunk_count is not None:
             message["eval_chunk_count"] = eval_chunk_count
     st.session_state.messages.append(message)
+    if role == "assistant":
+        # Bump so the client can clear app-ask-pending when this answer paints.
+        st.session_state.ask_paint_id = int(st.session_state.get("ask_paint_id") or 0) + 1
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
 
@@ -1289,6 +1292,8 @@ if query and query.strip() and chat_ready:
             if timer_thread is not None:
                 stop_timer.set()
                 timer_thread.join(timeout=5.0)
+            # Always clear the under-question busy widgets so an uncaught error
+            # cannot leave them on screen. Header busy stays via doc_status.
             typing_slot.empty()
             timer_placeholder.empty()
 
@@ -1364,7 +1369,6 @@ if query and query.strip() and chat_ready:
         "generation_ms": generation_elapsed_ms,
     }
 
-    ready_name = st.session_state.current_file or "Document"
     if isinstance(retrieval_error, AskTimeoutError):
         generation_error = retrieval_error
         retrieval_error = None
@@ -1427,7 +1431,8 @@ if query and query.strip() and chat_ready:
             target_section=target_section,
             eval_chunk_count=len(raw_results),
         )
-        paint_status(status_slot, "ready", _ready_message(ready_name))
+        # Keep doc_status "answering" across this rerun. Painting "ready" here
+        # cleared the busy line before the idle run could paint the new card.
         st.rerun()
 elif query is not None and not chat_ready:
     paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
@@ -1447,6 +1452,13 @@ assistant_count = sum(
 
 with answers_slot.container():
     st.session_state["_answer_history_cleared"] = False
+    # Explicit per-ask signal for the client: clear app-ask-pending when this
+    # id changes (including fast refusal paints that never show zero cards).
+    ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
+    st.markdown(
+        f'<div id="app-ask-done" data-ask-id="{ask_paint_id}" hidden aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
     for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
         question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
         _render_answer_card(
@@ -1487,6 +1499,14 @@ with answers_slot.container():
                     ),
                     top_k=TOP_K,
                 )
+
+# Cards are on screen; only now drop the busy line back to the document ready line.
+if st.session_state.get("doc_status") == "answering" and not (query and str(query).strip()):
+    paint_status(
+        status_slot,
+        "ready",
+        _ready_message(st.session_state.current_file or "Document"),
+    )
 
 if not _show_sidebar:
     _render_client_footer(

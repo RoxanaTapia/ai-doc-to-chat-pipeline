@@ -120,7 +120,7 @@ def test_refusal_timing_is_skipped() -> None:
     from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
     from sources_panel import _render_answer_card
 
-    calls: list[object] = []
+    markdowns: list[tuple[str, dict]] = []
 
     class _FakeSt:
         def container(self, *args, **kwargs):
@@ -133,12 +133,10 @@ def test_refusal_timing_is_skipped() -> None:
             return False
 
         def markdown(self, *args, **kwargs):
-            return None
+            markdowns.append((str(args[0]) if args else "", dict(kwargs)))
 
     previous_st = sources_panel.st
-    previous_render = sources_panel._render_answer_timing
     sources_panel.st = _FakeSt()
-    sources_panel._render_answer_timing = lambda *a, **k: calls.append((a, k))
     try:
         _render_answer_card(
             question="What is the penalty fee?",
@@ -150,7 +148,8 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t",
         )
-        assert calls == []
+        assert not any("Answered in" in block for block, _ in markdowns)
+        markdowns.clear()
         _render_answer_card(
             question="How long?",
             answer="3 years",
@@ -161,7 +160,63 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t2",
         )
-        assert len(calls) == 1
+        timing_blocks = [
+            (block, kwargs)
+            for block, kwargs in markdowns
+            if "Answered in" in block
+        ]
+        assert len(timing_blocks) == 1
+        timing_html, timing_kwargs = timing_blocks[0]
+        assert 'class="app-timing"' in timing_html
+        assert timing_kwargs.get("unsafe_allow_html") is True
+        assert "<script>" not in timing_html
+        # Short answers become a headline only; timing still uses the shared helper path.
     finally:
         sources_panel.st = previous_st
-        sources_panel._render_answer_timing = previous_render
+
+
+def test_answer_body_html_is_escaped() -> None:
+    """Model/PDF HTML in the body must not be rendered as markup."""
+    import sources_panel
+    from sources_panel import _render_answer_card
+
+    markdowns: list[tuple[str, dict]] = []
+
+    class _FakeSt:
+        def container(self, *args, **kwargs):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def markdown(self, *args, **kwargs):
+            markdowns.append((str(args[0]) if args else "", dict(kwargs)))
+
+    previous_st = sources_panel.st
+    sources_panel.st = _FakeSt()
+    try:
+        _render_answer_card(
+            question="which law?",
+            answer="<script>alert(1)</script>\n\n<span>Spain</span>",
+            sources=None,
+            refusal=False,
+            timing={"total_ms": 500.0},
+            developer_mode=False,
+            page_count=3,
+            card_key="html",
+        )
+        joined = "\n".join(text for text, _ in markdowns)
+        assert "<script>" not in joined
+        assert "&lt;script&gt;" in joined or "&lt;span&gt;" in joined
+        timing = [text for text, _ in markdowns if "app-timing" in text]
+        assert timing and "Answered in" in timing[0]
+        # Escaped body and timing share the same markdown payload.
+        assert any(
+            "app-timing" in text and ("&lt;script&gt;" in text or "&lt;span&gt;" in text)
+            for text, _ in markdowns
+        )
+    finally:
+        sources_panel.st = previous_st

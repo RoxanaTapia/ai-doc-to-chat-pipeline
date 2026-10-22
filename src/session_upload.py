@@ -422,6 +422,7 @@ def _init_session_state(
         "_uploader_widget_had_file": False,
         "doc_status": "empty",
         "doc_status_detail": _CLIENT_COPY["doc_empty"],
+        "ask_paint_id": 0,
         "ask_box": "",
         "own_pdf_mode": False,
         "show_own_pdf": False,
