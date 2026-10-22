@@ -160,9 +160,16 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t2",
         )
-        timing_blocks = [block for block, _ in markdowns if "Answered in" in block]
+        timing_blocks = [
+            (block, kwargs)
+            for block, kwargs in markdowns
+            if "Answered in" in block
+        ]
         assert len(timing_blocks) == 1
-        assert "<script>" not in timing_blocks[0]
+        timing_html, timing_kwargs = timing_blocks[0]
+        assert 'class="app-timing"' in timing_html
+        assert timing_kwargs.get("unsafe_allow_html") is True
+        assert "<script>" not in timing_html
     finally:
         sources_panel.st = previous_st
 
@@ -191,7 +198,7 @@ def test_answer_body_html_is_escaped() -> None:
     sources_panel.st = _FakeSt()
     try:
         _render_answer_card(
-            question="html escape probe: which law?",
+            question="which law?",
             answer="<script>alert(1)</script>\n\n<span>Spain</span>",
             sources=None,
             refusal=False,
@@ -200,20 +207,10 @@ def test_answer_body_html_is_escaped() -> None:
             page_count=3,
             card_key="html",
         )
-        body_blocks = [
-            (text, kwargs)
-            for text, kwargs in markdowns
-            if "script" in text.lower() or "Spain" in text or "Answered in" in text
-        ]
-        assert body_blocks
-        for text, kwargs in body_blocks:
-            if kwargs.get("unsafe_allow_html"):
-                # Headline may use escaped HTML wrappers; body must not.
-                assert "<script>" not in text
-                assert "&lt;script&gt;" in text or "Spain" not in text
-            else:
-                assert "<script>" not in text
-                assert "&lt;script&gt;" in text or "Answered in" in text
-                assert kwargs.get("unsafe_allow_html") in {None, False}
+        joined = "\n".join(text for text, _ in markdowns)
+        assert "<script>" not in joined
+        assert "&lt;script&gt;" in joined or "&lt;span&gt;" in joined
+        timing = [text for text, _ in markdowns if "app-timing" in text]
+        assert timing and "Answered in" in timing[0]
     finally:
         sources_panel.st = previous_st

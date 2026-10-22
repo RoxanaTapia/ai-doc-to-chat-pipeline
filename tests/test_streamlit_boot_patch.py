@@ -27,7 +27,10 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     assert "id=\"app-boot\"" in text
     assert "Loading the document…" in text
     assert css in text
-    assert js in text
+    assert 'src="./ai-doc-boot.js"' in text
+    assert (tmp_path / "ai-doc-boot.js").read_text(encoding="utf-8").startswith(
+        "document.getElementById('app-boot');"
+    )
     assert text.index("</style>") < text.index("</head>")
     assert text.index("app-boot") < text.index("</body>")
     assert patch(index, css, js) is False
@@ -85,20 +88,26 @@ def test_boot_hides_prior_cards_on_ask_click() -> None:
     assert "app-ask-pending" in css
     assert "st-key-ask_submit" in js
     assert "st-key-chip_" in js
-    assert "Looking through the document" in js
-    assert "app-ask-busy" in js
-    assert "app-ask-busy" in css
+    assert "Looking through the document" in css
     assert "app-ask-done" in js
+    assert "__APP_ASK_TEST_HOOKS" in js
     assert "__APP_ASK_FAILSAFE_MS" in js
     assert "setTimeout" in js
     assert "restoreFully" in js
-    assert "__appAskPending" in js
     assert "isComposing" in js
     assert "event.button" in js
     assert "trimmedAskValue" in js
     assert "st-key-answer_card_" in css
     assert "st-key-refusal_card_" in css
     assert "display: none !important" in css
+    # Busy is a CSS ::before on .app-status (no orphan #app-ask-busy on <body>).
+    assert "app-status::before" in css
+    assert 'content: "Looking through the document"' in css
+    assert 'getElementById("app-ask-busy")' not in js
+    assert "id=\"app-ask-busy\"" not in js
+    assert "#app-ask-busy" not in css
     # Must not rewrite Streamlit's status text/class.
     assert "status.textContent" not in js
     assert 'status.className = "app-status' not in js
+    # Test hooks stay behind the flag.
+    assert "if (testHooks())" in js or "testHooks()" in js

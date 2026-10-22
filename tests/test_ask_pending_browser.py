@@ -1,7 +1,7 @@
 """Browser checks for client ask-pending busy (Playwright).
 
-Covers refusal follow-ups, empty Enter/click, right-click, failsafe restore,
-and escaped HTML in answers. CI installs Chromium for this module.
+Covers busy visibility in the status row, refusal/answer/chip flows, empty
+Enter/click, right-click, failsafe via a real submit, and escaped HTML.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ APP_PATH = SRC_DIR / "app.py"
 TERM_QUESTION = "How long does this agreement last?"
 FEE_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
 LAW_QUESTION = "Which country's law applies, and where are disputes settled?"
+TERM_CHIP = "How long does this agreement last?"
 READY_HINT = "Ask about this document"
-LOOKING = "Looking through the document"
 
 STUB_ENV = {
     "USE_STUB_EMBEDDINGS": "1",
@@ -50,6 +50,20 @@ def _strip_boot_patch(text: str) -> str:
         flags=re.DOTALL,
     )
     text = re.sub(
+        r"<!-- ai-doc-boot -->\s*<div id=\"app-boot\".*?</div>\s*",
+        "",
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    text = re.sub(
+        r"<!-- ai-doc-boot -->\s*<script src=\"\./ai-doc-boot\.js\"></script>\s*",
+        "",
+        text,
+        count=1,
+    )
+    # Legacy inline-script injection from earlier builds.
+    text = re.sub(
         r"<!-- ai-doc-boot -->\s*<div id=\"app-boot\".*?</script>\s*",
         "",
         text,
@@ -64,11 +78,14 @@ def _patch_streamlit_boot_into_index() -> Iterator[None]:
     """Local/CI Streamlit has no Docker boot patch; inject current CSS/JS for this suite."""
     if str(DEPLOY_DIR) not in sys.path:
         sys.path.insert(0, str(DEPLOY_DIR))
-    from patch_streamlit_index import _index_path, patch
+    from patch_streamlit_index import BOOT_JS_NAME, _index_path, patch
 
     index = _index_path()
+    js_path = index.parent / BOOT_JS_NAME
     original = _strip_boot_patch(index.read_text(encoding="utf-8"))
     index.write_text(original, encoding="utf-8")
+    had_js = js_path.exists()
+    prior_js = js_path.read_text(encoding="utf-8") if had_js else None
     css = (DEPLOY_DIR / "streamlit_boot.css").read_text(encoding="utf-8")
     js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
     patch(index, css, js)
@@ -76,6 +93,10 @@ def _patch_streamlit_boot_into_index() -> Iterator[None]:
         yield
     finally:
         index.write_text(original, encoding="utf-8")
+        if had_js and prior_js is not None:
+            js_path.write_text(prior_js, encoding="utf-8")
+        elif js_path.exists():
+            js_path.unlink()
 
 
 def _import_playwright():
@@ -185,6 +206,44 @@ def _finished_cards(page) -> int:
     return page.locator('[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]').count()
 
 
+def _busy_in_status_row(page) -> dict:
+    """Whether the CSS busy line is visible inside the status row and on top."""
+    return page.evaluate(
+        """() => {
+          const status = document.querySelector('.app-status');
+          if (!status) return {ok: false, reason: 'no-status'};
+          if (!document.body.classList.contains('app-ask-pending')) {
+            return {ok: false, reason: 'not-pending'};
+          }
+          const r = status.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) {
+            return {ok: false, reason: 'zero-size', rect: [r.x, r.y, r.width, r.height]};
+          }
+          const before = getComputedStyle(status, '::before').content || '';
+          if (!before.includes('Looking through the document')) {
+            return {ok: false, reason: 'no-before', before};
+          }
+          const cx = r.left + Math.min(r.width / 2, 40);
+          const cy = r.top + r.height / 2;
+          const top = document.elementFromPoint(cx, cy);
+          const onTop = !!top && (top === status || status.contains(top));
+          if (!onTop) {
+            return {
+              ok: false,
+              reason: 'covered',
+              top: top && (top.tagName + (top.className ? '.' + top.className : '')),
+              rect: [r.x, r.y, r.width, r.height],
+            };
+          }
+          return {
+            ok: true,
+            rect: [r.x, r.y, r.width, r.height],
+            before,
+          };
+        }"""
+    )
+
+
 def _ask_and_wait(page, expect, question: str, *, expect_text: str, min_cards: int) -> None:
     box = page.get_by_placeholder(READY_HINT)
     ask = page.get_by_role("button", name="Ask", exact=True)
@@ -210,6 +269,49 @@ def _ask_and_wait(page, expect, question: str, *, expect_text: str, min_cards: i
     )
 
 
+def test_busy_line_visible_in_status_row_within_100ms() -> None:
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="80") as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 900})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            _ask_and_wait(page, expect, TERM_QUESTION, expect_text="3 years", min_cards=1)
+
+            box = page.get_by_placeholder(READY_HINT)
+            ask = page.get_by_role("button", name="Ask", exact=True)
+            box.fill(LAW_QUESTION)
+            expect(ask).to_be_enabled()
+            ask.click()
+            page.wait_for_function(
+                """() => {
+                  if (!document.body.classList.contains('app-ask-pending')) return false;
+                  const status = document.querySelector('.app-status');
+                  if (!status) return false;
+                  const r = status.getBoundingClientRect();
+                  if (r.width <= 0 || r.height <= 0) return false;
+                  const before = getComputedStyle(status, '::before').content || '';
+                  if (!before.includes('Looking through the document')) return false;
+                  const cx = r.left + Math.min(r.width / 2, 40);
+                  const cy = r.top + r.height / 2;
+                  const top = document.elementFromPoint(cx, cy);
+                  return !!top && (top === status || status.contains(top));
+                }""",
+                timeout=100,
+            )
+            info = _busy_in_status_row(page)
+            assert info.get("ok"), info
+            assert info["rect"][2] > 0 and info["rect"][3] > 0
+            # Status row sits below the hero, not at the page origin.
+            assert info["rect"][1] > 40
+            page.wait_for_function(
+                "() => !document.body.classList.contains('app-ask-pending')",
+                timeout=60000,
+            )
+            browser.close()
+
+
 def test_answer_then_refusal_clears_pending() -> None:
     sync_playwright, expect = _import_playwright()
     with _streamlit_server() as url:
@@ -231,12 +333,60 @@ def test_answer_then_refusal_clears_pending() -> None:
             )
             assert not _pending(page)
             assert _finished_cards(page) >= 2
-            assert page.evaluate(
-                """() => {
-                  const el = document.getElementById('app-ask-busy');
-                  return !!el && getComputedStyle(el).display === 'none';
-                }"""
+            browser.close()
+
+
+def test_refusal_then_answer_clears_pending() -> None:
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server() as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 1400})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            _ask_and_wait(
+                page,
+                expect,
+                FEE_QUESTION,
+                expect_text="isn't in the document",
+                min_cards=1,
             )
+            _ask_and_wait(page, expect, LAW_QUESTION, expect_text="Spain", min_cards=2)
+            assert not _pending(page)
+            assert "Spain" in page.locator("body").inner_text()
+            browser.close()
+
+
+def test_chip_click_marks_pending_and_answers() -> None:
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="60") as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 1400})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            chip = page.get_by_role("button", name=TERM_CHIP, exact=True)
+            expect(chip).to_be_visible(timeout=30000)
+            chip.click()
+            page.wait_for_function(
+                """() => {
+                  if (!document.body.classList.contains('app-ask-pending')) return false;
+                  const status = document.querySelector('.app-status');
+                  if (!status) return false;
+                  const before = getComputedStyle(status, '::before').content || '';
+                  return before.includes('Looking through the document');
+                }""",
+                timeout=100,
+            )
+            page.wait_for_function(
+                """() => {
+                  if (document.body.classList.contains('app-ask-pending')) return false;
+                  return (document.body.innerText || '').includes('3 years');
+                }""",
+                timeout=60000,
+            )
+            assert not _pending(page)
+            assert _finished_cards(page) >= 1
             browser.close()
 
 
@@ -285,35 +435,43 @@ def test_right_click_ask_does_not_mark_pending() -> None:
             browser.close()
 
 
-def test_failsafe_timer_restores_page() -> None:
+def test_failsafe_timer_restores_page_via_real_submit() -> None:
+    """Failsafe arms on a real Ask click; fires before a slow answer can clear it."""
     sync_playwright, expect = _import_playwright()
-    with _streamlit_server() as url:
+    # Slow stub so ask-done cannot bump before the short failsafe fires.
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="250") as url:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1100, "height": 900})
-            page.add_init_script("window.__APP_ASK_FAILSAFE_MS = 700;")
+            page.add_init_script(
+                "window.__APP_ASK_TEST_HOOKS = true; window.__APP_ASK_FAILSAFE_MS = 700;"
+            )
             page.goto(url, wait_until="domcontentloaded")
             _wait_ready(page, expect)
             _ask_and_wait(page, expect, TERM_QUESTION, expect_text="3 years", min_cards=1)
             cards_before = _finished_cards(page)
-            assert cards_before >= 1
 
-            # Arm pending via the real helper; do not bump ask-done, so only the
-            # failsafe timer can restore (unhide cards + drop client busy).
-            page.evaluate("() => window.__appAskPending.markPending()")
-            assert _pending(page)
-            assert page.evaluate(
-                "() => getComputedStyle(document.getElementById('app-ask-busy')).display !== 'none'"
+            box = page.get_by_placeholder(READY_HINT)
+            box.fill(LAW_QUESTION)
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.wait_for_function(
+                "() => document.body.classList.contains('app-ask-pending')",
+                timeout=5000,
             )
+            assert _busy_in_status_row(page).get("ok")
             page.wait_for_function(
                 "() => !document.body.classList.contains('app-ask-pending')",
                 timeout=5000,
             )
             assert not _pending(page)
-            assert page.evaluate(
-                "() => getComputedStyle(document.getElementById('app-ask-busy')).display === 'none'"
+            # Client busy CSS is gone; Streamlit may already have cleared the slot
+            # for the in-flight ask, so do not require prior cards to still exist.
+            assert not _busy_in_status_row(page).get("ok")
+            before_css = page.evaluate(
+                "() => getComputedStyle(document.querySelector('.app-status'), '::before').content"
             )
-            assert _finished_cards(page) >= cards_before
+            assert "Looking through the document" not in (before_css or "")
+            assert cards_before >= 1
             browser.close()
 
 
@@ -332,8 +490,9 @@ def test_html_in_answer_is_escaped() -> None:
                 expect_text="payload about Spain",
                 min_cards=1,
             )
-            # Raw script/img nodes must not be injected from the answer body.
-            assert page.locator(".app-answer-headline script, [class*='st-key-answer_card_'] script").count() == 0
+            assert page.locator(
+                ".app-answer-headline script, [class*='st-key-answer_card_'] script"
+            ).count() == 0
             assert page.locator("[class*='st-key-answer_card_'] img[src='x']").count() == 0
             body = page.locator("body").inner_text()
             assert "<script>" in body or "alert(1)" in body

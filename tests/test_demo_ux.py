@@ -316,6 +316,7 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
+    assert "ai-doc-boot.js" in patcher
 
 
 def test_booking_env_is_documented() -> None:

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 MARKER = "<!-- ai-doc-boot -->"
+BOOT_JS_NAME = "ai-doc-boot.js"
 
 
 def _index_path() -> Path:
@@ -20,11 +21,16 @@ def patch(index: Path, css: str, js: str) -> bool:
     text = index.read_text(encoding="utf-8")
     if MARKER in text:
         return False
-    if "</head>" not in text or "<body>" not in text:
+    if "</head>" not in text or "<body>" not in text or "</body>" not in text:
         raise SystemExit(f"unexpected Streamlit index.html shape: {index}")
 
+    # External script: Streamlit 1.54 hydrates away inline body scripts before
+    # they run; a same-origin src file still executes.
+    js_path = index.parent / BOOT_JS_NAME
+    js_path.write_text(js.rstrip() + "\n", encoding="utf-8")
+
     head = f"{MARKER}\n<style>\n{css.rstrip()}\n</style>\n"
-    body = (
+    body_start = (
         f"{MARKER}\n"
         f'<div id="app-boot" role="status" aria-live="polite">'
         f'<span class="app-boot__label">Loading the document…</span>'
@@ -32,10 +38,11 @@ def patch(index: Path, css: str, js: str) -> bool:
         f"<span></span><span></span><span></span>"
         f"</span>"
         f"</div>\n"
-        f"<script>\n{js.rstrip()}\n</script>\n"
     )
+    body_end = f'{MARKER}\n<script src="./{BOOT_JS_NAME}"></script>\n'
     text = text.replace("</head>", f"{head}</head>", 1)
-    text = text.replace("<body>", f"<body>\n{body}", 1)
+    text = text.replace("<body>", f"<body>\n{body_start}", 1)
+    text = text.replace("</body>", f"{body_end}</body>", 1)
     index.write_text(text, encoding="utf-8")
     return True
 

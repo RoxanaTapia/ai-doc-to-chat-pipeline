@@ -138,14 +138,17 @@
 })();
 
 (() => {
-  // Hide prior answer cards and show a client-owned busy line as soon as a real
-  // ask starts, without waiting for the next Streamlit round-trip.
-  const BUSY_COPY = "Looking through the document";
+  // On a real ask, hide prior cards and show the busy line via CSS on .app-status
+  // (no separate node that can mount on <body> before status exists).
   const PENDING = "app-ask-pending";
   const DONE_SEL = "#app-ask-done";
+  const testHooks = () => window.__APP_ASK_TEST_HOOKS === true;
   const FAILSAFE_MS = () => {
-    const override = Number(window.__APP_ASK_FAILSAFE_MS);
-    return Number.isFinite(override) && override > 0 ? override : 30000;
+    if (testHooks()) {
+      const override = Number(window.__APP_ASK_FAILSAFE_MS);
+      if (Number.isFinite(override) && override > 0) return override;
+    }
+    return 30000;
   };
 
   let pendingBaseline = null;
@@ -177,23 +180,6 @@
     return el ? el.getAttribute("data-ask-id") || "0" : "0";
   };
 
-  const ensureBusyEl = () => {
-    let el = document.getElementById("app-ask-busy");
-    if (el) return el;
-    el = document.createElement("div");
-    el.id = "app-ask-busy";
-    el.className = "app-ask-busy";
-    el.setAttribute("role", "status");
-    el.textContent = BUSY_COPY;
-    const status = document.querySelector(".app-status");
-    if (status && status.parentNode) {
-      status.parentNode.insertBefore(el, status);
-    } else {
-      document.body.appendChild(el);
-    }
-    return el;
-  };
-
   const clearFailsafe = () => {
     if (failsafeTimer !== null) {
       window.clearTimeout(failsafeTimer);
@@ -208,12 +194,10 @@
   };
 
   const restoreFully = () => {
-    // Unhide cards and drop the client busy line so Streamlit's status shows again.
     clearPending();
   };
 
   const markPending = () => {
-    ensureBusyEl();
     document.body.classList.add(PENDING);
     pendingBaseline = doneAskId();
     clearFailsafe();
@@ -271,17 +255,18 @@
     }
   };
 
-  // Test hook: browser suite arms pending without a live Streamlit ask.
-  window.__appAskPending = {
-    markPending,
-    clearPending,
-    restoreFully,
-    isPending: () => document.body.classList.contains(PENDING),
-  };
+  // Test-only hooks (enable with window.__APP_ASK_TEST_HOOKS = true before load).
+  if (testHooks()) {
+    window.__appAskPending = {
+      markPending,
+      clearPending,
+      restoreFully,
+      isPending: () => document.body.classList.contains(PENDING),
+    };
+  }
 
   const obs = new MutationObserver(() => syncPending());
   const start = () => {
-    ensureBusyEl();
     obs.observe(document.body, { childList: true, subtree: true, attributes: true });
     syncPending();
   };
