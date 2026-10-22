@@ -226,21 +226,23 @@ def _render_answer_card(
         else:
             quote = (sources[0].get("preview") if sources else "") or ""
             headline, body = display_answer_parts(answer, quote)
-            # Escape body text; timing is a separate escaped .app-timing paragraph
-            # so markup from the model/PDF cannot inject, and the muted style stays.
+            # Escape body + timing in one markdown call so the timing line cannot
+            # paint a frame after the body. Markup from the model/PDF cannot inject.
             timing_line = _answer_timing_line(timing, developer_mode=developer_mode)
             if headline:
                 st.markdown(
                     f'<p class="app-answer-headline">{html.escape(headline)}</p>',
                     unsafe_allow_html=True,
                 )
+            body_parts: list[str] = []
             if body:
-                st.markdown(html.escape(body))
+                body_parts.append(html.escape(body))
             if timing_line:
-                st.markdown(
-                    f'<p class="app-timing">{html.escape(timing_line)}</p>',
-                    unsafe_allow_html=True,
+                body_parts.append(
+                    f'<p class="app-timing">{html.escape(timing_line)}</p>'
                 )
+            if body_parts:
+                st.markdown("\n\n".join(body_parts), unsafe_allow_html=True)
             if sources:
                 _render_inline_sources(
                     sources,

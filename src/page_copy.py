@@ -172,8 +172,8 @@ def should_preload_sample(*, own_pdf_mode: bool, has_upload: bool, is_indexed: b
 
 
 def _inject_demo_styles(*, hide_sidebar: bool) -> None:
-    """Load the shared theme before the hero paints."""
-    inject_theme(hide_sidebar=hide_sidebar)
+    """Load the shared theme and ask-pending client before the hero paints."""
+    inject_theme(hide_sidebar=hide_sidebar, busy_label=_CLIENT_COPY["doc_answering"])
 
 
 def _render_client_hero(*, hide_sidebar: bool = True) -> None:

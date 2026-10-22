@@ -12,10 +12,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# First-paint boot loader + calm skeletons before any Python CSS runs.
-COPY deploy/streamlit_boot.css deploy/streamlit_boot.js deploy/patch_streamlit_index.py deploy/
-RUN python deploy/patch_streamlit_index.py
-
 COPY configs/ configs/
 COPY src/ src/
 COPY .streamlit/config.toml .streamlit/

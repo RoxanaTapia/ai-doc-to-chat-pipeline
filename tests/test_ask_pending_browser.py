@@ -1,7 +1,8 @@
 """Browser checks for client ask-pending busy (Playwright).
 
-Covers busy visibility in the status row, refusal/answer/chip flows, empty
-Enter/click, right-click, failsafe via a real submit, and escaped HTML.
+Runs against an unpatched Streamlit install. Covers busy visibility in the
+status row, refusal/answer/chip flows, empty Enter/click, right-click,
+failsafe via a real submit, and escaped HTML.
 """
 
 from __future__ import annotations
@@ -17,10 +18,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
-DEPLOY_DIR = PROJECT_ROOT / "deploy"
 APP_PATH = SRC_DIR / "app.py"
 
 TERM_QUESTION = "How long does this agreement last?"
@@ -38,65 +39,13 @@ STUB_ENV = {
 }
 
 
-def _strip_boot_patch(text: str) -> str:
-    """Remove a previous ai-doc boot injection so we can re-apply fresh assets."""
-    import re
-
-    text = re.sub(
-        r"<!-- ai-doc-boot -->\s*<style>.*?</style>\s*",
-        "",
-        text,
-        count=1,
-        flags=re.DOTALL,
-    )
-    text = re.sub(
-        r"<!-- ai-doc-boot -->\s*<div id=\"app-boot\".*?</div>\s*",
-        "",
-        text,
-        count=1,
-        flags=re.DOTALL,
-    )
-    text = re.sub(
-        r"<!-- ai-doc-boot -->\s*<script src=\"\./ai-doc-boot\.js\"></script>\s*",
-        "",
-        text,
-        count=1,
-    )
-    # Legacy inline-script injection from earlier builds.
-    text = re.sub(
-        r"<!-- ai-doc-boot -->\s*<div id=\"app-boot\".*?</script>\s*",
-        "",
-        text,
-        count=1,
-        flags=re.DOTALL,
-    )
-    return text
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _patch_streamlit_boot_into_index() -> Iterator[None]:
-    """Local/CI Streamlit has no Docker boot patch; inject current CSS/JS for this suite."""
-    if str(DEPLOY_DIR) not in sys.path:
-        sys.path.insert(0, str(DEPLOY_DIR))
-    from patch_streamlit_index import BOOT_JS_NAME, _index_path, patch
-
-    index = _index_path()
-    js_path = index.parent / BOOT_JS_NAME
-    original = _strip_boot_patch(index.read_text(encoding="utf-8"))
-    index.write_text(original, encoding="utf-8")
-    had_js = js_path.exists()
-    prior_js = js_path.read_text(encoding="utf-8") if had_js else None
-    css = (DEPLOY_DIR / "streamlit_boot.css").read_text(encoding="utf-8")
-    js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
-    patch(index, css, js)
-    try:
-        yield
-    finally:
-        index.write_text(original, encoding="utf-8")
-        if had_js and prior_js is not None:
-            js_path.write_text(prior_js, encoding="utf-8")
-        elif js_path.exists():
-            js_path.unlink()
+def _assert_streamlit_unpatched() -> None:
+    """Prove this suite does not rely on rewriting Streamlit's static index."""
+    index = Path(st.__file__).resolve().parent / "static" / "index.html"
+    text = index.read_text(encoding="utf-8")
+    assert "ai-doc-boot" not in text
+    assert "app-ask-pending" not in text
+    assert not (index.parent / "ai-doc-boot.js").exists()
 
 
 def _import_playwright():
@@ -163,9 +112,8 @@ def _streamlit_server(**extra_env: str) -> Iterator[str]:
         ],
         cwd=str(PROJECT_ROOT),
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
     url = f"http://127.0.0.1:{port}/app"
@@ -269,7 +217,41 @@ def _ask_and_wait(page, expect, question: str, *, expect_text: str, min_cards: i
     )
 
 
+def test_unpatched_streamlit_sets_busy_on_ask() -> None:
+    """Fresh Streamlit install (no index patch): click still sets app-ask-pending."""
+    _assert_streamlit_unpatched()
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="80") as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 900})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            # Client boot arrived via st.html, not /ai-doc-boot.js.
+            assert page.evaluate("() => !!window.__appAskBootBound") is True
+            _ask_and_wait(page, expect, TERM_QUESTION, expect_text="3 years", min_cards=1)
+
+            box = page.get_by_placeholder(READY_HINT)
+            ask = page.get_by_role("button", name="Ask", exact=True)
+            box.fill(LAW_QUESTION)
+            expect(ask).to_be_enabled()
+            ask.click()
+            page.wait_for_function(
+                "() => document.body.classList.contains('app-ask-pending')",
+                timeout=100,
+            )
+            info = _busy_in_status_row(page)
+            assert info.get("ok"), info
+            page.wait_for_function(
+                "() => !document.body.classList.contains('app-ask-pending')",
+                timeout=60000,
+            )
+            browser.close()
+    _assert_streamlit_unpatched()
+
+
 def test_busy_line_visible_in_status_row_within_100ms() -> None:
+    _assert_streamlit_unpatched()
     sync_playwright, expect = _import_playwright()
     with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="80") as url:
         with sync_playwright() as playwright:

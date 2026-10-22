@@ -170,6 +170,7 @@ def test_refusal_timing_is_skipped() -> None:
         assert 'class="app-timing"' in timing_html
         assert timing_kwargs.get("unsafe_allow_html") is True
         assert "<script>" not in timing_html
+        # Short answers become a headline only; timing still uses the shared helper path.
     finally:
         sources_panel.st = previous_st
 
@@ -212,5 +213,10 @@ def test_answer_body_html_is_escaped() -> None:
         assert "&lt;script&gt;" in joined or "&lt;span&gt;" in joined
         timing = [text for text, _ in markdowns if "app-timing" in text]
         assert timing and "Answered in" in timing[0]
+        # Escaped body and timing share the same markdown payload.
+        assert any(
+            "app-timing" in text and ("&lt;script&gt;" in text or "&lt;span&gt;" in text)
+            for text, _ in markdowns
+        )
     finally:
         sources_panel.st = previous_st

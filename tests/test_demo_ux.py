@@ -293,30 +293,25 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
     assert 'baseUrlPath = "app"' in text
     assert "gatherUsageStats = false" in text
     # Page grey for chrome; keep secondary white so inputs stay contrasted.
-    # First-paint white flash is handled by deploy/streamlit_boot.css, not secondary.
+    # Page grey for chrome; secondary stays white for contrasted inputs.
     assert 'backgroundColor = "#f6f7f9"' in text
     assert 'secondaryBackgroundColor = "#ffffff"' in text
 
 
-def test_streamlit_boot_patch_covers_first_paint() -> None:
-    """Static boot CSS/JS must exist before Python theme CSS can load."""
-    boot_css = (PROJECT_ROOT / "deploy" / "streamlit_boot.css").read_text(encoding="utf-8")
-    boot_js = (PROJECT_ROOT / "deploy" / "streamlit_boot.js").read_text(encoding="utf-8")
-    patcher = (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").read_text(encoding="utf-8")
+def test_ask_pending_ships_via_theme_not_package_patch() -> None:
+    """Busy CSS/JS load through the app; Docker/CI must not rewrite Streamlit."""
+    from ui_theme import _THEME_CSS
+
+    theme = (PROJECT_ROOT / "src" / "ui_theme.py").read_text(encoding="utf-8")
+    ask_js = (PROJECT_ROOT / "src" / "ask_pending.js").read_text(encoding="utf-8")
     dockerfile = (PROJECT_ROOT / "deploy" / "Dockerfile").read_text(encoding="utf-8")
-    assert 'id="app-boot"' in boot_js or 'getElementById("app-boot")' in boot_js
-    assert "Loading the document…" in patcher
-    assert '[data-testid="stSkeleton"]' in boot_css
-    assert "opacity: 0 !important" in boot_css
-    assert "background: #f6f7f9" in boot_css
-    # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
-    assert "visibility: hidden" in boot_css
-    assert 'body:has([data-testid="stHeading"] h1)' in boot_css
-    assert ':has([data-testid="stTextInput"] input)' in boot_css
-    assert ":has(.app-status--ready)" in boot_css
-    assert "python deploy/patch_streamlit_index.py" in dockerfile
-    assert "deploy/streamlit_boot.css" in dockerfile
-    assert "ai-doc-boot.js" in patcher
+    assert "app-ask-pending" in _THEME_CSS
+    assert "var(--app-doc-answering)" in _THEME_CSS
+    assert "unsafe_allow_javascript=True" in theme
+    assert "app-ask-pending" in ask_js
+    assert "patch_streamlit_index" not in dockerfile
+    assert "ai-doc-boot" not in dockerfile
+    assert not (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").exists()
 
 
 def test_booking_env_is_documented() -> None:

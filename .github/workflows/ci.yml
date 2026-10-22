@@ -19,8 +19,6 @@ jobs:
           pip install -r requirements.txt
           pip install pytest playwright
           python -m playwright install --with-deps chromium
-      - name: Patch Streamlit boot assets
-        run: python deploy/patch_streamlit_index.py
       - name: Pytest
         env:
           PYTHONPATH: src

@@ -1,11 +1,17 @@
 """Streamlit-safe theme for the answer-first client demo.
 
 Off-white paper, near-black ink, one indigo accent, rounded cards, no sidebar.
+Ask-pending client CSS lives here (not a site-packages index.html patch).
+Busy copy is supplied at inject time via ``--app-doc-answering``.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
+
+_ASK_PENDING_JS = Path(__file__).resolve().with_name("ask_pending.js")
 
 _THEME_CSS = """
 :root {
@@ -332,7 +338,7 @@ div[data-testid="stVerticalBlock"]:has(.app-chips-reserve),
   box-sizing: border-box;
 }
 
-/* Defense in depth: theme CSS also hides skeletons if the boot patch is absent. */
+/* Skeletons stay invisible until real content paints. */
 [data-testid="stMain"] [data-testid="stSkeleton"],
 section.main [data-testid="stSkeleton"],
 [data-testid="stSkeleton"],
@@ -343,6 +349,36 @@ section.main [data-testid="stSkeleton"],
   box-shadow: none !important;
   color: transparent !important;
   opacity: 0 !important;
+}
+
+/*
+  On Ask / chip click, hide prior answer cards immediately (before the server
+  round-trip clears the slot) so they never sit under the busy line.
+*/
+body.app-ask-pending [class*="st-key-answer_card_"],
+body.app-ask-pending [class*="st-key-refusal_card_"] {
+  display: none !important;
+}
+
+/*
+  Show the busy line in-place on Streamlit's status node (CSS only). Copy comes
+  from --app-doc-answering (set from page_copy at inject time).
+*/
+body.app-ask-pending .app-status {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  min-height: 1.5rem;
+}
+
+body.app-ask-pending .app-status::before {
+  content: var(--app-doc-answering);
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  font-weight: 600;
+  color: #2f6fed;
+  min-height: 1.5rem;
 }
 
 [class*="st-key-chip_"] button,
@@ -489,12 +525,15 @@ button.app-quote-btn {
   color: var(--app-muted);
 }
 
-.app-timing {
-  margin: 0.4rem 0 0 0;
-  font-size: 0.9rem;
-  line-height: 1.3;
-  font-weight: 400;
-  color: var(--app-muted);
+/* Beat Streamlit markdown `p` font-size so timing stays 0.9rem muted. */
+[data-testid="stMarkdownContainer"] p.app-timing,
+div[data-testid="stMarkdownContainer"] p.app-timing,
+p.app-timing {
+  margin: 0.4rem 0 0 0 !important;
+  font-size: 0.9rem !important;
+  line-height: 1.3 !important;
+  font-weight: 400 !important;
+  color: var(--app-muted) !important;
 }
 
 .app-booking {
@@ -629,7 +668,39 @@ section[data-testid="stSidebar"] {
 """
 
 
-def inject_theme(*, hide_sidebar: bool = True) -> None:
-    """Inject demo theme CSS once per render (Streamlit-safe)."""
-    css = _THEME_CSS + (_HIDE_SIDEBAR_CSS if hide_sidebar else "")
+def _css_string_literal(value: str) -> str:
+    """Quote a CSS string for use in ``content: var(...)`` / custom properties."""
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\A ")
+    )
+    return f'"{escaped}"'
+
+
+def inject_ask_pending_client() -> None:
+    """Load ask-pending JS via Streamlit 1.54 ``st.html`` (no site-packages patch).
+
+    The file must not contain raw ``<`` (even in comments): that starts an HTML
+    tag inside the inlined ``<script>`` payload and DOMPurify drops the script.
+    """
+    js = _ASK_PENDING_JS.read_text(encoding="utf-8")
+    if "<" in js:
+        raise ValueError(
+            "ask_pending.js must not contain '<' (breaks st.html script tags)"
+        )
+    # Avoid f-string braces in the JS body; concatenate instead.
+    st.html("<script>\n" + js + "\n</script>", unsafe_allow_javascript=True)
+
+
+def inject_theme(*, hide_sidebar: bool = True, busy_label: str | None = None) -> None:
+    """Inject demo theme CSS once per render (Streamlit-safe).
+
+    ``busy_label`` sets ``--app-doc-answering`` from page_copy so the CSS busy
+    line stays in sync with the server status string.
+    """
+    label = busy_label if busy_label else "Looking through the document"
+    root = f":root {{ --app-doc-answering: {_css_string_literal(label)}; }}\n"
+    css = root + _THEME_CSS + (_HIDE_SIDEBAR_CSS if hide_sidebar else "")
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    inject_ask_pending_client()
