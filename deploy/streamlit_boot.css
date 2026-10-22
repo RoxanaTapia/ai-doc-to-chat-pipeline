@@ -120,3 +120,12 @@ div[data-testid="stVerticalBlock"]:has(.app-chips-reserve),
   min-height: 11rem;
   box-sizing: border-box;
 }
+
+/*
+  On Ask / chip click, hide prior answer cards immediately (before the server
+  round-trip clears the slot) so they never sit under the busy line.
+*/
+body.app-ask-pending [class*="st-key-answer_card_"],
+body.app-ask-pending [class*="st-key-refusal_card_"] {
+  display: none !important;
+}

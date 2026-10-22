@@ -75,3 +75,18 @@ def test_boot_js_dismiss_gate_waits_for_theme_fonts_and_frame() -> None:
     assert "app-boot-pulse" in css
     assert 'class="app-boot__busy"' in patcher
     assert 'class="app-boot__label"' in patcher
+
+
+def test_boot_hides_prior_cards_on_ask_click() -> None:
+    """Follow-up clicks hide old cards and show busy before the server round-trip."""
+    js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
+    css = (DEPLOY_DIR / "streamlit_boot.css").read_text(encoding="utf-8")
+    assert "app-ask-pending" in js
+    assert "app-ask-pending" in css
+    assert "st-key-ask_submit" in js
+    assert "st-key-chip_" in js
+    assert "Looking through the document" in js
+    assert "app-status--answering" in js
+    assert "st-key-answer_card_" in css
+    assert "st-key-refusal_card_" in css
+    assert "display: none !important" in css

@@ -429,3 +429,160 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert _show_page_buttons(at)
     assert _session_get(at, "_answer_history_cleared") is False
     assert source_paint_events != paints_after_first
+
+
+def _status_trace(at, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record doc_status transitions around generation and the post-ask rerun."""
+    import streamlit as st
+
+    import rag
+    import rag.generation as generation
+
+    trace: list[str] = []
+    real_stream = generation.generate_answer_stream
+    real_rerun = st.rerun
+
+    def _tracked_stream(*args, **kwargs):
+        trace.append(f"gen_start:{_session_get(at, 'doc_status')}")
+        yield from real_stream(*args, **kwargs)
+        trace.append(f"gen_end:{_session_get(at, 'doc_status')}")
+
+    def _tracked_rerun(*args, **kwargs):
+        trace.append(f"rerun:{_session_get(at, 'doc_status')}")
+        return real_rerun(*args, **kwargs)
+
+    monkeypatch.setattr(generation, "generate_answer_stream", _tracked_stream)
+    monkeypatch.setattr(rag, "generate_answer_stream", _tracked_stream)
+    monkeypatch.setattr(st, "rerun", _tracked_rerun)
+    return trace
+
+
+def test_followup_answer_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Busy status must stay answering through generation until cards land."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    _ask(at, TERM_QUESTION)
+    assert not at.exception
+    assert _session_get(at, "doc_status") == "ready"
+
+    trace = _status_trace(at, monkeypatch)
+    _ask(at, LAW_QUESTION)
+    assert not at.exception
+
+    assert any(item.startswith("gen_start:answering") for item in trace)
+    assert any(item.startswith("gen_end:answering") for item in trace)
+    # Post-ask success rerun must still be answering (not ready) — that was the gap.
+    success_reruns = [item for item in trace if item.startswith("rerun:")]
+    assert success_reruns, "expected a post-ask rerun"
+    assert success_reruns[-1] == "rerun:answering"
+
+    assert _session_get(at, "doc_status") == "ready"
+    questions = _card_questions(at)
+    assert TERM_QUESTION in questions
+    assert LAW_QUESTION in questions
+    assistants = [m for m in (_session_get(at, "messages") or []) if m.get("role") == "assistant"]
+    assert len(assistants) == 2
+    assert "Spain" in (assistants[-1].get("content") or "")
+
+
+def test_followup_refusal_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refusal follow-ups must also keep answering until the refusal card lands."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    _ask(at, TERM_QUESTION)
+    assert not at.exception
+
+    trace = _status_trace(at, monkeypatch)
+    _ask(at, FEE_QUESTION)
+    assert not at.exception
+
+    # Context-guard refusals may skip the model; the success rerun must still
+    # leave status answering so the busy line survives until the card paints.
+    success_reruns = [item for item in trace if item.startswith("rerun:")]
+    assert success_reruns, f"expected a post-ask rerun; trace={trace}"
+    assert success_reruns[-1] == "rerun:answering"
+    assert any(
+        item.startswith("gen_start:answering") or item == "rerun:answering" for item in trace
+    )
+
+    assert _session_get(at, "doc_status") == "ready"
+    assistants = [m for m in (_session_get(at, "messages") or []) if m.get("role") == "assistant"]
+    assert len(assistants) == 2
+    assert assistants[-1].get("refusal") or INSUFFICIENT_CONTEXT_ANSWER in (
+        assistants[-1].get("content") or ""
+    )
+    assert FEE_QUESTION in _card_questions(at)
+
+
+def test_cards_never_paint_alongside_busy_line(
+    stub_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Prior cards stay cleared for the whole busy window (no overlap with busy)."""
+    from streamlit.testing.v1 import AppTest
+
+    import rag
+    import rag.generation as generation
+    import sources_panel
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    _ask(at, TERM_QUESTION)
+    assert not at.exception
+    assert _page_badge_visible(at)
+
+    loading_snapshots: list[dict[str, object]] = []
+    card_paints_while_cleared = 0
+    real_stream = generation.generate_answer_stream
+    real_card = sources_panel._render_answer_card
+    real_inline = sources_panel._render_inline_sources
+    source_paints = 0
+
+    def _count_inline(*args, **kwargs):
+        nonlocal source_paints
+        source_paints += 1
+        return real_inline(*args, **kwargs)
+
+    def _guard_card(*args, **kwargs):
+        nonlocal card_paints_while_cleared
+        # History flag is True only between clear and the idle refill. Painting
+        # a card in that window would put prior sources under the busy line.
+        if _session_get(at, "_answer_history_cleared") is True:
+            card_paints_while_cleared += 1
+        return real_card(*args, **kwargs)
+
+    def _delayed_stream(*args, **kwargs):
+        time.sleep(0.2)
+        loading_snapshots.append(
+            {
+                "cleared": _session_get(at, "_answer_history_cleared"),
+                "status": _session_get(at, "doc_status"),
+                "source_paints": source_paints,
+                "card_paints_while_cleared": card_paints_while_cleared,
+            }
+        )
+        yield from real_stream(*args, **kwargs)
+
+    monkeypatch.setattr(sources_panel, "_render_inline_sources", _count_inline)
+    monkeypatch.setattr(sources_panel, "_render_answer_card", _guard_card)
+    monkeypatch.setattr(generation, "generate_answer_stream", _delayed_stream)
+    monkeypatch.setattr(rag, "generate_answer_stream", _delayed_stream)
+
+    paints_before = source_paints
+    _ask(at, LAW_QUESTION)
+    assert not at.exception
+    assert loading_snapshots
+    mid = loading_snapshots[0]
+    assert mid["cleared"] is True
+    assert mid["status"] == "answering"
+    assert mid["source_paints"] == paints_before
+    assert mid["card_paints_while_cleared"] == 0
+    assert card_paints_while_cleared == 0
+    assert _session_get(at, "doc_status") == "ready"
+    assert _page_badge_visible(at)

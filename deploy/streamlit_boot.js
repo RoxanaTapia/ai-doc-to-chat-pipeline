@@ -136,3 +136,81 @@
     window.requestAnimationFrame(tick);
   }
 })();
+
+(() => {
+  // Hide prior answer cards and show the busy status as soon as the visitor
+  // asks again, without waiting for the next Streamlit round-trip.
+  const BUSY_COPY = "Looking through the document";
+  const PENDING = "app-ask-pending";
+  const CARD_SEL = '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]';
+  const FAILSAFE_MS = 30000;
+  let pendingSince = 0;
+
+  const markPending = () => {
+    document.body.classList.add(PENDING);
+    pendingSince = performance.now();
+    const status = document.querySelector(".app-status");
+    if (status) {
+      status.className = "app-status app-status--answering";
+      status.textContent = BUSY_COPY;
+    }
+  };
+
+  const clearPending = () => {
+    document.body.classList.remove(PENDING);
+    pendingSince = 0;
+  };
+
+  const isAskSubmit = (el) => {
+    if (!el || !el.closest) return false;
+    return !!el.closest('[class*="st-key-ask_submit"]');
+  };
+
+  const isChipButton = (el) => {
+    if (!el || !el.closest) return false;
+    return !!el.closest('[class*="st-key-chip_"]');
+  };
+
+  const onActivate = (event) => {
+    const t = event.target;
+    if (isAskSubmit(t) || isChipButton(t)) {
+      markPending();
+    }
+  };
+
+  const onKey = (event) => {
+    if (event.key !== "Enter") return;
+    const t = event.target;
+    if (!t || t.tagName !== "INPUT") return;
+    if (!t.closest || !t.closest('[data-testid="stTextInput"]')) return;
+    markPending();
+  };
+
+  document.addEventListener("pointerdown", onActivate, true);
+  document.addEventListener("keydown", onKey, true);
+
+  const syncPending = () => {
+    if (!document.body.classList.contains(PENDING)) return;
+    // Drop the client hide once the server has cleared the card slot so the
+    // idle run can paint new cards. Do not key off answering alone: we set
+    // that class ourselves on click while old cards are still in the DOM.
+    if (!document.querySelector(CARD_SEL)) {
+      clearPending();
+      return;
+    }
+    if (pendingSince && performance.now() - pendingSince >= FAILSAFE_MS) {
+      clearPending();
+    }
+  };
+
+  const obs = new MutationObserver(() => syncPending());
+  const start = () => {
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true });
+    syncPending();
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();

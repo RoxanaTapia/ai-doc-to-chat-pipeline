@@ -120,7 +120,7 @@ def test_refusal_timing_is_skipped() -> None:
     from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
     from sources_panel import _render_answer_card
 
-    calls: list[object] = []
+    markdowns: list[str] = []
 
     class _FakeSt:
         def container(self, *args, **kwargs):
@@ -133,12 +133,10 @@ def test_refusal_timing_is_skipped() -> None:
             return False
 
         def markdown(self, *args, **kwargs):
-            return None
+            markdowns.append(str(args[0]) if args else "")
 
     previous_st = sources_panel.st
-    previous_render = sources_panel._render_answer_timing
     sources_panel.st = _FakeSt()
-    sources_panel._render_answer_timing = lambda *a, **k: calls.append((a, k))
     try:
         _render_answer_card(
             question="What is the penalty fee?",
@@ -150,7 +148,8 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t",
         )
-        assert calls == []
+        assert not any("app-timing" in block for block in markdowns)
+        markdowns.clear()
         _render_answer_card(
             question="How long?",
             answer="3 years",
@@ -161,7 +160,9 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t2",
         )
-        assert len(calls) == 1
+        timing_blocks = [block for block in markdowns if "app-timing" in block]
+        assert len(timing_blocks) == 1
+        assert "app-answer-headline" in timing_blocks[0]
+        assert "Answered in" in timing_blocks[0]
     finally:
         sources_panel.st = previous_st
-        sources_panel._render_answer_timing = previous_render

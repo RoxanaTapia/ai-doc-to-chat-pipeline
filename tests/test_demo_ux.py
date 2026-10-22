@@ -417,11 +417,30 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
     assert "queued_question" in text
     assert "st.write_stream(" not in text
     assert "AskTimeoutError" in text
-    assert text.find("run_with_timeout") < text.find("typing_slot.empty()")
-    assert text.find("_collect_generated_answer") < text.find("typing_slot.empty()")
+    assert "run_with_timeout" in text
+    assert "_collect_generated_answer" in text
+    # Do not empty the busy line in finally: that opened a gap before the card.
+    assert "typing_slot.empty()" not in text
     assert 'paint_status(status_slot, "answering"' in text
     assert "Looking through the document" in _CLIENT_COPY["doc_answering"]
     assert _CLIENT_COPY["doc_timeout"] == ("That took too long, so I stopped. Please ask again.")
+
+
+def test_followup_keeps_answering_until_cards_paint() -> None:
+    """Success path must not paint ready before the post-ask rerun (busy gap)."""
+    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    success_marker = "eval_chunk_count=len(raw_results),"
+    success_at = text.find(success_marker)
+    assert success_at != -1
+    after_append = text[success_at : success_at + 500]
+    assert "st.rerun()" in after_append
+    ready_before_rerun = after_append.find('paint_status(status_slot, "ready"')
+    rerun_at = after_append.find("st.rerun()")
+    assert ready_before_rerun == -1 or ready_before_rerun > rerun_at
+    # Idle run releases answering only after answer cards are painted.
+    cards_at = text.find("with answers_slot.container()")
+    release_at = text.find('doc_status") == "answering"')
+    assert cards_at != -1 and release_at != -1 and cards_at < release_at
 
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:

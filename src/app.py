@@ -1289,8 +1289,8 @@ if query and query.strip() and chat_ready:
             if timer_thread is not None:
                 stop_timer.set()
                 timer_thread.join(timeout=5.0)
-            typing_slot.empty()
-            timer_placeholder.empty()
+            # Keep the under-question busy line until the post-ask rerun replaces
+            # this tree. Emptying here (before ready/cards) opened a visible gap.
 
         total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
@@ -1364,7 +1364,6 @@ if query and query.strip() and chat_ready:
         "generation_ms": generation_elapsed_ms,
     }
 
-    ready_name = st.session_state.current_file or "Document"
     if isinstance(retrieval_error, AskTimeoutError):
         generation_error = retrieval_error
         retrieval_error = None
@@ -1427,7 +1426,8 @@ if query and query.strip() and chat_ready:
             target_section=target_section,
             eval_chunk_count=len(raw_results),
         )
-        paint_status(status_slot, "ready", _ready_message(ready_name))
+        # Keep doc_status "answering" across this rerun. Painting "ready" here
+        # cleared the busy line before the idle run could paint the new card.
         st.rerun()
 elif query is not None and not chat_ready:
     paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
@@ -1487,6 +1487,14 @@ with answers_slot.container():
                     ),
                     top_k=TOP_K,
                 )
+
+# Cards are on screen; only now drop the busy line back to the document ready line.
+if st.session_state.get("doc_status") == "answering" and not (query and str(query).strip()):
+    paint_status(
+        status_slot,
+        "ready",
+        _ready_message(st.session_state.current_file or "Document"),
+    )
 
 if not _show_sidebar:
     _render_client_footer(
