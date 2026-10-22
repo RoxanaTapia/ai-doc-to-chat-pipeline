@@ -328,3 +328,104 @@ def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
     metrics = _session_get(at, "last_retrieval_metrics") or {}
     assert metrics.get("reranker_enabled") is False
     assert float(metrics.get("retrieval_ms") or 0) < 2000.0
+
+
+def _page_badge_visible(at) -> bool:
+    return any('class="app-page-badge"' in (block.value or "") for block in at.markdown)
+
+
+def _show_page_buttons(at) -> list[str]:
+    found: list[str] = []
+    for btn in at.button:
+        label = getattr(btn, "label", None) or ""
+        key = str(getattr(btn, "key", "") or "")
+        if label == "Show page" or key.startswith("preview_"):
+            found.append(key or label)
+    return found
+
+
+def _inline_quote_visible(at) -> bool:
+    return any('class="app-inline-quote"' in (block.value or "") for block in at.markdown)
+
+
+def test_second_ask_clears_prior_sources_while_loading(
+    stub_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Second question must not keep the first answer's sources at full contrast.
+
+    Delays generation so the loading window is observable. AppTest does not
+    refresh its element tree mid-script, so the test watches session flags and
+    source-render calls: history is cleared before the model runs, and no page
+    badge / quote / Show page is painted again until the new answer lands.
+    """
+    from streamlit.testing.v1 import AppTest
+
+    import rag
+    import rag.generation as generation
+    import sources_panel
+
+    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    assert _session_get(at, "vector_store") is not None
+
+    _ask(at, TERM_QUESTION)
+    assert not at.exception
+    assert _page_badge_visible(at)
+    assert _inline_quote_visible(at)
+    assert _show_page_buttons(at)
+    assert TERM_QUESTION in _card_questions(at)
+    assert _session_get(at, "_answer_history_cleared") is False
+
+    source_paint_events: list[str] = []
+    real_inline = sources_panel._render_inline_sources
+    real_preview = sources_panel._render_page_preview
+    real_stream = generation.generate_answer_stream
+    loading_snapshots: list[dict[str, object]] = []
+
+    def _track_inline(*args, **kwargs):
+        source_paint_events.append("inline")
+        return real_inline(*args, **kwargs)
+
+    def _track_preview(*args, **kwargs):
+        source_paint_events.append("show_page")
+        return real_preview(*args, **kwargs)
+
+    def _delayed_stream(*args, **kwargs):
+        time.sleep(0.35)
+        loading_snapshots.append(
+            {
+                "cleared": _session_get(at, "_answer_history_cleared"),
+                "status": _session_get(at, "doc_status"),
+                "status_detail": _session_get(at, "doc_status_detail"),
+                "source_paints_before_answer": list(source_paint_events),
+            }
+        )
+        yield from real_stream(*args, **kwargs)
+
+    monkeypatch.setattr(sources_panel, "_render_inline_sources", _track_inline)
+    monkeypatch.setattr(sources_panel, "_render_page_preview", _track_preview)
+    monkeypatch.setattr(generation, "generate_answer_stream", _delayed_stream)
+    monkeypatch.setattr(rag, "generate_answer_stream", _delayed_stream)
+
+    paints_after_first = list(source_paint_events)
+    _ask(at, LAW_QUESTION)
+    assert not at.exception
+    assert loading_snapshots, "expected a mid-generation snapshot during the second ask"
+    mid = loading_snapshots[0]
+    assert mid["cleared"] is True
+    assert mid["status"] == "answering"
+    assert mid["status_detail"] == "Looking through the document"
+    assert mid["source_paints_before_answer"] == paints_after_first
+
+    messages = _session_get(at, "messages") or []
+    assistants = [m for m in messages if m.get("role") == "assistant"]
+    assert len(assistants) == 2
+    questions = _card_questions(at)
+    assert TERM_QUESTION in questions
+    assert LAW_QUESTION in questions
+    assert _page_badge_visible(at)
+    assert _inline_quote_visible(at)
+    assert _show_page_buttons(at)
+    assert _session_get(at, "_answer_history_cleared") is False
+    assert source_paint_events != paints_after_first

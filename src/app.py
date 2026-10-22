@@ -548,6 +548,12 @@ def _continue_queued_ask(already_taken: str | None) -> None:
         st.rerun()
 
 
+def _clear_answer_history(slot) -> None:
+    """Drop prior answer cards so old page sources cannot linger under a new ask."""
+    slot.empty()
+    st.session_state["_answer_history_cleared"] = True
+
+
 _ASK_SHELL_EMITTED_KEY = "_ask_shell_emitted"
 
 
@@ -1052,6 +1058,11 @@ chip_slot = _render_starter_chips(
     query=query,
     shell_ready=shell_was_ready,
 )
+# Answer cards live in a replaceable slot so a second ask can clear the
+# previous page badge, quote, and Show page before slow work starts.
+# Without this, Streamlit keeps last-run sources at full contrast under
+# "Looking through the document…".
+answers_slot = st.empty()
 if (
     chat_ready
     and not shell_was_ready
@@ -1062,6 +1073,7 @@ if (
 if query and query.strip() and chat_ready:
     query = query.strip()
     chip_slot.empty()
+    _clear_answer_history(answers_slot)
     _append_chat_message("user", query)
     paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
 
@@ -1423,6 +1435,7 @@ elif query is not None:
     paint_status(status_slot, "error", "Please enter a non-empty question.")
 
 # Newest answer first so the last reply stays on screen without iframe scroll.
+# Skipped on the ask path (rerun after append); idle runs fill answers_slot.
 turns = _paired_turns(st.session_state.messages)
 indexed_stats = st.session_state.get("indexed_doc_stats") or {}
 page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
@@ -1432,46 +1445,48 @@ assistant_count = sum(
     1 for message in st.session_state.messages if message.get("role") == "assistant"
 )
 
-for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
-    question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-    _render_answer_card(
-        question=question,
-        answer=assistant_msg.get("content") or "",
-        sources=assistant_msg.get("sources") or [],
-        refusal=assistant_msg.get("refusal"),
-        expanded=turn_idx == 0,
-        timing=assistant_msg.get("timing"),
-        developer_mode=st.session_state.developer_mode,
-        page_count=page_count,
-        any_blank_pages=any_blank_pages,
-        pdf_bytes=pdf_bytes,
-        card_key=str(len(turns) - turn_idx),
-    )
-    if turn_idx == 0 and assistant_count >= 3:
-        _render_booking_cta(booking_url())
-    if st.session_state.developer_mode and assistant_msg.get("sources"):
-        turn_label = f"turn {len(turns) - turn_idx}"
-        _render_source_checklist(
-            assistant_msg["sources"],
-            target_section=assistant_msg.get("target_section"),
-            title=_dev_panel_title(
-                "Source checklist (eval)",
-                assistant_msg.get("for_question"),
-                fallback=turn_label,
-            ),
+with answers_slot.container():
+    st.session_state["_answer_history_cleared"] = False
+    for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
+        question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+        _render_answer_card(
+            question=question,
+            answer=assistant_msg.get("content") or "",
+            sources=assistant_msg.get("sources") or [],
+            refusal=assistant_msg.get("refusal"),
+            expanded=turn_idx == 0,
+            timing=assistant_msg.get("timing"),
+            developer_mode=st.session_state.developer_mode,
+            page_count=page_count,
+            any_blank_pages=any_blank_pages,
+            pdf_bytes=pdf_bytes,
+            card_key=str(len(turns) - turn_idx),
         )
-        if assistant_msg.get("eval_context"):
-            _render_eval_context_panel(
-                assistant_msg["eval_context"],
+        if turn_idx == 0 and assistant_count >= 3:
+            _render_booking_cta(booking_url())
+        if st.session_state.developer_mode and assistant_msg.get("sources"):
+            turn_label = f"turn {len(turns) - turn_idx}"
+            _render_source_checklist(
+                assistant_msg["sources"],
                 target_section=assistant_msg.get("target_section"),
-                chunk_count=assistant_msg.get("eval_chunk_count"),
                 title=_dev_panel_title(
-                    "Exact context fed to LLM",
+                    "Source checklist (eval)",
                     assistant_msg.get("for_question"),
                     fallback=turn_label,
                 ),
-                top_k=TOP_K,
             )
+            if assistant_msg.get("eval_context"):
+                _render_eval_context_panel(
+                    assistant_msg["eval_context"],
+                    target_section=assistant_msg.get("target_section"),
+                    chunk_count=assistant_msg.get("eval_chunk_count"),
+                    title=_dev_panel_title(
+                        "Exact context fed to LLM",
+                        assistant_msg.get("for_question"),
+                        fallback=turn_label,
+                    ),
+                    top_k=TOP_K,
+                )
 
 if not _show_sidebar:
     _render_client_footer(
