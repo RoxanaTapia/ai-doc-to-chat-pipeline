@@ -470,8 +470,19 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "shell_ready=shell_was_ready" in text
     assert "chip_slot = _render_starter_chips(" in text
     assert "chip_slot.empty()" in text
+    assert "answers_slot = st.empty()" in text
+    assert "def _clear_answer_history" in text
+    assert "_clear_answer_history(answers_slot)" in text
+    assert "with answers_slot.container()" in text
     assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
+    assert text.find("answers_slot = st.empty()") < text.find("_clear_answer_history(answers_slot)")
     assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')
+    assert text.find("_clear_answer_history(answers_slot)") < text.find(
+        'paint_status(status_slot, "answering"'
+    )
+    assert text.find("_clear_answer_history(answers_slot)") < text.find(
+        "with answers_slot.container()"
+    )
     assert "Press Enter to apply" not in text
     assert "on_change=_on_ask_box_commit if chat_ready else None" in text
     assert "_continue_queued_ask(queued_question)" in text
