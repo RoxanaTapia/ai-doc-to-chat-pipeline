@@ -293,6 +293,14 @@ def _get_cross_encoder(model_name: str):
     return CrossEncoder(model_name)
 
 
+def _card_paint_key(message: dict, fallback: int) -> str:
+    """Card key that stays put when the history cap drops the oldest turn."""
+    paint_id = message.get("paint_id")
+    if paint_id:
+        return str(paint_id)
+    return str(fallback)
+
+
 def _append_chat_message(
     role: str,
     content: str,
@@ -324,10 +332,11 @@ def _append_chat_message(
             message["target_section"] = target_section
         if eval_chunk_count is not None:
             message["eval_chunk_count"] = eval_chunk_count
-    st.session_state.messages.append(message)
     if role == "assistant":
-        # Bump so the client can clear app-ask-pending when this answer paints.
+        # Stable card id. The turn index repeats once history is at the cap.
         st.session_state.ask_paint_id = int(st.session_state.get("ask_paint_id") or 0) + 1
+        message["paint_id"] = st.session_state.ask_paint_id
+    st.session_state.messages.append(message)
     if len(st.session_state.messages) > MAX_CHAT_MESSAGES:
         st.session_state.messages = st.session_state.messages[-MAX_CHAT_MESSAGES:]
 
@@ -1452,13 +1461,7 @@ assistant_count = sum(
 
 with answers_slot.container():
     st.session_state["_answer_history_cleared"] = False
-    # Explicit per-ask signal for the client: clear app-ask-pending when this
-    # id changes (including fast refusal paints that never show zero cards).
     ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
-    st.markdown(
-        f'<div id="app-ask-done" data-ask-id="{ask_paint_id}" hidden aria-hidden="true"></div>',
-        unsafe_allow_html=True,
-    )
     for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
         question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
         _render_answer_card(
@@ -1472,7 +1475,7 @@ with answers_slot.container():
             page_count=page_count,
             any_blank_pages=any_blank_pages,
             pdf_bytes=pdf_bytes,
-            card_key=str(len(turns) - turn_idx),
+            card_key=_card_paint_key(assistant_msg, len(turns) - turn_idx),
         )
         if turn_idx == 0 and assistant_count >= 3:
             _render_booking_cta(booking_url())
@@ -1499,6 +1502,16 @@ with answers_slot.container():
                     ),
                     top_k=TOP_K,
                 )
+    # After the cards. The client clears the busy line only once this id changes
+    # and the new card is in the DOM. data-ask-cap is how many cards stay on screen.
+    card_cap = MAX_CHAT_MESSAGES // 2
+    st.markdown(
+        (
+            f'<div id="app-ask-done" data-ask-id="{ask_paint_id}" '
+            f'data-ask-cap="{card_cap}" hidden aria-hidden="true"></div>'
+        ),
+        unsafe_allow_html=True,
+    )
 
 # Cards are on screen; only now drop the busy line back to the document ready line.
 if st.session_state.get("doc_status") == "answering" and not (query and str(query).strip()):

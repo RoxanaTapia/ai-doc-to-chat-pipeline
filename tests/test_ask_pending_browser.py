@@ -314,6 +314,20 @@ def test_busy_line_visible_in_status_row_within_100ms() -> None:
             info = _busy_in_status_row(page)
             assert info.get("ok"), info
             assert info["rect"][2] > 0 and info["rect"][3] > 0
+            # Stale rerun fade is opacity 1s ease-in with a 0.5s delay. Override it.
+            fade = page.evaluate(
+                """() => {
+                  const el = document.querySelector('.stElementContainer:has(.app-status)');
+                  if (!el) return null;
+                  const cs = getComputedStyle(el);
+                  return {
+                    opacity: cs.opacity,
+                    duration: cs.transitionDuration,
+                    delay: cs.transitionDelay,
+                  };
+                }"""
+            )
+            assert fade == {"opacity": "1", "duration": "0s", "delay": "0s"}, fade
             # Status row sits below the hero, not at the page origin.
             assert info["rect"][1] > 40
             page.wait_for_function(
@@ -508,4 +522,386 @@ def test_html_in_answer_is_escaped() -> None:
             body = page.locator("body").inner_text()
             assert "<script>" in body or "alert(1)" in body
             assert "payload about Spain" in body
+            browser.close()
+
+
+_SIM_HTML = """<!DOCTYPE html>
+<html><body>
+  <div class="stElementContainer"><div class="app-status">Ready line</div></div>
+  <div id="app-ask-done" data-ask-id="1" hidden></div>
+  <div class="st-key-answer_card_1">Earlier answer</div>
+  <div class="st-key-ask_submit"><button type="button">Ask</button></div>
+  <div data-testid="stTextInput"><input type="text" /></div>
+</body></html>
+"""
+
+
+def _raf_settle(page) -> None:
+    page.evaluate(
+        """() => new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        })"""
+    )
+
+
+def _open_pending_sim(playwright):
+    browser = playwright.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.set_content(_SIM_HTML)
+    page.evaluate("() => { window.__APP_ASK_TEST_HOOKS = true; }")
+    page.add_script_tag(content=(SRC_DIR / "ask_pending.js").read_text(encoding="utf-8"))
+    page.wait_for_function("() => window.__appAskPending && window.__appAskBootBound")
+    return browser, page
+
+
+def test_done_marker_before_cards_does_not_clear() -> None:
+    """Slot clear and a done id with no cards must keep the busy line up."""
+    sync_playwright, _expect = _import_playwright()
+    with sync_playwright() as playwright:
+        browser, page = _open_pending_sim(playwright)
+        page.evaluate("() => window.__appAskPending.markPending()")
+        assert _pending(page)
+        page.evaluate(
+            """() => {
+              const done = document.getElementById('app-ask-done');
+              if (done) done.remove();
+              const card = document.querySelector('.st-key-answer_card_1');
+              if (card) card.remove();
+            }"""
+        )
+        _raf_settle(page)
+        assert _pending(page)
+
+        page.evaluate(
+            """() => {
+              const done = document.createElement('div');
+              done.id = 'app-ask-done';
+              done.setAttribute('data-ask-id', '2');
+              document.body.appendChild(done);
+            }"""
+        )
+        _raf_settle(page)
+        assert _pending(page)
+        assert page.locator('[class*="st-key-answer_card_"]').count() == 0
+
+        page.evaluate(
+            """() => {
+              const card = document.createElement('div');
+              card.className = 'st-key-answer_card_2';
+              card.textContent = 'New answer';
+              document.body.appendChild(card);
+            }"""
+        )
+        _raf_settle(page)
+        assert _pending(page)
+
+        page.evaluate(
+            """() => {
+              const card = document.createElement('div');
+              card.className = 'st-key-answer_card_1';
+              card.textContent = 'Earlier answer';
+              document.body.appendChild(card);
+            }"""
+        )
+        _raf_settle(page)
+        assert not _pending(page)
+        assert page.locator('[class*="st-key-answer_card_"]').count() == 2
+        browser.close()
+
+
+def test_cards_return_in_the_same_frame_as_the_answer() -> None:
+    """Busy clears only once the new card and the earlier card are both present."""
+    sync_playwright, _expect = _import_playwright()
+    with sync_playwright() as playwright:
+        browser, page = _open_pending_sim(playwright)
+        page.evaluate("() => window.__appAskPending.markPending()")
+        result = page.evaluate(
+            """() => new Promise((resolve) => {
+              let clearedEarly = false;
+              const cardCount = () => document.querySelectorAll(
+                '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+              ).length;
+              const watch = new MutationObserver(() => {
+                if (!document.body.classList.contains('app-ask-pending') && cardCount() < 2) {
+                  clearedEarly = true;
+                }
+              });
+              watch.observe(document.body, {attributes: true, childList: true, subtree: true});
+              const oldDone = document.getElementById('app-ask-done');
+              if (oldDone) oldDone.remove();
+              const oldCard = document.querySelector('.st-key-answer_card_1');
+              if (oldCard) oldCard.remove();
+              const newer = document.createElement('div');
+              newer.className = 'st-key-answer_card_2';
+              newer.textContent = 'New answer';
+              const earlier = document.createElement('div');
+              earlier.className = 'st-key-answer_card_1';
+              earlier.textContent = 'Earlier answer';
+              const done = document.createElement('div');
+              done.id = 'app-ask-done';
+              done.setAttribute('data-ask-id', '2');
+              document.body.appendChild(newer);
+              document.body.appendChild(earlier);
+              document.body.appendChild(done);
+              requestAnimationFrame(() => requestAnimationFrame(() => {
+                resolve({
+                  pending: document.body.classList.contains('app-ask-pending'),
+                  cards: cardCount(),
+                  clearedEarly,
+                });
+              }));
+            })"""
+        )
+        assert result["clearedEarly"] is False
+        assert result["pending"] is False
+        assert result["cards"] == 2
+        browser.close()
+
+
+def test_enter_sets_pending_for_typed_value_without_ask_button() -> None:
+    """Enter marks pending even if the Ask button is disabled or the value lands on keyup."""
+    sync_playwright, _expect = _import_playwright()
+    with sync_playwright() as playwright:
+        browser, page = _open_pending_sim(playwright)
+        page.evaluate(
+            """() => {
+              const button = document.querySelector('[class*="st-key-ask_submit"] button');
+              button.disabled = true;
+              button.setAttribute('aria-disabled', 'true');
+              const input = document.querySelector('[data-testid="stTextInput"] input');
+              input.value = 'What is the penalty fee if Beta Labs breaks this agreement?';
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+            }"""
+        )
+        assert _pending(page)
+        page.evaluate("() => window.__appAskPending.clearPending()")
+        assert not _pending(page)
+
+        page.evaluate(
+            """() => {
+              const input = document.querySelector('[data-testid="stTextInput"] input');
+              input.value = '';
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+              input.value = 'What is the penalty fee if Beta Labs breaks this agreement?';
+              input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+            }"""
+        )
+        assert _pending(page)
+        page.evaluate("() => window.__appAskPending.clearPending()")
+        page.evaluate(
+            """() => {
+              const input = document.querySelector('[data-testid="stTextInput"] input');
+              input.value = '   ';
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+              input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+            }"""
+        )
+        assert not _pending(page)
+        browser.close()
+
+
+def test_typed_enter_on_first_refusal_shows_busy_line() -> None:
+    """A typed Enter on a refusal, as the first question, sets the busy line."""
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="120") as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 900})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            box = page.get_by_placeholder(READY_HINT)
+            box.click()
+            box.type(FEE_QUESTION, delay=0)
+            box.press("Enter")
+            page.wait_for_function(
+                "() => document.body.classList.contains('app-ask-pending')",
+                timeout=100,
+            )
+            info = _busy_in_status_row(page)
+            assert info.get("ok"), info
+            page.wait_for_function(
+                """() => {
+                  if (document.body.classList.contains('app-ask-pending')) return false;
+                  const text = document.body.innerText || '';
+                  return text.includes("isn't in the document");
+                }""",
+                timeout=60000,
+            )
+            assert not _pending(page)
+            assert _finished_cards(page) >= 1
+            browser.close()
+
+
+def test_cap_keeps_busy_until_earlier_cards_return() -> None:
+    """At the card cap, dropping the oldest card still clears once the rest are back."""
+    sync_playwright, _expect = _import_playwright()
+    with sync_playwright() as playwright:
+        browser, page = _open_pending_sim(playwright)
+        page.evaluate(
+            """() => {
+              const done = document.getElementById('app-ask-done');
+              done.setAttribute('data-ask-id', '20');
+              done.setAttribute('data-ask-cap', '20');
+              const seeded = document.querySelector('.st-key-answer_card_1');
+              if (seeded) seeded.remove();
+              for (let n = 20; n > 0; n -= 1) {
+                const card = document.createElement('div');
+                card.className = 'st-key-answer_card_' + n;
+                card.textContent = 'card ' + n;
+                document.body.appendChild(card);
+              }
+              window.__appAskPending.markPending();
+            }"""
+        )
+        assert _pending(page)
+        page.evaluate(
+            """() => {
+              document.querySelectorAll(
+                '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+              ).forEach((node) => node.remove());
+              const oldDone = document.getElementById('app-ask-done');
+              if (oldDone) oldDone.remove();
+              const done = document.createElement('div');
+              done.id = 'app-ask-done';
+              done.setAttribute('data-ask-id', '21');
+              done.setAttribute('data-ask-cap', '20');
+              document.body.appendChild(done);
+              const fresh = document.createElement('div');
+              fresh.className = 'st-key-answer_card_21';
+              fresh.textContent = 'card 21';
+              document.body.appendChild(fresh);
+            }"""
+        )
+        _raf_settle(page)
+        assert _pending(page)
+
+        page.evaluate(
+            """() => {
+              for (let n = 20; n > 1; n -= 1) {
+                const card = document.createElement('div');
+                card.className = 'st-key-answer_card_' + n;
+                card.textContent = 'card ' + n;
+                document.body.appendChild(card);
+              }
+            }"""
+        )
+        _raf_settle(page)
+        assert not _pending(page)
+        assert page.locator(".st-key-answer_card_1").count() == 0
+        assert page.locator(".st-key-answer_card_21").count() == 1
+        assert page.locator('[class*="st-key-answer_card_"]').count() == 20
+        browser.close()
+
+
+def test_repeat_enter_does_not_reset_failsafe() -> None:
+    """A second Enter while pending must not push the 30s failsafe back."""
+    sync_playwright, _expect = _import_playwright()
+    with sync_playwright() as playwright:
+        browser, page = _open_pending_sim(playwright)
+        page.evaluate(
+            """() => {
+              window.__APP_ASK_FAILSAFE_MS = 1000;
+              const input = document.querySelector('[data-testid="stTextInput"] input');
+              input.value = 'How long does this agreement last?';
+              input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+            }"""
+        )
+        assert _pending(page)
+        page.wait_for_timeout(700)
+        page.evaluate(
+            """() => {
+              const input = document.querySelector('[data-testid="stTextInput"] input');
+              input.dispatchEvent(new KeyboardEvent('keyup', {
+                key: 'Enter', bubbles: true, cancelable: true
+              }));
+            }"""
+        )
+        assert _pending(page)
+        page.wait_for_timeout(500)
+        assert not _pending(page)
+        browser.close()
+
+
+def _cap_question(n: int) -> str:
+    token = f"slot-{n:02d}"
+    if n % 8 == 0:
+        return f"What is the penalty fee for {token}?"
+    return f"How long does {token} last?"
+
+
+def test_twenty_four_asks_clear_busy_line_at_history_cap() -> None:
+    """Past 20 cards the oldest turn is dropped and the busy line still clears."""
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server() as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 900})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            box = page.get_by_placeholder(READY_HINT)
+            ask = page.get_by_role("button", name="Ask", exact=True)
+            for n in range(1, 25):
+                question = _cap_question(n)
+                before = _ask_done_id(page)
+                page.evaluate(
+                    """(question) => {
+                      window.__askGap = false;
+                      window.__askSawPending = false;
+                      const hasQuestion = () => Array.from(document.querySelectorAll(
+                        '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+                      )).some((card) => (card.textContent || '').includes(question));
+                      const note = () => {
+                        const pending = document.body.classList.contains('app-ask-pending');
+                        if (pending) window.__askSawPending = true;
+                        if (window.__askSawPending && !pending && !hasQuestion()) {
+                          window.__askGap = true;
+                        }
+                      };
+                      if (window.__askGapObs) window.__askGapObs.disconnect();
+                      window.__askGapObs = new MutationObserver(note);
+                      window.__askGapObs.observe(document.body, {
+                        attributes: true,
+                        childList: true,
+                        subtree: true,
+                        characterData: true,
+                      });
+                    }""",
+                    question,
+                )
+                box.click()
+                box.fill(question)
+                expect(ask).to_be_enabled()
+                ask.click()
+                page.wait_for_function(
+                    """(question) => {
+                      if (window.__askGap) return false;
+                      if (document.body.classList.contains('app-ask-pending')) return false;
+                      return Array.from(document.querySelectorAll(
+                        '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+                      )).some((card) => (card.textContent || '').includes(question));
+                    }""",
+                    arg=question,
+                    timeout=3000,
+                )
+                assert page.evaluate("() => window.__askSawPending === true")
+                assert page.evaluate("() => window.__askGap === false")
+                assert not _pending(page)
+                assert _ask_done_id(page) != before
+                assert _finished_cards(page) == min(n, 20)
+            body = page.locator("body").inner_text()
+            assert "slot-01" not in body
+            assert "slot-05" in body
+            assert "slot-24" in body
             browser.close()

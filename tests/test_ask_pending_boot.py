@@ -36,10 +36,15 @@ def test_ask_pending_js_guards_and_failsafe() -> None:
     assert "__APP_ASK_TEST_HOOKS" in js
     assert "__APP_ASK_FAILSAFE_MS" in js
     assert "setTimeout" in js
-    assert "restoreFully" in js
+    assert "restoreFully" not in js
+    assert "data-ask-cap" in js
     assert "isComposing" in js
     assert "event.button" in js
     assert "trimmedAskValue" in js
+    assert "requestAnimationFrame" in js
+    assert "app-typing" in js
+    assert "st-key-answer_card_" in js
+    assert "NumpadEnter" in js
     assert "status.textContent" not in js
     assert 'status.className = "app-status' not in js
     assert 'getElementById("app-ask-busy")' not in js
@@ -53,6 +58,13 @@ def test_theme_busy_uses_css_var_not_literal_copy() -> None:
     assert "app-status::before" in _THEME_CSS
     assert "var(--app-doc-answering)" in _THEME_CSS
     assert 'content: "Looking through the document"' not in _THEME_CSS
+    assert "stElementContainer:has(.app-status)" in _THEME_CSS
+    assert "transition: none !important" in _THEME_CSS
+    app_src = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    render_at = app_src.find("card_key=_card_paint_key(")
+    marker_at = app_src.find('id="app-ask-done"')
+    assert render_at != -1 and marker_at != -1
+    assert render_at < marker_at
     assert _CLIENT_COPY["doc_answering"] == "Looking through the document"
     src = (SRC_DIR / "ui_theme.py").read_text(encoding="utf-8")
     assert "unsafe_allow_javascript=True" in src

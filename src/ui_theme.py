@@ -382,6 +382,13 @@ body.app-ask-pending .app-status::before {
   min-height: 1.5rem;
 }
 
+/* Streamlit marks element containers stale on rerun (opacity 1s ease-in, 0.5s delay).
+   Keep the status row solid so that fade cannot hide the busy line. */
+body.app-ask-pending .stElementContainer:has(.app-status) {
+  opacity: 1 !important;
+  transition: none !important;
+}
+
 [class*="st-key-chip_"] button,
 [class*="st-key-chip_"] [data-testid^="stBaseButton"] {
   border: 1px solid var(--app-line) !important;
