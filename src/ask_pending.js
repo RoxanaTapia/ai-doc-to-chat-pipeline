@@ -18,7 +18,6 @@
   };
 
   let pendingBaseline = null;
-  let pendingCards = 0;
   let pendingKeys = [];
   let failsafeTimer = null;
   let clearRequest = 0;
@@ -75,36 +74,35 @@
     }
     document.body.classList.remove(PENDING);
     pendingBaseline = null;
-    pendingCards = 0;
     pendingKeys = [];
     clearFailsafe();
   };
 
-  const restoreFully = () => {
-    clearPending();
-  };
-
   const markPending = () => {
-    // A second Enter/click in the same ask must not resnapshot after cards unmount.
-    if (!document.body.classList.contains(PENDING)) {
-      const cards = cardNodes();
-      pendingCards = cards.length;
-      pendingKeys = [];
-      for (const card of cards) {
-        const key = cardKey(card);
-        if (key) pendingKeys.push(key);
-      }
-      pendingBaseline = readDoneId();
+    // A repeat Enter/click in the same ask must not resnapshot or reset the failsafe.
+    if (document.body.classList.contains(PENDING)) return;
+    const cards = cardNodes();
+    pendingKeys = [];
+    for (const card of cards) {
+      const key = cardKey(card);
+      if (key) pendingKeys.push(key);
     }
+    pendingBaseline = readDoneId();
     document.body.classList.add(PENDING);
     clearFailsafe();
     failsafeTimer = window.setTimeout(() => {
-      restoreFully();
+      clearPending();
     }, FAILSAFE_MS());
   };
 
-  // New answer is on screen when the done id advanced, the new card is present,
-  // every card from before the ask is back, and the typing line is gone.
+  const historyCap = (done) => {
+    const raw = Number(done.getAttribute("data-ask-cap"));
+    if (Number.isFinite(raw) && raw > 0) return raw;
+    return 0;
+  };
+
+  // Done id moved on, the card for that id is present, earlier cards are back,
+  // and the typing line is gone. At the cap the oldest card is dropped.
   const answerReady = () => {
     if (!document.body.classList.contains(PENDING)) return false;
     const done = document.querySelector(DONE_SEL);
@@ -112,21 +110,26 @@
     const id = done.getAttribute("data-ask-id") || "0";
     if (pendingBaseline !== null && id === pendingBaseline) return false;
     if (document.querySelector(".app-typing")) return false;
-    const cards = cardNodes();
-    if (!(cards.length > pendingCards)) return false;
     const now = [];
-    for (const card of cards) {
+    for (const card of cardNodes()) {
       const key = cardKey(card);
       if (key) now.push(key);
     }
-    for (const key of pendingKeys) {
-      if (now.indexOf(key) === -1) return false;
-    }
+    const wantAnswer = "st-key-answer_card_" + id;
+    const wantRefusal = "st-key-refusal_card_" + id;
     let fresh = false;
     for (const key of now) {
-      if (pendingKeys.indexOf(key) === -1) fresh = true;
+      if (key === wantAnswer || key === wantRefusal) fresh = true;
     }
-    return fresh;
+    if (!fresh) return false;
+    const cap = historyCap(done);
+    const atCap = cap > 0 && pendingKeys.length >= cap;
+    const oldest = pendingKeys.length ? pendingKeys[pendingKeys.length - 1] : "";
+    for (const key of pendingKeys) {
+      if (atCap && key === oldest) continue;
+      if (now.indexOf(key) === -1) return false;
+    }
+    return true;
   };
 
   const scheduleClear = () => {
@@ -199,7 +202,6 @@
     window.__appAskPending = {
       markPending,
       clearPending,
-      restoreFully,
       isPending: () => document.body.classList.contains(PENDING),
     };
   }

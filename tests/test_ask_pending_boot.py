@@ -36,7 +36,8 @@ def test_ask_pending_js_guards_and_failsafe() -> None:
     assert "__APP_ASK_TEST_HOOKS" in js
     assert "__APP_ASK_FAILSAFE_MS" in js
     assert "setTimeout" in js
-    assert "restoreFully" in js
+    assert "restoreFully" not in js
+    assert "data-ask-cap" in js
     assert "isComposing" in js
     assert "event.button" in js
     assert "trimmedAskValue" in js
@@ -60,7 +61,7 @@ def test_theme_busy_uses_css_var_not_literal_copy() -> None:
     assert "stElementContainer:has(.app-status)" in _THEME_CSS
     assert "transition: none !important" in _THEME_CSS
     app_src = (SRC_DIR / "app.py").read_text(encoding="utf-8")
-    render_at = app_src.find("card_key=str(len(turns) - turn_idx)")
+    render_at = app_src.find("card_key=_card_paint_key(")
     marker_at = app_src.find('id="app-ask-done"')
     assert render_at != -1 and marker_at != -1
     assert render_at < marker_at
