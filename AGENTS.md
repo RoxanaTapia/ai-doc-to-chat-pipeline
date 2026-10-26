@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is private PDF Q&A. The layout is small on purpose so a change is easy to find and review.
+This repository is a public PDF Q&A project. The layout is small on purpose so a change is easy to find and review.
 
 ## Tests
 
@@ -53,24 +53,22 @@ One or two lines on the user-visible change. Closes #184
 - [ ] up to 3 checks that prove the fix
 
 ## 🚀 Deploy
-`deploy-ai-doc` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
+`docker compose -f deploy/docker-compose.yml up --build -d` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
 
 <details><summary>Details</summary>screenshots, numbers, longer notes</details>
 ```
 
 - **Commit story:** each commit in the PR is one logical step with the same `type(scope): ...` style. No "wip" or "address review" commits; clean them up before review.
-- **Deploy:** always the four items Nicky checks (exact script, services rebuilt, env or config changes, rollback). Repos with no deploy write "No deploy".
-- **Double-check every command:** each command in a PR or review (deploy script, path, flag, test command) must be checked against the repo or the installed script before posting. Use only real names like `deploy-ai-doc`, never invented flags or paths. If an agent couldn't run or verify it, it says so in the PR.
-- **Where Cursor agents read it:** `.github/pull_request_template.md` and this section. `.cursor/rules` points here.
-
-This repo has no `deploy-ai-doc` script. Docs-only PRs write **No deploy**. Otherwise use a real command from [docs/operators/running.md](docs/operators/running.md).
+- **Deploy:** name the exact command, the services rebuilt, any env or config changes, and the rollback. Docs-only changes write **No deploy**. Otherwise use a real command from [docs/operators/running.md](docs/operators/running.md).
+- **Double-check every command:** each command in a PR or review (deploy command, path, flag, test command) must be checked against the repo or the docs before posting. Use only commands that appear in the repo, such as `docker compose -f deploy/docker-compose.yml up --build -d`, and never invented flags or paths. If a command could not be run or verified, say so in the PR.
+- **Where this is written down:** `.github/pull_request_template.md` and this section. `.cursor/rules` points here.
 
 ### Review comment format
 
 Every review comment is short, easy to scan, and uses emojis. It has a header line and at most five one-line bullets above a collapsed details block. This applies to code, deploy, live-test and copy reviews, and to the post-deploy OK.
 
 ```markdown
-**✅ Pass · Deploy review (Nicky) · `abc1234`**  (or ❌ Fail)
+**✅ Pass · Deploy review · `abc1234`** (or ❌ Fail)
 - ✅ what works
 - ❌ blocking issue
 - ⚠️ minor, non-blocking
