@@ -217,7 +217,7 @@ A serious buyer should ask: *“Can we run the same three question types on our 
 | Source previews in chat | Working |
 | Local Ollama generation | Working |
 | HTTPS + basic auth deployment | Documented in operator run notes; VPS validation next |
-| Persistent document library | Planned ([ROADMAP.md](ROADMAP.md) M9) |
+| Persistent document library | Planned (M9) |
 | API / agents / SSO | Planned (M8–M10) |
 
 **Next evaluation steps:** **Round 3** complete — see [Round 3 results](pilot-evaluation-round3.md); retrieval tuning + VPS next.
