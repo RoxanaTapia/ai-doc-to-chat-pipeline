@@ -10,6 +10,6 @@ One or two lines on the user-visible change. Closes #184
 - [ ] up to 3 checks that prove the fix
 
 ## 🚀 Deploy
-`deploy-ai-doc` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
+`docker compose -f deploy/docker-compose.yml up --build -d` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
 
 <details><summary>Details</summary>screenshots, numbers, longer notes</details>
