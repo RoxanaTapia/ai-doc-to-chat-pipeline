@@ -7,8 +7,8 @@ from pathlib import Path
 import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = PROJECT_ROOT / "src"
-ASK_JS = SRC_DIR / "ask_pending.js"
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
+ASK_JS = DEMO_DIR / "ask_pending.js"
 DEPLOY_DIR = PROJECT_ROOT / "deploy"
 
 
@@ -60,18 +60,18 @@ def test_theme_busy_uses_css_var_not_literal_copy() -> None:
     assert 'content: "Looking through the document"' not in _THEME_CSS
     assert "stElementContainer:has(.app-status)" in _THEME_CSS
     assert "transition: none !important" in _THEME_CSS
-    app_src = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    app_src = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     render_at = app_src.find("card_key=_card_paint_key(")
     marker_at = app_src.find('id="app-ask-done"')
     assert render_at != -1 and marker_at != -1
     assert render_at < marker_at
     assert _CLIENT_COPY["doc_answering"] == "Looking through the document"
-    src = (SRC_DIR / "ui_theme.py").read_text(encoding="utf-8")
+    src = (DEMO_DIR / "ui_theme.py").read_text(encoding="utf-8")
     assert "unsafe_allow_javascript=True" in src
     assert "inject_ask_pending_client" in src
     assert "busy_label" in src
     assert inject_theme.__name__ == "inject_theme"
-    page_copy = (SRC_DIR / "page_copy.py").read_text(encoding="utf-8")
+    page_copy = (DEMO_DIR / "page_copy.py").read_text(encoding="utf-8")
     assert 'busy_label=_CLIENT_COPY["doc_answering"]' in page_copy
 
 

@@ -51,6 +51,8 @@ include = ["ai_doc*"]
 target-version = "py312"
 line-length = 100
 extend-exclude = [".venv", "build", "dist"]
+# First-party imports: the installable core and the Streamlit demo.
+src = ["src", "apps/demo"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

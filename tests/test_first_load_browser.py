@@ -22,8 +22,9 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
 DEPLOY_DIR = PROJECT_ROOT / "deploy"
-APP_PATH = SRC_DIR / "app.py"
+APP_PATH = DEMO_DIR / "app.py"
 READY_HINT = "Ask about this document"
 TERM_CHIP = "How long does this agreement last?"
 

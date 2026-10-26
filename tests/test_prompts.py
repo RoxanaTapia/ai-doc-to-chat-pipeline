@@ -5,8 +5,10 @@ from langchain_core.prompts import PromptTemplate
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
+for _folder in (DEMO_DIR, SRC_DIR):
+    if str(_folder) not in sys.path:
+        sys.path.insert(0, str(_folder))
 
 from ai_doc.rag import load_rag_prompt  # noqa: E402
 from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402

@@ -18,6 +18,7 @@ RUN python deploy/patch_streamlit_index.py
 
 COPY configs/ configs/
 COPY src/ src/
+COPY apps/demo/ apps/demo/
 COPY .streamlit/config.toml .streamlit/
 # Walkthrough sample for sidebar download (no separate static host needed).
 COPY docs/product/sample-nda.pdf docs/product/sample-nda.pdf
@@ -33,6 +34,6 @@ ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
     HF_HUB_VERBOSITY=error \
     TRANSFORMERS_VERBOSITY=error \
     TQDM_DISABLE=1 \
-    PYTHONPATH=/app/src
+    PYTHONPATH=/app/src:/app/apps/demo
 
-CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["streamlit", "run", "apps/demo/app.py", "--server.address=0.0.0.0", "--server.port=8501"]

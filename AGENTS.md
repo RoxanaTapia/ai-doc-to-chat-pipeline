@@ -9,7 +9,7 @@ From the repo root:
 ```bash
 pip install -r requirements.txt
 pip install pytest
-PYTHONPATH=src pytest tests/ -q
+PYTHONPATH=src:apps/demo pytest tests/ -q
 ```
 
 CI runs this pytest suite on every pull request. `pyproject.toml` also has Ruff settings for local use.
@@ -18,7 +18,8 @@ CI runs this pytest suite on every pull request. `pyproject.toml` also has Ruff 
 
 | Path | What it is |
 |------|------------|
-| `src/` | Streamlit app, retrieval, and the optional FastAPI layer |
+| `src/` | Retrieval core and the optional FastAPI layer (`ai_doc`) |
+| `apps/demo/` | Streamlit demo, the reference client |
 | `configs/` | Chunking, retrieval, and prompt tunables |
 | `tests/` | pytest suite |
 | `deploy/` | App image and Compose (Ollama; optional API) |

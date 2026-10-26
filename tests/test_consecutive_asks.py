@@ -11,8 +11,10 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
+for _folder in (DEMO_DIR, SRC_DIR):
+    if str(_folder) not in sys.path:
+        sys.path.insert(0, str(_folder))
 
 from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 from page_copy import STARTER_CHIPS  # noqa: E402
@@ -63,7 +65,7 @@ def _ask(at, question: str) -> None:
 def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert _session_get(at, "enable_reranker") is False
     assert not at.exception
@@ -110,7 +112,7 @@ def test_header_stays_intact_through_load_ask_and_answer(stub_env) -> None:
     """
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.session_state["sample_preload_failed"] = True
     at.run(timeout=30)
     assert not at.exception
@@ -144,7 +146,7 @@ def test_header_stays_intact_through_load_ask_and_answer(stub_env) -> None:
 def test_client_first_load_has_no_missing_submit_button(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     error_text = " ".join(str(getattr(err, "value", err)) for err in at.error)
@@ -216,7 +218,7 @@ def test_starter_chips_hidden_until_chat_ready(stub_env) -> None:
     """No chips before the document is indexed; they appear once chat is ready."""
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.session_state["sample_preload_failed"] = True
     at.run(timeout=30)
     assert not at.exception
@@ -249,7 +251,7 @@ def test_starter_chips_hidden_until_chat_ready(stub_env) -> None:
 def test_starter_chip_submits_and_answers(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     assert _session_get(at, "vector_store") is not None
@@ -283,7 +285,7 @@ def test_type_then_click_ask_once_answers(stub_env) -> None:
     """
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     assert _session_get(at, "vector_store") is not None
@@ -310,7 +312,7 @@ def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
     """Live-pilot default: first question must not load BAAI/bge-reranker-base."""
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     assert _session_get(at, "enable_reranker") is False
@@ -364,7 +366,7 @@ def test_second_ask_clears_prior_sources_while_loading(
     import ai_doc.rag.generation as generation
     import sources_panel
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     assert _session_get(at, "vector_store") is not None
@@ -461,7 +463,7 @@ def test_followup_answer_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPat
     """Busy status must stay answering through generation until cards land."""
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     _ask(at, TERM_QUESTION)
@@ -492,7 +494,7 @@ def test_followup_refusal_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPa
     """Refusal follow-ups must also keep answering until the refusal card lands."""
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     _ask(at, TERM_QUESTION)
@@ -530,7 +532,7 @@ def test_cards_never_paint_alongside_busy_line(
     import ai_doc.rag.generation as generation
     import sources_panel
 
-    at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
     at.run(timeout=30)
     assert not at.exception
     _ask(at, TERM_QUESTION)

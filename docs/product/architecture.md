@@ -21,7 +21,7 @@ flowchart LR
 | Piece | Role | Where it lives |
 |-------|------|----------------|
 | **Reverse proxy** | HTTPS in front of the app. | An existing reverse proxy |
-| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in memory. | This repo (`src/`, `deploy/`) |
+| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in memory. | This repo (`apps/demo/`, `src/ai_doc/`, `deploy/`) |
 | **Model** | Writes the answer. Ollama when you run it locally, or Anthropic when that provider is selected. | Beside the app, or a hosted API |
 
 Embeddings always run with the app. Switching the writer (Ollama vs Anthropic) does not change search or citations.

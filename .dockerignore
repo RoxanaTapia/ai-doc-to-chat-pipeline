@@ -1,5 +1,5 @@
 # Build context is the repo root. The image copies requirements.txt,
-# configs/, src/, .streamlit/config.toml, and docs/product/sample-nda.pdf.
+# configs/, src/, apps/demo/, .streamlit/config.toml, and docs/product/sample-nda.pdf.
 
 # VCS / editor
 .git

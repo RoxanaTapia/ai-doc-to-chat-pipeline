@@ -4,7 +4,7 @@
 
 This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
-> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. A reverse proxy in front handles HTTPS. The app and the model stay behind it.
+> **Takeaway:** Retrieval core in `src/ai_doc`. Streamlit demo in `apps/demo`. Tunables in `configs/`. App containers in `deploy/`. A reverse proxy in front handles HTTPS. The app and the model stay behind it.
 
 ---
 
@@ -14,7 +14,8 @@ This page is the map of the repository. The [root README](../README.md) is the p
 .
 ├── README.md          Client overview and live pilot
 ├── AGENTS.md          Tests, layout, and review
-├── src/               Application code
+├── src/               Retrieval core (`ai_doc`) and the API
+├── apps/demo/         Streamlit demo
 ├── configs/           Chunking, retrieval, and prompt tunables
 ├── tests/             pytest suite
 ├── deploy/            App image + Compose (Ollama; optional API)
@@ -27,7 +28,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 
 | Path | Open it for |
 |------|-------------|
-| [`src/app.py`](../src/app.py) | Upload, chat UI, session index |
+| [`apps/demo/app.py`](../apps/demo/app.py) | Upload, chat UI, session index |
 | [`src/ai_doc/rag/ingestion.py`](../src/ai_doc/rag/ingestion.py) | PDF → text + page numbers |
 | [`src/ai_doc/rag/chunking.py`](../src/ai_doc/rag/chunking.py) | Header-aware chunking and section routing |
 | [`src/ai_doc/rag/retrieval.py`](../src/ai_doc/rag/retrieval.py) | Hybrid search (FAISS + BM25 + RRF) and rerank |
@@ -82,7 +83,7 @@ Streamlit owns the session. Each retrieval step has its own module under `src/ai
 
 ```mermaid
 flowchart TB
-  App["src/app.py · UI + session"]
+  App["apps/demo/app.py · UI + session"]
   Ingest["src/ai_doc/rag/ingestion.py"]
   Chunk["src/ai_doc/rag/chunking.py"]
   Retrieve["src/ai_doc/rag/retrieval.py"]
@@ -104,11 +105,11 @@ flowchart TB
 |-------|--------|------|
 | Ingest | `ai_doc/rag/ingestion.py` | Read the PDF. Keep page numbers. OCR scanned pages. |
 | Chunk | `ai_doc/rag/chunking.py` | Split on section headers so clauses do not bleed. |
-| Index | `app.py` | Embed locally. Build FAISS and BM25 for this session. |
+| Index | `apps/demo/app.py` | Embed locally. Build FAISS and BM25 for this session. |
 | Retrieve | `ai_doc/rag/retrieval.py` | Hybrid search (FAISS + BM25, RRF), then `bge-reranker`. |
 | Filter | `ai_doc/rag/citations.py` | Drop near-duplicates. Refuse when context is too thin. |
 | Generate | `ai_doc/rag/generation.py` | Write the answer from the shortlist only. |
-| Show | `app.py` | Page + excerpt under the reply. |
+| Show | `apps/demo/app.py` | Page + excerpt under the reply. |
 
 The FastAPI app in `src/ai_doc/api/` exposes the same generation path as `/chat`. It does not replace the Streamlit retrieval loop.
 

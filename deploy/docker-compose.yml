@@ -29,6 +29,8 @@ services:
     ports:
       - "8501:8501"
     environment:
+      # Core on src/; demo modules live in apps/demo (Streamlit also adds the script dir).
+      PYTHONPATH: /app/src:/app/apps/demo
       OLLAMA_HOST: http://ollama:11434
       # Override in `.env` with OLLAMA_MODEL=phi3:mini on RAM-limited CPU hosts.
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
