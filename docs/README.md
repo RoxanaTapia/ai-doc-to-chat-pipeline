@@ -21,7 +21,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 ├── .cursor/           Coding conventions
 └── docs/              You are here
       product/         Architecture, walkthrough, sample NDA
-      operators/       Roadmap, how to run the stack, layout rules
+      operators/       How to run the stack, layout rules, OCR checks
       archive/         Historical eval notes (not current)
 ```
 
@@ -116,7 +116,7 @@ The FastAPI app in `src/api/` exposes the same generation path as `/chat`. It do
 
 ## How work ships
 
-See [AGENTS.md](../AGENTS.md) for how to run the tests, the repo layout, and review. Changes are reviewed and tested before merge. Direction and sequencing: [operators/PROJECT-DIRECTION.md](operators/PROJECT-DIRECTION.md) · [operators/ROADMAP.md](operators/ROADMAP.md).
+See [AGENTS.md](../AGENTS.md) for how to run the tests, the repo layout, and review. Changes are reviewed and tested before merge.
 
 ---
 
@@ -135,7 +135,6 @@ Contributor pages:
 
 | Page | What you get |
 |------|----------------|
-| [Roadmap](operators/ROADMAP.md) · [Project direction](operators/PROJECT-DIRECTION.md) | What ships next |
 | [Running the stack](operators/running.md) | Local Compose, and the app behind a reverse proxy |
 | [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
 | [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
