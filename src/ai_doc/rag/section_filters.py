@@ -261,4 +261,4 @@ def _text_looks_on_section(chunk_text: str, target_section: str) -> bool:
 
 
 # Loaded after chunking defines the span helpers, so the two modules can import each other.
-from rag.chunking import _slugify_title, section_spans_in_chunk  # noqa: E402
+from ai_doc.rag.chunking import _slugify_title, section_spans_in_chunk  # noqa: E402

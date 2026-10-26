@@ -395,7 +395,7 @@ def chunk_pages(
 
 
 # Re-exported after both modules finish loading so they can import each other.
-from rag.section_filters import (  # noqa: E402
+from ai_doc.rag.section_filters import (  # noqa: E402
     _OBLIGATION_HINT_RE,  # noqa: F401
     DEFINITION_QUERY_RE,  # noqa: F401
     SECTION_IN_QUERY_RE,  # noqa: F401

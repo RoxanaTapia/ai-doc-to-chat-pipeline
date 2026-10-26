@@ -1,6 +1,6 @@
 """Private PDF Q&A pipeline: ingest, chunk, retrieve, cite, generate."""
 
-from rag.config import (
+from ai_doc.rag.config import (
     APP_ROOT,
     CONFIG_PATH,
     DEFAULT_ANTHROPIC_MODEL,
@@ -9,8 +9,8 @@ from rag.config import (
     load_generation_config,
     load_rag_prompt,
 )
-from rag.generation import generate_answer, generate_answer_stream
-from rag.providers import (
+from ai_doc.rag.generation import generate_answer, generate_answer_stream
+from ai_doc.rag.providers import (
     DUMMY_UI_RESPONSE,
     SUPPORTED_LLM_PROVIDERS,
     AnthropicLLMProvider,

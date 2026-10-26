@@ -14,8 +14,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 from page_copy import STARTER_CHIPS  # noqa: E402
-from rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 
 TERM_QUESTION = STARTER_CHIPS[0]["question"]
 LAW_QUESTION = STARTER_CHIPS[1]["question"]
@@ -360,8 +360,8 @@ def test_second_ask_clears_prior_sources_while_loading(
     """
     from streamlit.testing.v1 import AppTest
 
-    import rag
-    import rag.generation as generation
+    import ai_doc.rag as rag
+    import ai_doc.rag.generation as generation
     import sources_panel
 
     at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)
@@ -435,8 +435,8 @@ def _status_trace(at, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Record doc_status transitions around generation and the post-ask rerun."""
     import streamlit as st
 
-    import rag
-    import rag.generation as generation
+    import ai_doc.rag as rag
+    import ai_doc.rag.generation as generation
 
     trace: list[str] = []
     real_stream = generation.generate_answer_stream
@@ -526,8 +526,8 @@ def test_cards_never_paint_alongside_busy_line(
     """Prior cards stay cleared for the whole busy window (no overlap with busy)."""
     from streamlit.testing.v1 import AppTest
 
-    import rag
-    import rag.generation as generation
+    import ai_doc.rag as rag
+    import ai_doc.rag.generation as generation
     import sources_panel
 
     at = AppTest.from_file(str(PROJECT_ROOT / "src" / "app.py"), default_timeout=30)

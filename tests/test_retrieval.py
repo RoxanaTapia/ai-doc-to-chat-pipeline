@@ -8,8 +8,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from rag.citations import assemble_context, readable_excerpt  # noqa: E402
-from rag.retrieval import normalize_scores  # noqa: E402
+from ai_doc.rag.citations import assemble_context, readable_excerpt  # noqa: E402
+from ai_doc.rag.retrieval import normalize_scores  # noqa: E402
 
 
 def test_normalize_scores_scales_to_unit_interval() -> None:

@@ -12,8 +12,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from ai_doc.rag.ingestion import extract_pdf  # noqa: E402
 from page_copy import _CLIENT_COPY  # noqa: E402
-from rag.ingestion import extract_pdf  # noqa: E402
 
 FRIENDLY = "We couldn't read this PDF. Try another file."
 
@@ -117,7 +117,7 @@ def test_mark_upload_unreadable_drops_file_and_index() -> None:
 def test_refusal_timing_is_skipped() -> None:
     """Refusal / not-covered cards must not show a misleading Answered in 0.01s."""
     import sources_panel
-    from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
+    from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER
     from sources_panel import _render_answer_card
 
     markdowns: list[tuple[str, dict]] = []

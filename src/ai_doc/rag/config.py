@@ -12,8 +12,8 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# src/rag/config.py → repo root
-APP_ROOT = Path(__file__).resolve().parents[2]
+# src/ai_doc/rag/config.py → repo root
+APP_ROOT = Path(__file__).resolve().parents[3]
 PROMPTS_PATH = APP_ROOT / "configs" / "prompts.yaml"
 CONFIG_PATH = APP_ROOT / "configs" / "config.yaml"
 

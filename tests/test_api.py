@@ -13,7 +13,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from api.app import app  # noqa: E402
+from ai_doc.api.app import app  # noqa: E402
 
 
 @pytest.fixture

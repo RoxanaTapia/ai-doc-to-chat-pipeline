@@ -1,4 +1,4 @@
-"""Unit tests for src/ocr.py.
+"""Unit tests for src/ai_doc/ocr.py.
 
 No Streamlit, no Tesseract binary, no real PDF required.
 All external OCR dependencies are mocked via sys.modules patching.
@@ -17,7 +17,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from ocr import is_likely_scanned_page, ocr_page_text  # noqa: E402
+from ai_doc.ocr import is_likely_scanned_page, ocr_page_text  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -19,6 +19,30 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
+from ai_doc.rag import (
+    generate_answer_stream,
+    load_generation_config,
+    resolve_llm_provider_name,
+)
+from ai_doc.rag.chunking import (
+    apply_hard_section_context_filter,
+    chunk_pages,
+    extract_target_section,
+)
+from ai_doc.rag.citations import (
+    INSUFFICIENT_CONTEXT_ANSWER,
+    assemble_context,
+    context_sufficient_for_query,
+    is_insufficient_answer,
+    visitor_refusal_answer,
+)
+from ai_doc.rag.ingestion import extract_pdf
+from ai_doc.rag.retrieval import (
+    RetrievalConfig,
+    build_bm25_index,
+    finalize_retrieval,
+    first_stage_retrieval,
+)
 from api_client import api_base_url, chat_via_api
 from ask_runtime import AskTimeoutError, log_ask_stage, remaining_timeout, run_with_timeout
 from page_copy import (
@@ -32,26 +56,6 @@ from page_copy import (
     _render_sidebar_pitch,
     booking_url,
     should_show_starter_chips,
-)
-from rag import (
-    generate_answer_stream,
-    load_generation_config,
-    resolve_llm_provider_name,
-)
-from rag.chunking import apply_hard_section_context_filter, chunk_pages, extract_target_section
-from rag.citations import (
-    INSUFFICIENT_CONTEXT_ANSWER,
-    assemble_context,
-    context_sufficient_for_query,
-    is_insufficient_answer,
-    visitor_refusal_answer,
-)
-from rag.ingestion import extract_pdf
-from rag.retrieval import (
-    RetrievalConfig,
-    build_bm25_index,
-    finalize_retrieval,
-    first_stage_retrieval,
 )
 from session_upload import (
     SAMPLE_NDA_NAME,
@@ -260,7 +264,7 @@ def get_sample_nda_index(
     header_split: bool,
 ) -> dict:
     """Index the walkthrough NDA once per process so first paint can skip setup."""
-    from rag.ingestion import extract_pdf as _extract_pdf
+    from ai_doc.rag.ingestion import extract_pdf as _extract_pdf
     from session_upload import sample_nda_path
 
     path = sample_nda_path()

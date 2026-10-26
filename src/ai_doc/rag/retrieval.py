@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 from langchain_core.documents import Document
 
-from rag.chunking import apply_section_aware_retrieval, limit_chunks_per_page
-from rag.citations import dedupe_similar_chunks
+from ai_doc.rag.chunking import apply_section_aware_retrieval, limit_chunks_per_page
+from ai_doc.rag.citations import dedupe_similar_chunks
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 

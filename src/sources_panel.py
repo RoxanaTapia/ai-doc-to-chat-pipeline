@@ -8,13 +8,13 @@ import re
 import streamlit as st
 from langchain_core.documents import Document
 
-from page_copy import checked_all_pages_note
-from page_preview import render_highlighted_page
-from rag.citations import (
+from ai_doc.rag.citations import (
     INSUFFICIENT_CONTEXT_ANSWER,
     build_sources_payload,
     is_insufficient_answer,
 )
+from page_copy import checked_all_pages_note
+from page_preview import render_highlighted_page
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")

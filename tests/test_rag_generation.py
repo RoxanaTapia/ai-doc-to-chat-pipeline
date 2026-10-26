@@ -10,7 +10,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-import rag  # noqa: E402
+import ai_doc.rag as rag  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -448,7 +448,7 @@ def test_stub_llm_stream_delay_pauses_between_tokens(monkeypatch) -> None:
 
 
 def test_generate_answer_empty_context_uses_refusal_copy() -> None:
-    from rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer
+    from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer
 
     answer = rag.generate_answer(
         context="   ",

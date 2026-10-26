@@ -228,7 +228,7 @@ def sort_source_docs(
     if not target_section:
         return sorted(docs, key=_similarity_score, reverse=True)
 
-    from rag.chunking import chunk_on_section
+    from ai_doc.rag.chunking import chunk_on_section
 
     return sorted(
         docs,
@@ -363,7 +363,7 @@ def build_sources_payload(
     checklist_preview_chars: int = 80,
 ) -> list[dict]:
     """Create a compact serializable source payload per assistant answer."""
-    from rag.chunking import chunk_on_section, extract_target_section
+    from ai_doc.rag.chunking import chunk_on_section, extract_target_section
 
     if is_insufficient_answer(answer or "", query):
         return []
