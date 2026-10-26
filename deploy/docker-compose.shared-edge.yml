@@ -15,6 +15,9 @@
 services:
   app:
     ports: !override []
+    environment:
+      # Same import path as the base file. The overlay only hides the published port.
+      PYTHONPATH: /app/src:/app/apps/demo
     networks:
       default: {}
       edge:

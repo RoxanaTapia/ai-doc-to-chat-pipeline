@@ -7,8 +7,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
+for _folder in (DEMO_DIR, SRC_DIR):
+    if str(_folder) not in sys.path:
+        sys.path.insert(0, str(_folder))
 
 from langchain_core.documents import Document  # noqa: E402
 
@@ -251,7 +253,7 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert (
         '[data-testid="stHorizontalBlock"]:has(.app-lock[open]) {\n    margin-bottom: 0;\n  }'
     ) in mobile
-    text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert 'st.container(key=f"{card_kind}_{card_key}")' in text
     assert 'card_kind = "refusal_card" if is_refusal else "answer_card"' in text
 
@@ -317,6 +319,8 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
+    assert "apps/demo/app.py" in dockerfile
+    assert "COPY apps/demo/ apps/demo/" in dockerfile
     # Follow-up busy (#207) must not ride this first-load patch.
     assert "app-ask-pending" not in boot_css
     assert "app-ask-pending" not in boot_js
@@ -326,8 +330,8 @@ def test_ask_pending_ships_via_theme_and_st_html() -> None:
     """#207 ask-pending CSS/JS load through the app, not the first-load index patch."""
     from ui_theme import _THEME_CSS
 
-    theme = (PROJECT_ROOT / "src" / "ui_theme.py").read_text(encoding="utf-8")
-    ask_js = (PROJECT_ROOT / "src" / "ask_pending.js").read_text(encoding="utf-8")
+    theme = (DEMO_DIR / "ui_theme.py").read_text(encoding="utf-8")
+    ask_js = (DEMO_DIR / "ask_pending.js").read_text(encoding="utf-8")
     assert "app-ask-pending" in _THEME_CSS
     assert "var(--app-doc-answering)" in _THEME_CSS
     assert "unsafe_allow_javascript=True" in theme
@@ -424,13 +428,13 @@ def test_page_index_is_one_based() -> None:
 
 
 def test_working_timer_stays_in_developer_mode() -> None:
-    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     assert "Working…" in text
     assert "script_ctx is not None and st.session_state.developer_mode" in text
 
 
 def test_ask_path_queues_then_generates_without_write_stream() -> None:
-    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     assert "queued_question" in text
     assert "st.write_stream(" not in text
     assert "AskTimeoutError" in text
@@ -448,7 +452,7 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
 
 def test_followup_keeps_answering_until_cards_paint() -> None:
     """Success path must not paint ready before the post-ask rerun (busy gap)."""
-    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     success_marker = "eval_chunk_count=len(raw_results),"
     success_at = text.find(success_marker)
     assert success_at != -1
@@ -465,7 +469,7 @@ def test_followup_keeps_answering_until_cards_paint() -> None:
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
     """The three header cells stay siblings; the data note overlays only above 40rem."""
-    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     assert 'class="app-toolbar-mark"' in text
     assert "st.columns([1.1, 2.2, 1.4])" in text
     assert "_render_privacy_badge(" in text
@@ -474,7 +478,7 @@ def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
     assert text.find('class="app-toolbar-mark"') < text.find("st.columns([1.1, 2.2, 1.4])")
     assert text.find("_render_privacy_badge") < text.find("status_slot = status_col.empty()")
     assert text.find("status_slot = status_col.empty()") < text.find('key="own_pdf_toggle"')
-    badge = (SRC_DIR / "page_copy.py").read_text(encoding="utf-8")
+    badge = (DEMO_DIR / "page_copy.py").read_text(encoding="utf-8")
     assert 'class="app-lock"' in badge
     assert 'class="app-lock__line"' in badge
     assert "<details" in badge
@@ -490,7 +494,7 @@ def test_header_row_keeps_privacy_status_and_own_pdf() -> None:
 
 def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     """Streamlit 1.54 paints 'Missing Submit Button' while a form hydrates."""
-    text = (SRC_DIR / "app.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     assert "st.form(" not in text
     assert "form_submit_button" not in text
     assert 'key="ask_submit"' in text
@@ -531,7 +535,7 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
 
 
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
-    text = (SRC_DIR / "sources_panel.py").read_text(encoding="utf-8")
+    text = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert '"Show page"' in text
     assert "click the quote" not in text.lower()
 

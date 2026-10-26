@@ -25,7 +25,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
 CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
-APP_PATH = SRC_DIR / "app.py"
+APP_PATH = PROJECT_ROOT / "apps" / "demo" / "app.py"
 
 TERM_QUESTION = "How long does this agreement last?"
 FEE_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"

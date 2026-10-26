@@ -24,7 +24,8 @@ import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
-APP_PATH = SRC_DIR / "app.py"
+DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
+APP_PATH = DEMO_DIR / "app.py"
 
 TERM_QUESTION = "How long does this agreement last?"
 FEE_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
@@ -548,7 +549,7 @@ def _open_pending_sim(playwright):
     page = browser.new_page()
     page.set_content(_SIM_HTML)
     page.evaluate("() => { window.__APP_ASK_TEST_HOOKS = true; }")
-    page.add_script_tag(content=(SRC_DIR / "ask_pending.js").read_text(encoding="utf-8"))
+    page.add_script_tag(content=(DEMO_DIR / "ask_pending.js").read_text(encoding="utf-8"))
     page.wait_for_function("() => window.__appAskPending && window.__appAskBootBound")
     return browser, page
 

@@ -4,7 +4,7 @@
 
 Operator addendum. The friendly map is [docs/README.md](../README.md). This page only records layout rules that are easy to break.
 
-> **Takeaway:** Product in `src/` and `configs/`. App containers in `deploy/`. HTTPS belongs with the reverse proxy in front.
+> **Takeaway:** Retrieval core in `src/ai_doc`. Streamlit demo in `apps/demo`. Tunables in `configs/`. App containers in `deploy/`. HTTPS belongs with the reverse proxy in front.
 
 ---
 

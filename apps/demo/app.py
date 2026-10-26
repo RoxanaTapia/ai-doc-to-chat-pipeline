@@ -101,7 +101,8 @@ st.set_page_config(
         "About": None,
     },
 )
-APP_ROOT = Path(__file__).resolve().parent.parent
+# apps/demo/app.py → repo root (configs, .env, sample PDF).
+APP_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(dotenv_path=APP_ROOT / ".env")
 MAX_CHAT_MESSAGES = 40
 logger = logging.getLogger(__name__)

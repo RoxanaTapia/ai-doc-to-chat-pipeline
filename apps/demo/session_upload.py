@@ -19,7 +19,8 @@ _STATUS_KINDS = frozenset({"empty", "reading", "ready", "answering", "error"})
 
 def sample_nda_path() -> Path:
     """Repo path to the walkthrough NDA PDF."""
-    return Path(__file__).resolve().parent.parent / "docs" / "product" / SAMPLE_NDA_NAME
+    # apps/demo/session_upload.py → repo root.
+    return Path(__file__).resolve().parents[2] / "docs" / "product" / SAMPLE_NDA_NAME
 
 
 def _on_new_browser_session() -> None:

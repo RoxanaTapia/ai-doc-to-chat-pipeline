@@ -28,7 +28,7 @@ Optional thin API (OpenAPI at `/docs`):
 docker compose -f deploy/docker-compose.yml --profile api up --build -d api
 ```
 
-Host venv instead of Docker for the UI: `pip install -r requirements.txt` then `streamlit run src/app.py`. Point `OLLAMA_HOST` at a reachable Ollama.
+Host venv instead of Docker for the UI: `pip install -r requirements.txt` then `PYTHONPATH=src streamlit run apps/demo/app.py`. Point `OLLAMA_HOST` at a reachable Ollama.
 
 ---
 
@@ -49,6 +49,6 @@ Expect: `ollama` healthy, `app` up. The app port stays unpublished.
 |-------|------|------|
 | `app` | 8501 | PDF Q&A (Streamlit) |
 
-Point the reverse proxy at `app:8501`. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`), so keep that prefix when the proxy serves the app under `/app`. The proxy owns `/`.
+Point the reverse proxy at `app:8501`. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`), so keep that prefix when the proxy serves the app under `/app`. The proxy owns `/`. The UI entrypoint is `apps/demo/app.py`.
 
 Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Do not copy this example over a filled `.env`.
