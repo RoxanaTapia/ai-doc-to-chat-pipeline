@@ -2,9 +2,9 @@
 
 ## Background
 
-How the live pilot is split across two repos. For the retrieval steps and module map, see [docs/README.md](../README.md).
+How a request moves through the product. For the retrieval steps and module map, see [docs/README.md](../README.md).
 
-> **Takeaway:** HTTPS at the edge. The app and the local model stay inside the VM. The PDF lives in memory for the session.
+> **Takeaway:** A reverse proxy in front. The app and the model stay behind it. The PDF lives in memory for the session.
 
 ---
 
@@ -12,22 +12,21 @@ How the live pilot is split across two repos. For the retrieval steps and module
 
 ```mermaid
 flowchart LR
-  Browser --> Caddy
-  Caddy --> App
+  Browser --> Proxy[Reverse proxy]
+  Proxy --> App
   App --> Index[Session index]
-  App --> LLM[Ollama or Anthropic]
+  App --> Model
 ```
 
 | Piece | Role | Where it lives |
 |-------|------|----------------|
-| **Caddy** | HTTPS and the invite gate. Only ports 80 and 443 face the internet. | A private shared-edge config (walkthrough on request) |
-| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in RAM. | This repo (`src/`, `deploy/`) |
-| **Ollama** | Local model on the same VM, when that provider is selected. | This repo's Compose |
-| **Anthropic** | Optional. Quicker answers; retrieved passages leave the VM for generation. | Env on the host |
+| **Reverse proxy** | HTTPS in front of the app. | An existing reverse proxy |
+| **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in memory. | This repo (`src/`, `deploy/`) |
+| **Model** | Writes the answer. Ollama when you run it locally, or Anthropic when that provider is selected. | Beside the app, or a hosted API |
 
-Embeddings always run on the server. Switching the writer (Ollama vs Anthropic) does not change search or citations.
+Embeddings always run with the app. Switching the writer (Ollama vs Anthropic) does not change search or citations.
 
-The app container joins Docker network `edge` as alias `app` (port 8501) via [`deploy/docker-compose.shared-edge.yml`](../../deploy/docker-compose.shared-edge.yml). Caddy forwards `/app*` to that alias and keeps the prefix, because Streamlit serves under `/app`. Operator commands: [running.md](../operators/running.md).
+Put the app behind an existing reverse proxy. The optional Compose overlay joins that proxy's Docker network and does not publish the app port. Operator commands: [running.md](../operators/running.md).
 
 ---
 
@@ -38,7 +37,7 @@ sequenceDiagram
   participant U as Browser
   participant A as App
   participant I as Session index
-  participant M as Ollama or Anthropic
+  participant M as Model
 
   U->>A: Upload PDF
   A->>A: Extract, chunk, embed

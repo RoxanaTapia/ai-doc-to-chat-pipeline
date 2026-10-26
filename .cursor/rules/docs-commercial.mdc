@@ -16,11 +16,10 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 |-----|----------|------|
 | **README.md** | Clients, buyers, casual visitors | Outcomes, privacy, pilot path. No issue numbers or deploy commands |
 | **docs/product/** | Buyers / evaluators | Calm, clear, scannable, joy to read |
-| **docs/operators/running.md** | Operators | Local Compose and the live overlay. Not a client install guide |
+| **docs/operators/running.md** | Operators | Local Compose and a reverse proxy in front. Not a client install guide |
 | **docs/operators/**, **AGENTS.md** | Contributors | Issues and contributing notes (warm + precise) |
 | **PR titles and descriptions** | Clients and buyers who open the PR | Follow `AGENTS.md`; product language, no file laundry |
 | **GitHub issues** | Operators | Outcome, scope, DoD checkboxes; light context |
-| **`docs-private/`** | Operator (local, gitignored) | Sales, switches, provider picks, full recording notes |
 
 ## ✍️ Style techniques
 
@@ -43,11 +42,10 @@ Audience, structure, and tone for public docs. Keep secrets and client names out
 ## Rules
 
 - Write for a business buyer in README. Operator run commands stay in `docs/operators/running.md`.
-- Use placeholders (`YOUR_VPS_IP`, `demo.example.com`) until human provides real values.
+- Use placeholders (`your-host.example.com`) until real values are provided.
 - README is the shop window: one demo CTA (the live pilot), no deploy commands, no self-host hero. Operators start from `docs/README.md`.
 - Prefer `docs/product/` for client reads (including sample NDA) and `docs/operators/` for contributors.
 - Do not create a top-level `docs/samples/` folder (`samples/` is gitignored).
 - Keep milestone jargon out of client pages.
 - No secrets, client names, or internal passwords in committed docs.
 - Public files are client-facing: no hosting provider, server size, location, prices, hostnames or /root paths.
-- After updating public deploy docs, mirror operator-only detail in `docs-private/` when a counterpart file exists.

@@ -4,9 +4,9 @@
 
 ## Background
 
-This repo runs the PDF Q&A app and Ollama. HTTPS, the invite gate, and TLS live in a private shared-edge config (walkthrough on request).
+This repo runs the PDF Q&A app and the model. Put the app behind an existing reverse proxy when you want public HTTPS.
 
-> **Takeaway:** Compose here is `app` + `ollama` (optional `api`). Public ports 80/443 are not this tree.
+> **Takeaway:** Compose here is `app` + `ollama` (optional `api`). The reverse proxy in front owns the public ports.
 
 ---
 
@@ -32,9 +32,9 @@ Host venv instead of Docker for the UI: `pip install -r requirements.txt` then `
 
 ---
 
-## Live pilot (shared host)
+## Behind a reverse proxy
 
-A private shared-edge config (walkthrough on request) terminates TLS and runs the invite gate. This app does not. Join Docker network `edge` and leave ports 80 and 443 alone.
+This app does not terminate TLS. An existing reverse proxy in front does. The optional overlay joins an external Docker network named `edge` and does not publish the app port.
 
 ```bash
 docker network create edge   # once; ignore the error if it already exists
@@ -43,14 +43,12 @@ docker compose --env-file .env -p ai-doc-to-chat-pipeline \
   -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 ```
 
-Expect: `ollama` healthy, `app` up, **no** `caddy` service. The host does not publish 8501.
+Expect: `ollama` healthy, `app` up. The app port stays unpublished.
 
 | Alias | Port | Role |
 |-------|------|------|
 | `app` | 8501 | PDF Q&A (Streamlit) |
 
-Caddy forwards `/app*` to `app:8501` and **keeps** the `/app` prefix. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`). The public gate owns `/`.
+Point the reverse proxy at `app:8501`. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`), so keep that prefix when the proxy serves the app under `/app`. The proxy owns `/`.
 
-Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. The shared-edge stack uses its own compose project name and reads the `.env` next to the compose file for invite and TLS keys. Those keys are not in this repo's `.env.example`. **Do not overwrite the server `.env` with the example file.**
-
-Invite minting and TLS reloads happen in that shared-edge config. Confirm that stack is up before recreating `app`.
+Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Do not copy this example over a filled `.env`.
