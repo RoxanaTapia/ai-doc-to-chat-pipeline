@@ -78,8 +78,7 @@ def _production_boot_patch() -> Iterator[None]:
 
 def _import_playwright():
     try:
-        from playwright.sync_api import expect
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import expect, sync_playwright
     except ImportError as exc:
         pytest.skip(f"Playwright not installed: {exc}")
     return sync_playwright, expect
@@ -290,7 +289,8 @@ def _chip_y_shift(page, *, settle_ms: int = 2500) -> dict:
 
           const chipSel = () => {
             const buttons = [...document.querySelectorAll(
-              '[class*="st-key-chip_"] button, [class*="st-key-chip_"] [data-testid^="stBaseButton"]'
+              '[class*="st-key-chip_"] button, '
+              + '[class*="st-key-chip_"] [data-testid^="stBaseButton"]'
             )];
             return buttons.find((b) => {
               const r = b.getBoundingClientRect();
