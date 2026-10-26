@@ -8,8 +8,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from rag import load_rag_prompt  # noqa: E402
-from rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
+from ai_doc.rag import load_rag_prompt  # noqa: E402
+from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
 
 
 def _build_prompt() -> PromptTemplate:

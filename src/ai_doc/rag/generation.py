@@ -7,8 +7,8 @@ import re
 import time
 from collections.abc import Iterator
 
-from rag.citations import INSUFFICIENT_CONTEXT_ANSWER
-from rag.providers import get_llm_provider, resolve_llm_provider_name
+from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER
+from ai_doc.rag.providers import get_llm_provider, resolve_llm_provider_name
 
 # Verbatim sample-NDA lines used when DEMO_STUB_LLM is on (no API key).
 _SAMPLE_TERM_LINE = (

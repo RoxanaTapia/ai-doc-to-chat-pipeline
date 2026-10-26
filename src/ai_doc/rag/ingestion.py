@@ -8,7 +8,7 @@ from pathlib import Path
 import fitz
 from langchain_core.documents import Document
 
-from ocr import is_likely_scanned_page, ocr_page_text
+from ai_doc.ocr import is_likely_scanned_page, ocr_page_text
 
 
 @dataclass(frozen=True)

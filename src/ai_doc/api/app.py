@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from api.schemas import ChatRequest, ChatResponse, HealthResponse
-from rag import generate_answer, resolve_llm_provider_name
+from ai_doc.api.schemas import ChatRequest, ChatResponse, HealthResponse
+from ai_doc.rag import generate_answer, resolve_llm_provider_name
 
 app = FastAPI(
     title="AI Doc Chat API",

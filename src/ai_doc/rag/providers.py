@@ -10,7 +10,7 @@ from typing import Any, Protocol, runtime_checkable
 from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
 
-from rag.config import (
+from ai_doc.rag.config import (
     DEFAULT_ANTHROPIC_MODEL,
     DEFAULT_PROMPT_TEMPLATE,
     PROMPTS_PATH,

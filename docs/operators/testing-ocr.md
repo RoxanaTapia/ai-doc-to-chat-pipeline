@@ -12,7 +12,7 @@ For contributors verifying scanned-PDF support. Two levels: fast unit tests (no 
 
 ## 🧪 Unit tests (no Tesseract needed)
 
-All external OCR dependencies are mocked. Coverage targets `src/ocr.py`.
+All external OCR dependencies are mocked. Coverage targets `src/ai_doc/ocr.py`.
 
 ```bash
 python3 -m venv .venv

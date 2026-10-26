@@ -12,8 +12,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from rag.chunking import chunk_pages  # noqa: E402
-from rag.citations import (  # noqa: E402
+from ai_doc.rag.chunking import chunk_pages  # noqa: E402
+from ai_doc.rag.citations import (  # noqa: E402
     INSUFFICIENT_CONTEXT_ANSWER,
     assemble_context,
     build_sources_payload,
@@ -21,9 +21,9 @@ from rag.citations import (  # noqa: E402
     is_insufficient_answer,
     visitor_refusal_answer,
 )
-from rag.config import load_rag_prompt  # noqa: E402
-from rag.ingestion import extract_pdf  # noqa: E402
-from rag.retrieval import build_bm25_index, tokenize_for_bm25  # noqa: E402
+from ai_doc.rag.config import load_rag_prompt  # noqa: E402
+from ai_doc.rag.ingestion import extract_pdf  # noqa: E402
+from ai_doc.rag.retrieval import build_bm25_index, tokenize_for_bm25  # noqa: E402
 
 PENALTY_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
 TERM_QUESTION = "How long does this agreement last?"

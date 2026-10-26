@@ -12,6 +12,7 @@ if str(SRC_DIR) not in sys.path:
 
 from langchain_core.documents import Document  # noqa: E402
 
+from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer  # noqa: E402
 from page_copy import (  # noqa: E402
     _CLIENT_COPY,
     BOOKING_URL_ENV,
@@ -26,7 +27,6 @@ from page_copy import (  # noqa: E402
     should_show_starter_chips,
 )
 from page_preview import highlight_rects, page_index, render_highlighted_page  # noqa: E402
-from rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer  # noqa: E402
 from session_upload import page_text_counts  # noqa: E402
 from sources_panel import (  # noqa: E402
     _format_elapsed_ms,
