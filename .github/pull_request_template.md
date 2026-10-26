@@ -13,3 +13,5 @@ One or two lines on the user-visible change. Closes #184
 `docker compose -f deploy/docker-compose.yml up --build -d` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
 
 <details><summary>Details</summary>screenshots, numbers, longer notes</details>
+
+[How I work with AI](../docs/how-we-work.md)
