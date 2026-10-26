@@ -4,7 +4,7 @@
 
 Operator addendum. The friendly map is [docs/README.md](../README.md). This page only records layout rules that are easy to break.
 
-> **Takeaway:** Product in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites are not this repo.
+> **Takeaway:** Product in `src/` and `configs/`. App containers in `deploy/`. HTTPS belongs with the reverse proxy in front.
 
 ---
 
@@ -16,13 +16,13 @@ The image and Compose files live under [`deploy/`](../../deploy/). `.dockerignor
 deploy/
 ├── Dockerfile
 ├── docker-compose.yml              app + ollama (+ api profile)
-└── docker-compose.shared-edge.yml  Live VPS: alias `app` on network `edge`
+└── docker-compose.shared-edge.yml  Behind a reverse proxy: alias `app`, no published port
 ```
 
 - No root copies of Dockerfile or Compose files.
 - No stub files that say “Moved to …”.
-- No Caddyfile or invite service here. Canonical HTTPS lives in a private shared-edge config (walkthrough on request).
-- Local and VPS commands: [running.md](running.md).
+- No reverse proxy or invite service here. Public HTTPS belongs with an existing reverse proxy.
+- Local and reverse-proxy commands: [running.md](running.md).
 
 ---
 

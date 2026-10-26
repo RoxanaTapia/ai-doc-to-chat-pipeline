@@ -4,7 +4,7 @@
 
 This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
-> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. HTTPS and invites live in a private shared-edge config (walkthrough on request).
+> **Takeaway:** Product code in `src/` and `configs/`. App containers in `deploy/`. A reverse proxy in front handles HTTPS. The app and the model stay behind it.
 
 ---
 
@@ -37,8 +37,8 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/api/`](../src/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
 | [`configs/prompts.yaml`](../configs/prompts.yaml) | Grounded-answer prompt |
-| [`deploy/`](../deploy/) | App + Ollama Compose. Public HTTPS: a private shared-edge config (walkthrough on request) |
-| [`docs/product/architecture.md`](product/architecture.md) | What runs on the VM vs at the edge |
+| [`deploy/`](../deploy/) | App and model Compose. Public HTTPS sits behind an existing reverse proxy |
+| [`docs/product/architecture.md`](product/architecture.md) | Request flow: reverse proxy, app, and model |
 | [`docs/operators/REPO-STRUCTURE.md`](operators/REPO-STRUCTURE.md) | Extra layout rules |
 
 ---
@@ -49,22 +49,22 @@ Two layers: the running services, then the Python modules that do the retrieval 
 
 ### Runtime
 
-The browser never talks to the index or the model directly. Caddy (in a private shared-edge config) terminates HTTPS. Streamlit holds the session (PDF, chunks, FAISS) in memory. The LLM is either Ollama on the same VM or Anthropic when that provider is selected.
+The browser never talks to the index or the model directly. A reverse proxy in front terminates HTTPS. The app holds the session (PDF, chunks, FAISS) in memory. The model is Ollama beside the app, or Anthropic when that provider is selected.
 
 ```mermaid
 flowchart LR
-  Browser --> Caddy
-  Caddy --> Streamlit
-  Streamlit --> FAISS
-  Streamlit --> LLM
+  Browser --> Proxy[Reverse proxy]
+  Proxy --> App
+  App --> FAISS
+  App --> Model
 ```
 
 ```mermaid
 sequenceDiagram
   participant U as Browser
-  participant S as Streamlit
+  participant S as App
   participant I as In-memory index
-  participant M as Ollama or Anthropic
+  participant M as Model
 
   U->>S: Upload PDF
   S->>S: Extract, OCR if needed, chunk
@@ -126,7 +126,7 @@ If you only want the product story, these three pages are enough:
 
 | Page | What you get |
 |------|----------------|
-| [Architecture](product/architecture.md) | What runs on the VM vs at the edge |
+| [Architecture](product/architecture.md) | Reverse proxy, the app, and the model |
 | [Walkthrough](product/demo-script.md) | What a live session shows, plus sample questions |
 | [Sample NDA](product/sample-nda.pdf) | A ready PDF to upload |
 | [Screenshots](screenshots/) | First paint, cited answer, refusal, booking line (real Streamlit renders) |
@@ -135,7 +135,7 @@ Contributor pages:
 
 | Page | What you get |
 |------|----------------|
-| [Running the stack](operators/running.md) | Local Compose and the live overlay |
+| [Running the stack](operators/running.md) | Local Compose, and the app behind a reverse proxy |
 | [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
 | [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
 | [Archive](archive/) | Early local-Ollama eval rounds. Historical only. |

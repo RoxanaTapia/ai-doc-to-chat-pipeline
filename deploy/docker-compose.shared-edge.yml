@@ -1,18 +1,15 @@
-# Shared-host overlay. A private shared-edge config (walkthrough on request)
-# owns ports 80 and 443.
+# Overlay for an existing reverse proxy in front of the app.
+# The proxy owns the public ports. This file does not publish the app port.
 #
-# Create the network once on the host:
+# Create the external network once:
 #   docker network create edge
 #
 # From repo root:
 #   docker compose --env-file .env -p ai-doc-to-chat-pipeline \
 #     -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 #
-# This repo has no Caddy service. Do not start one on the live host.
-#
-# Stable alias for the edge reverse proxy: app:8501
-# The proxy forwards /app* to that alias and keeps the /app prefix
-# (Streamlit baseUrlPath). Do not publish 8501 on that host.
+# Stable alias for the reverse proxy: app:8501
+# Forward traffic to that alias. If Streamlit uses a baseUrlPath, keep that prefix.
 # Operator notes: docs/operators/running.md
 
 services:

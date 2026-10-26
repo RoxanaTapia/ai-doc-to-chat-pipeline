@@ -1,7 +1,7 @@
 # App + Ollama (+ optional api profile). Public HTTPS is not this file.
-# A private shared-edge config (walkthrough on request) owns ports 80 and 443.
+# Run behind an existing reverse proxy when the app should face the internet.
 # Local: docker compose -f deploy/docker-compose.yml up --build -d
-# Shared-host overlay: docker-compose.shared-edge.yml (alias app on network edge)
+# Overlay (no published app port): docker-compose.shared-edge.yml
 # Operator notes: docs/operators/running.md
 
 services:
