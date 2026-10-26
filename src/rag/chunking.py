@@ -233,7 +233,9 @@ def split_documents_by_legal_headers(page_docs: list[Document]) -> list[Document
     return section_docs if section_docs else page_docs
 
 
-def section_at_offset(headers: list[tuple[int, str, str]], offset: int) -> tuple[str | None, str | None]:
+def section_at_offset(
+    headers: list[tuple[int, str, str]], offset: int
+) -> tuple[str | None, str | None]:
     """Section active at character offset (nearest header at or above offset)."""
     section: str | None = None
     title: str | None = None
@@ -392,21 +394,22 @@ def chunk_pages(
     return chunks
 
 
-from rag.section_filters import (
-    DEFINITION_QUERY_RE,
-    SECTION_IN_QUERY_RE,
-    SECTION_SYMBOL_RE,
-    _OBLIGATION_HINT_RE,
-    _doc_key,
-    _looks_like_section_one_definition,
-    _section_matches,
-    _text_looks_on_section,
-    apply_hard_section_context_filter,
-    apply_section_aware_retrieval,
-    chunk_contains_section,
-    chunk_content_matches_section,
-    chunk_on_section,
-    extract_section_text,
-    extract_target_section,
-    trim_document_to_section,
+# Re-exported after both modules finish loading so they can import each other.
+from rag.section_filters import (  # noqa: E402
+    _OBLIGATION_HINT_RE,  # noqa: F401
+    DEFINITION_QUERY_RE,  # noqa: F401
+    SECTION_IN_QUERY_RE,  # noqa: F401
+    SECTION_SYMBOL_RE,  # noqa: F401
+    _doc_key,  # noqa: F401
+    _looks_like_section_one_definition,  # noqa: F401
+    _section_matches,  # noqa: F401
+    _text_looks_on_section,  # noqa: F401
+    apply_hard_section_context_filter,  # noqa: F401
+    apply_section_aware_retrieval,  # noqa: F401
+    chunk_contains_section,  # noqa: F401
+    chunk_content_matches_section,  # noqa: F401
+    chunk_on_section,  # noqa: F401
+    extract_section_text,  # noqa: F401
+    extract_target_section,  # noqa: F401
+    trim_document_to_section,  # noqa: F401
 )

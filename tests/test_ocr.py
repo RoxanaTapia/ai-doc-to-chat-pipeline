@@ -6,13 +6,11 @@ All external OCR dependencies are mocked via sys.modules patching.
 Run:
     pytest tests/test_ocr.py -v
 """
-from pathlib import Path
 import io
 import sys
 import types
 import unittest.mock as mock
-
-import pytest
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -20,7 +18,6 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from ocr import is_likely_scanned_page, ocr_page_text  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers

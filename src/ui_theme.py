@@ -193,9 +193,12 @@ section.main .block-container > div[data-testid="stVerticalBlock"] {
 
 [data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status),
 [data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="column"]:has(.app-status),
-[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stVerticalBlock"],
-[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stElementContainer"],
-[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status) [data-testid="stMarkdownContainer"] {
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status)
+  [data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status)
+  [data-testid="stElementContainer"],
+[data-testid="stHorizontalBlock"]:has(.app-lock) [data-testid="stColumn"]:has(.app-status)
+  [data-testid="stMarkdownContainer"] {
   min-height: var(--app-status-line);
   height: auto !important;
   overflow: visible !important;

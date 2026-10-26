@@ -4,7 +4,7 @@ line-length = 100
 extend-exclude = [".venv", "build", "dist"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I"]
 
 [tool.ruff.format]
 quote-style = "double"

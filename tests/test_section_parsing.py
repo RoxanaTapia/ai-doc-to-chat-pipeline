@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from langchain_core.documents import Document
 
@@ -24,7 +24,6 @@ from rag.chunking import (  # noqa: E402
     split_documents_by_legal_headers,
     trim_document_to_section,
 )
-
 
 NDA_PAGE_1 = """\
 WHEREAS, the parties wish to share information.

@@ -24,7 +24,10 @@ def ocr_page_text(page) -> tuple[str, str | None]:
         import pytesseract
         from PIL import Image
     except ImportError:
-        return "", "OCR dependencies not installed (requires pytesseract + pillow + system tesseract)."
+        return "", (
+            "OCR dependencies not installed "
+            "(requires pytesseract + pillow + system tesseract)."
+        )
 
     try:
         pix = page.get_pixmap(dpi=300)
