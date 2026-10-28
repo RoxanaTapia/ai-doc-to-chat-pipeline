@@ -139,7 +139,7 @@ The browser talks only to the app. The app keeps the PDF, the chunks, and the se
 
 Search and citations stay the same when you switch the model. Retrieval steps: [How an answer is grounded](#how-an-answer-is-grounded). Request flow: [docs/product/architecture.md](docs/product/architecture.md).
 
-Restart the app and you upload again. Nothing is written to a document library.
+Restart the app and you upload again.
 
 ---
 
