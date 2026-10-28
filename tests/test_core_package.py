@@ -73,7 +73,7 @@ import ai_doc.rag
 import ai_doc.api
 import ai_doc.rag.ingestion
 from ai_doc import app, generate_answer, generate_answer_stream, resolve_llm_provider_name
-assert ai_doc.__version__ == "0.10.0"
+assert ai_doc.__version__ == "1.0.0"
 assert callable(generate_answer)
 assert callable(generate_answer_stream)
 assert callable(resolve_llm_provider_name)

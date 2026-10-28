@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-doc"
-version = "0.10.0"
-description = "Grounded answers from a confidential PDF, with page citations."
+version = "1.0.0"
+description = "Answers from a PDF, with the best-matching page"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
