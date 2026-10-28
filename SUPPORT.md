@@ -4,7 +4,7 @@
 
 Which versions of the core receive fixes, and how to ask for help.
 
-> **Takeaway:** Semantic versions apply to the `ai-doc` core only. The latest minor gets fixes. Release tags are `vX.Y.Z`.
+> **Takeaway:** Semantic versions apply to the `ai-doc` core only. The 1.x line gets fixes. Release tags are `vX.Y.Z`.
 
 ## What is versioned
 
@@ -13,7 +13,7 @@ Which versions of the core receive fixes, and how to ask for help.
 | Core package `ai-doc` (import `ai_doc`, code in `src/ai_doc`) | Semantic Versioning: `MAJOR.MINOR.PATCH` |
 | Streamlit demo in `apps/demo` | No version of its own. It ships with the same tag as the core. |
 
-The number in `pyproject.toml` and `ai_doc.__version__` is the core version. On `main` that number is **0.10.0**.
+The version in `pyproject.toml` and `ai_doc.__version__` is the core version.
 
 | Bump | Meaning |
 |------|---------|
@@ -25,15 +25,13 @@ The number in `pyproject.toml` and `ai_doc.__version__` is the core version. On 
 
 Fixes ship on the **latest minor** of the core only. Older minors stay at the tag you already have.
 
-A supported release is a `vX.Y.Z` tag. The latest of those is [v0.9.0](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/releases/tag/v0.9.0) (2026-08-20). Package 0.10.0 on `main` is not a release tag.
-
-[CHANGELOG.md](CHANGELOG.md) prepares the **1.0.0** notes for the `v1.0.0` tag. Until that tag exists, 1.0.0 is not a supported release. Once a newer minor is tagged, that minor is the one that receives fixes.
+**1.0.0** is the current supported release (tag `v1.0.0`). The 1.x line gets fixes.
 
 Pin the `vX.Y.Z` tag you run when you need a snapshot that will not move.
 
 ## Release tags
 
-- Release tags are `vX.Y.Z`, for example `v0.9.0` and, when it is created, `v1.0.0`.
+- Release tags are `vX.Y.Z`. The current supported release is `v1.0.0`.
 - Date-based deploy tags (`ai-doc-YYYY.MM.DD-N`) are no longer created.
 - Existing date-based tags stay in the history: `ai-doc-2026.10.18-1`, `ai-doc-2026.10.18-2`, and `ai-doc-2026.10.23-1`. They are not a supported version line.
 

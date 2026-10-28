@@ -6,15 +6,15 @@ Changes since [v0.9.0](https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/re
 
 Release tags are `vX.Y.Z`. Date-based deploy tags are no longer created. Existing ones stay.
 
-> **Takeaway:** The 1.0.0 section is prepared for the `v1.0.0` tag. That tag is not created yet.
+> **Takeaway:** 1.0.0, tag `v1.0.0`, is the current release.
 
 ## [Unreleased]
 
-No entries yet. Work for the next tag is in the 1.0.0 section below.
+No entries yet.
 
 ## [1.0.0]
 
-Prepared for the `v1.0.0` tag. The date is added when that tag is created. The core in this repository is package `ai-doc` 0.10.0 (`ai_doc` under `src/ai_doc`). The Streamlit demo lives in `apps/demo`.
+The core is package `ai-doc` 1.0.0 (`ai_doc` under `src/ai_doc`). The Streamlit demo lives in `apps/demo`.
 
 ### Added
 
