@@ -6,6 +6,8 @@ Upload a policy, SOP, report, or contract. Ask in plain language. Every answer c
 
 > **Takeaway:** This is a retrieval system, not a chatbot that guesses. If the document cannot answer, it says so.
 
+[Demo video](https://youtu.be/DdIm7N0kFx0)
+
 ---
 
 ## Try the pilot
