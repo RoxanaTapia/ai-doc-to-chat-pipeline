@@ -46,6 +46,10 @@ python-dotenv>=1.2.1                       # .env support for API keys
 # Optional LLM providers (uncomment when needed for faster inference)
 # langchain-openai>=0.3.0                  # OpenAI GPT
 # langchain-groq>=0.2.0                    # Groq (fast & cheap)
-langchain-anthropic>=0.3.0                 # Claude models (M7.8 demo / video tier)
+# Claude. anthropic 2.x (API 2026-10-21) rejects temperature on every model.
+# Stay on 1.x so Haiku 4.5 still honors temperature 0 when do_sample is false.
+# langchain-anthropic 1.7.7 dropped its anthropic<2 cap; pin both together.
+langchain-anthropic>=1.7.6,<1.8.0
+anthropic>=1.17.0,<2.0.0
 langchain-ollama                           # Local Ollama integration (safest local start)
 ollama                                     # Ollama Python client
