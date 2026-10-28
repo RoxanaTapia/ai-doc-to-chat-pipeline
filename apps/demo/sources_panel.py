@@ -134,14 +134,22 @@ def _paired_turns(messages: list[dict]) -> list[tuple[dict | None, dict]]:
     return pairs
 
 
+def _toggle_page_preview(preview_id: str) -> None:
+    """Open or close this page. on_click runs before any ask rerun can skip the button."""
+    current = st.session_state.get("open_page_preview")
+    st.session_state.open_page_preview = None if current == preview_id else preview_id
+
+
 def _render_page_preview(pdf_bytes: bytes | None, source: dict, *, key: str) -> None:
     """Show the page with the passage highlighted when the quote is opened."""
     preview_id = f"{key}:{source.get('page')}:{source.get('preview', '')[:40]}"
-    open_id = st.session_state.get("open_page_preview")
     if st.button(
-        "Show page", key=f"preview_{key}", help="Open this page with the passage highlighted."
+        "Show page",
+        key=f"preview_{key}",
+        help="Open this page with the passage highlighted.",
+        on_click=_toggle_page_preview,
+        args=(preview_id,),
     ):
-        st.session_state.open_page_preview = None if open_id == preview_id else preview_id
         st.rerun()
     if st.session_state.get("open_page_preview") != preview_id:
         return

@@ -6,6 +6,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import hashlib
 import html
 import logging
+import sys
 import tempfile
 import threading
 import time
@@ -44,6 +45,7 @@ from ai_doc.rag.retrieval import (
     first_stage_retrieval,
 )
 from api_client import api_base_url, chat_via_api
+from ask_queue import finish_question, queue_question
 from ask_runtime import AskTimeoutError, log_ask_stage, remaining_timeout, run_with_timeout
 from generation_errors import anthropic_user_reason
 from page_copy import (
@@ -515,13 +517,18 @@ def _ask_timeout_seconds() -> float:
 
 
 def _queue_question(text: str) -> bool:
-    """Remember a question to run on the next pass. True when it was non-empty."""
-    question = (text or "").strip()
-    if not question:
-        return False
-    st.session_state.queued_question = question
-    st.session_state._clear_ask_box = True
-    return True
+    """Remember a question to run on the next pass.
+
+    Enter, Ask, and a starter chip all come through here. The same text is
+    ignored while it is pending or within a couple of seconds, so a blur and
+    a button click cannot start two look-ups.
+    """
+    return queue_question(st.session_state, text)
+
+
+def _finish_ask(question: str) -> None:
+    """The reply is stored. A late second Enter or Ask of this text stays quiet."""
+    finish_question(st.session_state, question)
 
 
 def _on_chip_click(question: str) -> None:
@@ -530,15 +537,21 @@ def _on_chip_click(question: str) -> None:
 
 
 def _on_ask_box_commit() -> None:
-    """Queue on Enter or blur. The first Ask click is often only this commit."""
+    """Queue on Enter or blur. Ask uses this same queue."""
     if not _document_is_indexed():
         return
-    if _queue_question(st.session_state.get("ask_box") or ""):
-        st.session_state.ask_box = ""
+    _queue_question(st.session_state.get("ask_box") or "")
+
+
+def _on_ask_click() -> None:
+    """Queue on the Ask button. A commit that just queued this text is left alone."""
+    if not _document_is_indexed():
+        return
+    _queue_question(st.session_state.get("ask_box") or "")
 
 
 def _continue_queued_ask(already_taken: str | None) -> None:
-    """If on_change queued after we popped, rerun so that pass can look it up."""
+    """If a callback queued after we popped, rerun so that pass can look it up."""
     if already_taken:
         return
     if st.session_state.get("queued_question"):
@@ -1019,7 +1032,7 @@ queued_question = st.session_state.pop("queued_question", None)
 st.markdown('<p class="app-ask-mark">Ask</p>', unsafe_allow_html=True)
 # No st.form: Streamlit 1.54 flashes "Missing Submit Button" while the form
 # hydrates on first load (form delta arrives before the lazy submit button).
-typed = st.text_input(
+st.text_input(
     "Question",
     key="ask_box",
     placeholder=_chat_input_placeholder(
@@ -1030,18 +1043,22 @@ typed = st.text_input(
     disabled=not chat_ready,
     on_change=_on_ask_box_commit if chat_ready else None,
 )
-submitted = st.button(
+st.button(
     _CLIENT_COPY["ask_button"],
     key="ask_submit",
     type="primary",
     disabled=not chat_ready,
+    on_click=_on_ask_click if chat_ready else None,
 )
-if submitted and _queue_question(typed):
-    st.rerun()
-# First Ask click is often only a blur/commit. on_change queues after the pop
-# above, and Streamlit drops the button press. Continue that queued look-up.
+# Enter and Ask queue in callbacks before this script pops the question.
+# If a callback instead fires when the widget is created, after that pop,
+# continue so the next pass runs the look-up.
 _continue_queued_ask(queued_question)
 query = (queued_question or "").strip() or None
+if not query:
+    # This pass is not running a look-up. Drop a mark left by a run that was
+    # interrupted before it could finish, so the same question can be asked later.
+    st.session_state._ask_inflight = ""
 
 # Ask shell (hero already above + this input) must exist for one full run
 # before chip widgets are created, so they cannot paint ahead of the header.
@@ -1286,10 +1303,12 @@ if query and query.strip() and chat_ready:
             if timer_thread is not None:
                 stop_timer.set()
                 timer_thread.join(timeout=5.0)
-            # Always clear the under-question busy widgets so an uncaught error
-            # cannot leave them on screen. Header busy stays via doc_status.
-            typing_slot.empty()
-            timer_placeholder.empty()
+            # Clear the busy line only when this try is failing. empty() is a
+            # yield point: doing it before the reply is stored lets a second
+            # Enter/Ask rerun drop the answer. The success path clears below.
+            if sys.exc_info()[0] is not None:
+                typing_slot.empty()
+                timer_placeholder.empty()
 
         total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
 
@@ -1377,6 +1396,9 @@ if query and query.strip() and chat_ready:
             timing=timing_payload if total_elapsed_ms > 0 else None,
             for_question=query,
         )
+        _finish_ask(query)
+        typing_slot.empty()
+        timer_placeholder.empty()
         paint_status(status_slot, "error", retrieval_reason)
         st.rerun()
     elif generation_error is not None:
@@ -1398,6 +1420,9 @@ if query and query.strip() and chat_ready:
             timing=timing_payload if total_elapsed_ms > 0 else None,
             for_question=query,
         )
+        _finish_ask(query)
+        typing_slot.empty()
+        timer_placeholder.empty()
         paint_status(status_slot, "error", reason)
         st.rerun()
     else:
@@ -1425,6 +1450,9 @@ if query and query.strip() and chat_ready:
             target_section=target_section,
             eval_chunk_count=len(raw_results),
         )
+        _finish_ask(query)
+        typing_slot.empty()
+        timer_placeholder.empty()
         # Keep doc_status "answering" across this rerun. Painting "ready" here
         # cleared the busy line before the idle run could paint the new card.
         st.rerun()
