@@ -559,6 +559,87 @@ def test_show_page_button_label_is_in_the_sources_panel() -> None:
     text = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert '"Show page"' in text
     assert "click the quote" not in text.lower()
+    # The toggle runs in on_click, before an ask rerun can skip the button body.
+    assert "on_click=_toggle_page_preview" in text
+
+
+def test_show_page_click_is_remembered_without_reaching_the_button(monkeypatch) -> None:
+    """An ask rerun can skip the button. The click still opens or closes the page."""
+    import sources_panel
+
+    class _State(dict):
+        def __getattr__(self, name):
+            try:
+                return self[name]
+            except KeyError as exc:
+                raise AttributeError(name) from exc
+
+        def __setattr__(self, name, value):
+            self[name] = value
+
+    state = _State()
+
+    class _St:
+        session_state = state
+
+    monkeypatch.setattr(sources_panel, "st", _St())
+    preview_id = "1_0:2:Section 4 - Term"
+    sources_panel._toggle_page_preview(preview_id)
+    assert state.open_page_preview == preview_id
+    sources_panel._toggle_page_preview(preview_id)
+    assert state.open_page_preview is None
+
+
+def test_enter_and_ask_queue_the_same_question_once() -> None:
+    """Enter commits the box and Ask clicks. The question is queued one time.
+
+    Also covers Enter on its own: a second commit of the same text (the echo
+    rerun) does not queue again. A chip uses this same queue.
+    """
+    from ask_queue import REPEAT_ASK_WINDOW_S, finish_question, queue_question
+
+    question = "How long does the agreement last?"
+    state: dict = {"ask_box": question}
+    now = 1_000.0
+
+    # Enter / blur.
+    assert queue_question(state, state["ask_box"], now=now) is True
+    # Ask, 50 ms later, text still in the box.
+    assert queue_question(state, state["ask_box"], now=now + 0.05) is False
+    # Enter again, still inside the window.
+    assert queue_question(state, question, now=now + 0.8) is False
+    assert state["queued_question"] == question
+    assert state["_clear_ask_box"] is True
+
+    # Still pending, even well after the window.
+    assert queue_question(state, question, now=now + 30) is False
+
+    # In flight after the queue was taken, and again just after the reply.
+    state.pop("queued_question")
+    assert queue_question(state, question, now=now + 30) is False
+    finish_question(state, question, now=now + 5)
+    assert state["_ask_inflight"] == ""
+    assert queue_question(state, question, now=now + 5.1) is False
+    assert "queued_question" not in state
+
+    # A different question is a new look-up. A chip goes through this too.
+    other = "Which law governs this agreement?"
+    assert queue_question(state, other, now=now + 5.2) is True
+    assert state["queued_question"] == other
+
+    # The same text is allowed again once the window has passed and nothing is pending.
+    state.pop("queued_question")
+    state["_ask_inflight"] = ""
+    state["_last_queued_question"] = (question, now)
+    assert queue_question(state, question, now=now + REPEAT_ASK_WINDOW_S) is True
+
+
+def test_ask_button_queues_through_the_same_callback_as_enter() -> None:
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
+    assert "def _on_ask_click" in text
+    assert "on_click=_on_ask_click if chat_ready else None" in text
+    assert "if submitted and _queue_question" not in text
+    assert "return queue_question(st.session_state, text)" in text
 
 
 def test_highlight_covers_section_4_sentence() -> None:
