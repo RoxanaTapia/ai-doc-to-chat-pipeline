@@ -10,6 +10,7 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import streamlit as st
@@ -19,6 +20,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from streamlit.runtime.scriptrunner_utils.exceptions import RerunException, StopException
 
 from ai_doc.rag import (
     generate_answer_stream,
@@ -45,8 +47,26 @@ from ai_doc.rag.retrieval import (
     first_stage_retrieval,
 )
 from api_client import api_base_url, chat_via_api
-from ask_queue import finish_question, queue_question
-from ask_runtime import AskTimeoutError, log_ask_stage, remaining_timeout, run_with_timeout
+from ask_queue import (
+    finish_question,
+    note_started,
+    queue_question,
+    reply_is_stored,
+    user_turn_open,
+)
+from ask_runtime import (
+    AskTimeoutError,
+    call_with_stage_timeout,
+    current_generation,
+    drop_answer,
+    invalidate_answer,
+    log_ask_stage,
+    open_generation,
+    remaining_timeout,
+    remember_answer,
+    run_model_once,
+    run_with_timeout,
+)
 from generation_errors import anthropic_user_reason
 from page_copy import (
     _CLIENT_COPY,
@@ -526,9 +546,36 @@ def _queue_question(text: str) -> bool:
     return queue_question(st.session_state, text)
 
 
+def _ask_key(question: str) -> tuple[str, str]:
+    """Stash key for this browser session and question."""
+    ctx = get_script_run_ctx()
+    session_id = str(getattr(ctx, "session_id", "") or "")
+    return session_id, (question or "").strip()
+
+
 def _finish_ask(question: str) -> None:
     """The reply is stored. A late second Enter or Ask of this text stays quiet."""
+    drop_answer(_ask_key(question))
     finish_question(st.session_state, question)
+
+
+@contextmanager
+def _interrupted_ask(question: str):
+    """Log a Streamlit stop that is not an Exception, then let the rerun proceed.
+
+    ``RerunException`` and ``StopException`` inherit from BaseException, so the
+    look-up's ``except Exception`` handlers never see them and nothing is logged.
+    ``st.rerun()`` after the reply is stored raises too; that pass is the paint,
+    and the question is no longer in flight.
+    """
+    try:
+        yield
+    except (RerunException, StopException) as exc:
+        inflight = (st.session_state.get("_ask_inflight") or "").strip()
+        queued = (st.session_state.get("queued_question") or "").strip()
+        if question and (inflight == question or queued == question):
+            log_ask_stage("interrupted", question=question, reason=type(exc).__name__)
+        raise
 
 
 def _on_chip_click(question: str) -> None:
@@ -551,7 +598,7 @@ def _on_ask_click() -> None:
 
 
 def _continue_queued_ask(already_taken: str | None) -> None:
-    """If a callback queued after we popped, rerun so that pass can look it up."""
+    """If a callback queued after we read the queue, rerun so that pass can look it up."""
     if already_taken:
         return
     if st.session_state.get("queued_question"):
@@ -611,11 +658,40 @@ def _render_starter_chips(
     return slot
 
 
-def _collect_generated_answer(context: str, query: str, dummy_mode: bool) -> str:
-    """Join token chunks in-process. A live UI stream can hang on the next Ask."""
+def _collect_generated_answer(
+    context: str,
+    query: str,
+    dummy_mode: bool,
+    *,
+    stash_key: tuple[str, str],
+    generation: int,
+    timeout_seconds: float,
+) -> str:
+    """Join token chunks on the worker. Stash the text before returning.
+
+    The script thread may be stopped at the next session-state write, after
+    this returns. The stash is what the following pass stores, so the model
+    is not called again. Anthropic gets its own timeout log on this thread:
+    a hung call logs ``anthropic_timeout`` even if the script is already gone.
+    """
     if api_base_url():
-        return chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
-    return "".join(generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode))
+        text = chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
+    elif resolve_llm_provider_name(dummy_mode=dummy_mode) == "anthropic":
+        text = call_with_stage_timeout(
+            lambda: "".join(
+                generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode)
+            ),
+            timeout_seconds,
+            question=query,
+            start_stage="anthropic_call_start",
+            end_stage="anthropic_call_end",
+            timeout_stage="anthropic_timeout",
+        )
+    else:
+        text = "".join(generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode))
+    answer = text if isinstance(text, str) else ""
+    remember_answer(stash_key, generation, answer)
+    return answer
 
 
 def _render_ocr_status(
@@ -1027,7 +1103,17 @@ chat_ready = _document_is_indexed()
 _seed_capture_storyboard()
 if st.session_state.pop("_clear_ask_box", False):
     st.session_state.ask_box = ""
-queued_question = st.session_state.pop("queued_question", None)
+# Leave the question queued until the reply is stored. Clicking Ask reruns
+# the script and stops the pass that is inside the model call. The next pass
+# still has the question, so it can finish that look-up once.
+queued_question = (st.session_state.get("queued_question") or "").strip() or None
+if (
+    queued_question
+    and chat_ready
+    and reply_is_stored(st.session_state.messages, queued_question)
+):
+    _finish_ask(queued_question)
+    queued_question = None
 
 st.markdown('<p class="app-ask-mark">Ask</p>', unsafe_allow_html=True)
 # No st.form: Streamlit 1.54 flashes "Missing Submit Button" while the form
@@ -1055,10 +1141,6 @@ st.button(
 # continue so the next pass runs the look-up.
 _continue_queued_ask(queued_question)
 query = (queued_question or "").strip() or None
-if not query:
-    # This pass is not running a look-up. Drop a mark left by a run that was
-    # interrupted before it could finish, so the same question can be asked later.
-    st.session_state._ask_inflight = ""
 
 # Ask shell (hero already above + this input) must exist for one full run
 # before chip widgets are created, so they cannot paint ahead of the header.
@@ -1086,376 +1168,405 @@ if (
 
 if query and query.strip() and chat_ready:
     query = query.strip()
-    chip_slot.empty()
-    _clear_answer_history(answers_slot)
-    _append_chat_message("user", query)
-    paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
+    with _interrupted_ask(query):
+        ask_key = _ask_key(query)
+        resuming = (st.session_state.get("_ask_inflight") or "").strip() == query
+        if resuming:
+            # The previous pass was stopped mid look-up (Ask's rerun). Finish it
+            # once. Do not treat that pass's in-flight mark as a second question.
+            log_ask_stage("abandoned", question=query, reason="unfinished")
+            generation = current_generation(ask_key)
+            if generation is None:
+                generation = open_generation(ask_key)
+        else:
+            note_started(st.session_state, query)
+            generation = open_generation(ask_key)
+        chip_slot.empty()
+        _clear_answer_history(answers_slot)
+        if not user_turn_open(st.session_state.messages, query):
+            _append_chat_message("user", query)
+        paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
 
-    retrieval_error = None
-    generation_error = None
-    raw_results: list[tuple[Document, float]] = []
-    retrieved_docs: list[Document] = []
-    context = ""
-    retrieval_warning: str | None = None
-    retrieval_diag: dict[str, int] = {}
-    retrieval_elapsed_ms = 0.0
-    rerank_elapsed_ms = 0.0
-    generation_elapsed_ms = 0.0
-    total_elapsed_ms = 0.0
+        retrieval_error = None
+        generation_error = None
+        raw_results: list[tuple[Document, float]] = []
+        retrieved_docs: list[Document] = []
+        context = ""
+        retrieval_warning: str | None = None
+        retrieval_diag: dict[str, int] = {}
+        retrieval_elapsed_ms = 0.0
+        rerank_elapsed_ms = 0.0
+        generation_elapsed_ms = 0.0
+        total_elapsed_ms = 0.0
 
-    with st.container():
-        st.markdown(
-            f'<p class="app-answer-q">{html.escape(query)}</p>',
-            unsafe_allow_html=True,
-        )
-        timer_placeholder = st.empty()
-        stop_timer = threading.Event()
-        script_ctx = get_script_run_ctx()
-        total_start = time.perf_counter()
-
-        def _thinking_timer_loop() -> None:
-            if script_ctx is not None:
-                add_script_run_ctx(threading.current_thread(), script_ctx)
-            t0 = time.perf_counter()
-            while not stop_timer.wait(0.12):
-                elapsed = time.perf_counter() - t0
-                timer_placeholder.caption(f"Working… {elapsed:.1f}s")
-
-        typing_slot = st.empty()
-        typing_slot.markdown(
-            f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
-            '<span class="app-typing-dots"></span></p>',
-            unsafe_allow_html=True,
-        )
-        timer_thread = None
-        if script_ctx is not None and st.session_state.developer_mode:
-            timer_thread = threading.Thread(
-                target=_thinking_timer_loop,
-                daemon=True,
-                name="thinking-timer",
+        with st.container():
+            st.markdown(
+                f'<p class="app-answer-q">{html.escape(query)}</p>',
+                unsafe_allow_html=True,
             )
-            timer_thread.start()
-        try:
-            retrieval_start = time.perf_counter()
+            timer_placeholder = st.empty()
+            stop_timer = threading.Event()
+            script_ctx = get_script_run_ctx()
+            total_start = time.perf_counter()
+
+            def _thinking_timer_loop() -> None:
+                if script_ctx is not None:
+                    add_script_run_ctx(threading.current_thread(), script_ctx)
+                t0 = time.perf_counter()
+                while not stop_timer.wait(0.12):
+                    elapsed = time.perf_counter() - t0
+                    timer_placeholder.caption(f"Working… {elapsed:.1f}s")
+
+            typing_slot = st.empty()
+            typing_slot.markdown(
+                f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
+                '<span class="app-typing-dots"></span></p>',
+                unsafe_allow_html=True,
+            )
+            timer_thread = None
+            if script_ctx is not None and st.session_state.developer_mode:
+                timer_thread = threading.Thread(
+                    target=_thinking_timer_loop,
+                    daemon=True,
+                    name="thinking-timer",
+                )
+                timer_thread.start()
             try:
-                candidate_limit = (
-                    max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
-                )
-                bm25_index, bm25_warning = _ensure_bm25_index()
-                strategy = st.session_state.retrieval_strategy
-                vector_store = st.session_state.vector_store
-                chunks = st.session_state.chunks or []
-                dummy_mode = st.session_state.dummy_generator_only
-                use_page_separators = bool(st.session_state.use_page_separators)
-                timeout_seconds = _ask_timeout_seconds()
-                log_ask_stage("start", question=query)
-
-                def _retrieve_only():
-                    return first_stage_retrieval(
-                        query,
-                        strategy=strategy,
-                        vector_store=vector_store,
-                        chunks=chunks,
-                        bm25_index=bm25_index,
-                        bm25_warning=bm25_warning,
-                        config=RETRIEVAL_CONFIG,
-                        candidate_limit=candidate_limit,
+                retrieval_start = time.perf_counter()
+                try:
+                    candidate_limit = (
+                        max(TOP_K, RERANKER_TOP_N) if st.session_state.enable_reranker else TOP_K
                     )
+                    bm25_index, bm25_warning = _ensure_bm25_index()
+                    strategy = st.session_state.retrieval_strategy
+                    vector_store = st.session_state.vector_store
+                    chunks = st.session_state.chunks or []
+                    dummy_mode = st.session_state.dummy_generator_only
+                    use_page_separators = bool(st.session_state.use_page_separators)
+                    timeout_seconds = _ask_timeout_seconds()
+                    if not resuming:
+                        log_ask_stage("start", question=query)
 
-                candidate_pool, mode, first_stage_warning, retrieval_diag = run_with_timeout(
-                    _retrieve_only,
-                    remaining_timeout(total_start, timeout_seconds),
-                )
-                raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
-                    _finalize_retrieval_candidates(
-                        query,
-                        candidate_pool=candidate_pool,
-                        mode=mode,
+                    def _retrieve_only():
+                        return first_stage_retrieval(
+                            query,
+                            strategy=strategy,
+                            vector_store=vector_store,
+                            chunks=chunks,
+                            bm25_index=bm25_index,
+                            bm25_warning=bm25_warning,
+                            config=RETRIEVAL_CONFIG,
+                            candidate_limit=candidate_limit,
+                        )
+
+                    candidate_pool, mode, first_stage_warning, retrieval_diag = run_with_timeout(
+                        _retrieve_only,
+                        remaining_timeout(total_start, timeout_seconds),
                     )
-                )
-                st.session_state.last_retrieval_mode = final_mode
-                retrieval_warning = reranker_warning or first_stage_warning
-                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                log_ask_stage(
-                    "retrieval_done",
-                    question=query,
-                    elapsed_ms=retrieval_elapsed_ms,
-                    chunks=len(raw_results),
-                    mode=final_mode,
-                )
-
-                for doc, score in raw_results:
-                    doc.metadata["similarity"] = score
-                st.session_state.last_raw_results = raw_results
-
-                context_results, hard_filter_warning = apply_hard_section_context_filter(
-                    query,
-                    raw_results,
-                    all_chunks=st.session_state.chunks,
-                    top_k=TOP_K,
-                    enabled=SECTION_HARD_CONTEXT_FILTER,
-                    min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
-                )
-                if hard_filter_warning:
-                    retrieval_warning = " · ".join(
-                        part for part in (retrieval_warning, hard_filter_warning) if part
+                    raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
+                        _finalize_retrieval_candidates(
+                            query,
+                            candidate_pool=candidate_pool,
+                            mode=mode,
+                        )
                     )
-                    st.session_state.last_retrieval_mode = (
-                        f"{st.session_state.last_retrieval_mode}_section_filtered"
-                    )
-
-                retrieved_docs = [doc for doc, _score in context_results]
-                st.session_state.last_query = query
-                st.session_state.last_retrieved_docs = retrieved_docs
-                context = assemble_context(
-                    context_results,
-                    use_page_separators=use_page_separators,
-                )
-                st.session_state.last_context = context
-
-                context_ok, _context_gap = context_sufficient_for_query(query, context)
-                if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
-                    st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
-                    st.session_state.last_generation_error = None
-                    st.session_state.last_retrieval_mode = (
-                        f"{st.session_state.last_retrieval_mode}_context_guard"
-                    )
-                    generation_elapsed_ms = 0.0
-                else:
-                    generation_start = time.perf_counter()
+                    st.session_state.last_retrieval_mode = final_mode
+                    retrieval_warning = reranker_warning or first_stage_warning
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
                     log_ask_stage(
-                        "model_call_start",
+                        "retrieval_done",
                         question=query,
                         elapsed_ms=retrieval_elapsed_ms,
+                        chunks=len(raw_results),
+                        mode=final_mode,
                     )
-                    try:
-                        streamed = run_with_timeout(
-                            lambda: _collect_generated_answer(context, query, dummy_mode),
-                            remaining_timeout(total_start, timeout_seconds),
+
+                    for doc, score in raw_results:
+                        doc.metadata["similarity"] = score
+                    st.session_state.last_raw_results = raw_results
+
+                    context_results, hard_filter_warning = apply_hard_section_context_filter(
+                        query,
+                        raw_results,
+                        all_chunks=st.session_state.chunks,
+                        top_k=TOP_K,
+                        enabled=SECTION_HARD_CONTEXT_FILTER,
+                        min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
+                    )
+                    if hard_filter_warning:
+                        retrieval_warning = " · ".join(
+                            part for part in (retrieval_warning, hard_filter_warning) if part
                         )
-                        st.session_state.last_answer = (
-                            streamed if isinstance(streamed, str) else None
+                        st.session_state.last_retrieval_mode = (
+                            f"{st.session_state.last_retrieval_mode}_section_filtered"
                         )
+
+                    retrieved_docs = [doc for doc, _score in context_results]
+                    st.session_state.last_query = query
+                    st.session_state.last_retrieved_docs = retrieved_docs
+                    context = assemble_context(
+                        context_results,
+                        use_page_separators=use_page_separators,
+                    )
+                    st.session_state.last_context = context
+
+                    context_ok, _context_gap = context_sufficient_for_query(query, context)
+                    if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
+                        remember_answer(ask_key, generation, INSUFFICIENT_CONTEXT_ANSWER)
+                        st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
                         st.session_state.last_generation_error = None
-                    except AskTimeoutError as e:
-                        generation_error = e
-                        st.session_state.last_answer = None
-                    except Exception as e:
-                        generation_error = e
-                        st.session_state.last_answer = None
-                    generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-                    if generation_error is None:
-                        log_ask_stage(
-                            "model_call_end",
-                            question=query,
-                            elapsed_ms=generation_elapsed_ms,
+                        st.session_state.last_retrieval_mode = (
+                            f"{st.session_state.last_retrieval_mode}_context_guard"
                         )
+                        generation_elapsed_ms = 0.0
                     else:
-                        log_ask_stage(
-                            "error",
-                            question=query,
-                            elapsed_ms=generation_elapsed_ms,
-                            reason=type(generation_error).__name__,
+                        generation_start = time.perf_counter()
+                        model_timeout = remaining_timeout(total_start, timeout_seconds)
+                        try:
+                            streamed = run_model_once(
+                                ask_key,
+                                lambda: _collect_generated_answer(
+                                    context,
+                                    query,
+                                    dummy_mode,
+                                    stash_key=ask_key,
+                                    generation=generation,
+                                    timeout_seconds=model_timeout,
+                                ),
+                                model_timeout,
+                                question=query,
+                                resuming=resuming,
+                                retrieval_ms=retrieval_elapsed_ms,
+                            )
+                            # End is logged inside run_model_once, before this write.
+                            # The write is a yield point: a pending Ask rerun raises
+                            # here and does not store the value.
+                            st.session_state.last_generation_error = None
+                            st.session_state.last_answer = streamed
+                        except AskTimeoutError as e:
+                            generation_error = e
+                            invalidate_answer(ask_key)
+                            st.session_state.last_answer = None
+                        except Exception as e:
+                            generation_error = e
+                            invalidate_answer(ask_key)
+                            st.session_state.last_answer = None
+                        generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
+                        if generation_error is not None:
+                            log_ask_stage(
+                                "error",
+                                question=query,
+                                elapsed_ms=generation_elapsed_ms,
+                                reason=type(generation_error).__name__,
+                            )
+                except AskTimeoutError as e:
+                    retrieval_error = e
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                    log_ask_stage(
+                        "error",
+                        question=query,
+                        elapsed_ms=retrieval_elapsed_ms,
+                        reason=type(e).__name__,
+                    )
+                    st.session_state.last_retrieval_mode = "retrieval_failed"
+                    raw_results = []
+                    retrieved_docs = []
+                    context = ""
+                    st.session_state.last_query = query
+                    st.session_state.last_raw_results = []
+                    st.session_state.last_retrieved_docs = []
+                    st.session_state.last_context = ""
+                    st.session_state.last_answer = None
+                except (
+                    AttributeError,
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                    RuntimeError,
+                ) as e:
+                    retrieval_error = e
+                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+                    log_ask_stage(
+                        "error",
+                        question=query,
+                        elapsed_ms=retrieval_elapsed_ms,
+                        reason=type(e).__name__,
+                    )
+                    st.session_state.last_retrieval_mode = "retrieval_failed"
+                    raw_results = []
+                    retrieved_docs = []
+                    context = ""
+                    st.session_state.last_query = query
+                    st.session_state.last_raw_results = []
+                    st.session_state.last_retrieved_docs = []
+                    st.session_state.last_context = ""
+                    st.session_state.last_answer = None
+            finally:
+                if timer_thread is not None:
+                    stop_timer.set()
+                    timer_thread.join(timeout=5.0)
+                # Clear the busy line only when this try is failing. empty() is a
+                # yield point: doing it before the reply is stored lets a second
+                # Enter/Ask rerun drop the answer. The success path clears below.
+                if sys.exc_info()[0] is not None:
+                    typing_slot.empty()
+                    timer_placeholder.empty()
+
+            total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
+
+            if retrieval_warning and st.session_state.developer_mode:
+                st.caption(retrieval_warning)
+
+            st.session_state.last_retrieval_metrics = {
+                "strategy": st.session_state.retrieval_strategy,
+                "mode": st.session_state.last_retrieval_mode,
+                "reranker_enabled": st.session_state.enable_reranker,
+                "retrieved_chunks": len(raw_results),
+                "context_chars": len(context),
+                "retrieval_ms": round(retrieval_elapsed_ms, 1),
+                "rerank_ms": round(rerank_elapsed_ms, 1),
+                "generation_ms": round(generation_elapsed_ms, 1),
+                "total_ms": round(total_elapsed_ms, 1),
+                **retrieval_diag,
+            }
+
+            if st.session_state.developer_mode:
+                query_preview = _question_preview(query)
+                if st.session_state.last_retrieval_metrics:
+                    with st.expander(
+                        _dev_panel_title(
+                            "Retrieval metrics (last run)", query_preview, fallback="live"
+                        ),
+                        expanded=False,
+                    ):
+                        metrics = st.session_state.last_retrieval_metrics
+                        st.markdown(
+                            f"- strategy: `{metrics['strategy']}`  \n"
+                            f"- mode: `{metrics['mode']}`  \n"
+                            f"- reranker enabled: `{metrics['reranker_enabled']}`  \n"
+                            f"- candidates (dense/sparse/fused): "
+                            f"`{metrics.get('dense_candidates', 0)}` / "
+                            f"`{metrics.get('sparse_candidates', 0)}` / "
+                            "`"
+                            f"{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}"
+                            "`"
+                            "  \n"
+                            f"- selected before rerank: "
+                            f"`{metrics.get('selected_before_rerank', 0)}`  \n"
+                            f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
+                            f"- context chars: `{metrics['context_chars']}`  \n"
+                            f"- timing ms (retrieval/rerank/generation/total): "
+                            f"`{metrics['retrieval_ms']}` / `{metrics['rerank_ms']}` / "
+                            f"`{metrics['generation_ms']}` / `{metrics['total_ms']}`"
                         )
-            except AskTimeoutError as e:
-                retrieval_error = e
-                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                log_ask_stage(
-                    "error",
-                    question=query,
-                    elapsed_ms=retrieval_elapsed_ms,
-                    reason=type(e).__name__,
-                )
-                st.session_state.last_retrieval_mode = "retrieval_failed"
-                raw_results = []
-                retrieved_docs = []
-                context = ""
-                st.session_state.last_query = query
-                st.session_state.last_raw_results = []
-                st.session_state.last_retrieved_docs = []
-                st.session_state.last_context = ""
-                st.session_state.last_answer = None
-            except (
-                AttributeError,
-                KeyError,
-                TypeError,
-                ValueError,
-                RuntimeError,
-            ) as e:
-                retrieval_error = e
-                retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                log_ask_stage(
-                    "error",
-                    question=query,
-                    elapsed_ms=retrieval_elapsed_ms,
-                    reason=type(e).__name__,
-                )
-                st.session_state.last_retrieval_mode = "retrieval_failed"
-                raw_results = []
-                retrieved_docs = []
-                context = ""
-                st.session_state.last_query = query
-                st.session_state.last_raw_results = []
-                st.session_state.last_retrieved_docs = []
-                st.session_state.last_context = ""
-                st.session_state.last_answer = None
-        finally:
-            if timer_thread is not None:
-                stop_timer.set()
-                timer_thread.join(timeout=5.0)
-            # Clear the busy line only when this try is failing. empty() is a
-            # yield point: doing it before the reply is stored lets a second
-            # Enter/Ask rerun drop the answer. The success path clears below.
-            if sys.exc_info()[0] is not None:
-                typing_slot.empty()
-                timer_placeholder.empty()
-
-        total_elapsed_ms = (time.perf_counter() - total_start) * 1000.0
-
-        if retrieval_warning and st.session_state.developer_mode:
-            st.caption(retrieval_warning)
-
-        st.session_state.last_retrieval_metrics = {
-            "strategy": st.session_state.retrieval_strategy,
-            "mode": st.session_state.last_retrieval_mode,
-            "reranker_enabled": st.session_state.enable_reranker,
-            "retrieved_chunks": len(raw_results),
-            "context_chars": len(context),
-            "retrieval_ms": round(retrieval_elapsed_ms, 1),
-            "rerank_ms": round(rerank_elapsed_ms, 1),
-            "generation_ms": round(generation_elapsed_ms, 1),
-            "total_ms": round(total_elapsed_ms, 1),
-            **retrieval_diag,
-        }
-
-        if st.session_state.developer_mode:
-            query_preview = _question_preview(query)
-            if st.session_state.last_retrieval_metrics:
+                        if retrieval_warning:
+                            st.caption(f"Retrieval warning: {retrieval_warning}")
+                with st.expander(
+                    _dev_panel_title("Exact context fed to LLM", query_preview, fallback="live"),
+                    expanded=False,
+                ):
+                    st.code(context, language="text")
+                    chunk_count = len(raw_results)
+                    st.caption(f"• {chunk_count} chunks • {len(context)} chars · top-k={TOP_K}")
                 with st.expander(
                     _dev_panel_title(
-                        "Retrieval metrics (last run)", query_preview, fallback="live"
+                        "Retrieved raw chunks + scores", query_preview, fallback="live"
                     ),
                     expanded=False,
                 ):
-                    metrics = st.session_state.last_retrieval_metrics
-                    st.markdown(
-                        f"- strategy: `{metrics['strategy']}`  \n"
-                        f"- mode: `{metrics['mode']}`  \n"
-                        f"- reranker enabled: `{metrics['reranker_enabled']}`  \n"
-                        f"- candidates (dense/sparse/fused): "
-                        f"`{metrics.get('dense_candidates', 0)}` / "
-                        f"`{metrics.get('sparse_candidates', 0)}` / "
-                        f"`{metrics.get('fused_candidates', metrics.get('dense_candidates', 0))}`"
-                        "  \n"
-                        f"- selected before rerank: "
-                        f"`{metrics.get('selected_before_rerank', 0)}`  \n"
-                        f"- retrieved chunks: `{metrics['retrieved_chunks']}`  \n"
-                        f"- context chars: `{metrics['context_chars']}`  \n"
-                        f"- timing ms (retrieval/rerank/generation/total): "
-                        f"`{metrics['retrieval_ms']}` / `{metrics['rerank_ms']}` / "
-                        f"`{metrics['generation_ms']}` / `{metrics['total_ms']}`"
-                    )
-                    if retrieval_warning:
-                        st.caption(f"Retrieval warning: {retrieval_warning}")
-            with st.expander(
-                _dev_panel_title("Exact context fed to LLM", query_preview, fallback="live"),
-                expanded=False,
-            ):
-                st.code(context, language="text")
-                st.caption(f"• {len(raw_results)} chunks • {len(context)} chars · top-k={TOP_K}")
-            with st.expander(
-                _dev_panel_title("Retrieved raw chunks + scores", query_preview, fallback="live"),
-                expanded=False,
-            ):
-                for i, (doc, _raw_score) in enumerate(raw_results, start=1):
-                    similarity = doc.metadata.get("similarity")
-                    score = round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A"
-                    st.markdown(
-                        f"**Chunk {i}** (similarity score: {score})  \n"
-                        f"Page: {doc.metadata.get('page', '?')}"
-                    )
-                    st.code(doc.page_content, language="text")
+                    for i, (doc, _raw_score) in enumerate(raw_results, start=1):
+                        similarity = doc.metadata.get("similarity")
+                        score = (
+                            round(similarity, 3)
+                            if isinstance(similarity, (float, int))
+                            else "N/A"
+                        )
+                        st.markdown(
+                            f"**Chunk {i}** (similarity score: {score})  \n"
+                            f"Page: {doc.metadata.get('page', '?')}"
+                        )
+                        st.code(doc.page_content, language="text")
 
-    timing_payload = {
-        "total_ms": total_elapsed_ms,
-        "retrieval_ms": retrieval_elapsed_ms,
-        "generation_ms": generation_elapsed_ms,
-    }
-
-    if isinstance(retrieval_error, AskTimeoutError):
-        generation_error = retrieval_error
-        retrieval_error = None
-    if retrieval_error is not None:
-        retrieval_reason = (
-            "I couldn't retrieve relevant document chunks right now. Please try again."
-        )
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            retrieval_reason,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-        )
-        _finish_ask(query)
-        typing_slot.empty()
-        timer_placeholder.empty()
-        paint_status(status_slot, "error", retrieval_reason)
-        st.rerun()
-    elif generation_error is not None:
-        e = generation_error
-        st.session_state.last_answer = None
-        if isinstance(e, AskTimeoutError):
-            reason = _CLIENT_COPY["doc_timeout"]
-        else:
-            reason, _ = _generation_failure_reason(e)
-        st.session_state.last_generation_error = {
-            "user_reason": reason,
-            "detail": str(e),
+        timing_payload = {
+            "total_ms": total_elapsed_ms,
+            "retrieval_ms": retrieval_elapsed_ms,
+            "generation_ms": generation_elapsed_ms,
         }
-        assistant_message = f"I couldn't generate an answer right now. {reason}"
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            assistant_message,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-        )
-        _finish_ask(query)
-        typing_slot.empty()
-        timer_placeholder.empty()
-        paint_status(status_slot, "error", reason)
-        st.rerun()
-    else:
-        assistant_message = visitor_refusal_answer(
-            st.session_state.last_answer
-            or "I could not generate an answer at this time. Please try again.",
-            query,
-        )
-        target_section = extract_target_section(query)
-        source_payload = _build_sources_payload(
-            retrieved_docs,
-            query=query,
-            answer=assistant_message,
-            display_max=SOURCES_DISPLAY_MAX,
-            preview_chars=SOURCE_PREVIEW_CHARS,
-        )
-        _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
-        _append_chat_message(
-            "assistant",
-            assistant_message,
-            sources=source_payload,
-            timing=timing_payload if total_elapsed_ms > 0 else None,
-            for_question=query,
-            eval_context=context if st.session_state.developer_mode else None,
-            target_section=target_section,
-            eval_chunk_count=len(raw_results),
-        )
-        _finish_ask(query)
-        typing_slot.empty()
-        timer_placeholder.empty()
-        # Keep doc_status "answering" across this rerun. Painting "ready" here
-        # cleared the busy line before the idle run could paint the new card.
-        st.rerun()
+
+        if isinstance(retrieval_error, AskTimeoutError):
+            generation_error = retrieval_error
+            retrieval_error = None
+        if retrieval_error is not None:
+            retrieval_reason = (
+                "I couldn't retrieve relevant document chunks right now. Please try again."
+            )
+            _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+            _append_chat_message(
+                "assistant",
+                retrieval_reason,
+                timing=timing_payload if total_elapsed_ms > 0 else None,
+                for_question=query,
+            )
+            _finish_ask(query)
+            typing_slot.empty()
+            timer_placeholder.empty()
+            paint_status(status_slot, "error", retrieval_reason)
+            st.rerun()
+        elif generation_error is not None:
+            e = generation_error
+            st.session_state.last_answer = None
+            if isinstance(e, AskTimeoutError):
+                reason = _CLIENT_COPY["doc_timeout"]
+            else:
+                reason, _ = _generation_failure_reason(e)
+            st.session_state.last_generation_error = {
+                "user_reason": reason,
+                "detail": str(e),
+            }
+            assistant_message = f"I couldn't generate an answer right now. {reason}"
+            _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+            _append_chat_message(
+                "assistant",
+                assistant_message,
+                timing=timing_payload if total_elapsed_ms > 0 else None,
+                for_question=query,
+            )
+            _finish_ask(query)
+            typing_slot.empty()
+            timer_placeholder.empty()
+            paint_status(status_slot, "error", reason)
+            st.rerun()
+        else:
+            assistant_message = visitor_refusal_answer(
+                st.session_state.last_answer
+                or "I could not generate an answer at this time. Please try again.",
+                query,
+            )
+            target_section = extract_target_section(query)
+            source_payload = _build_sources_payload(
+                retrieved_docs,
+                query=query,
+                answer=assistant_message,
+                display_max=SOURCES_DISPLAY_MAX,
+                preview_chars=SOURCE_PREVIEW_CHARS,
+            )
+            _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+            _append_chat_message(
+                "assistant",
+                assistant_message,
+                sources=source_payload,
+                timing=timing_payload if total_elapsed_ms > 0 else None,
+                for_question=query,
+                eval_context=context if st.session_state.developer_mode else None,
+                target_section=target_section,
+                eval_chunk_count=len(raw_results),
+            )
+            _finish_ask(query)
+            typing_slot.empty()
+            timer_placeholder.empty()
+            # Keep doc_status "answering" across this rerun. Painting "ready" here
+            # cleared the busy line before the idle run could paint the new card.
+            st.rerun()
 elif query is not None and not chat_ready:
     paint_status(status_slot, "empty", _chat_blocked_user_message(uploaded_file))
 elif query is not None:
