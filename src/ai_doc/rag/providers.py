@@ -20,6 +20,11 @@ from ai_doc.rag.config import (
 
 logger = logging.getLogger(__name__)
 
+# `anthropic` 2.x defaults to API version 2026-10-21, which rejects `temperature`,
+# `top_p`, and `top_k` on every model (400: "Extra inputs are not permitted").
+# Haiku 4.5 still honors temperature on 2023-06-01, including 0 for do_sample=false.
+_ANTHROPIC_SAMPLING_API_VERSION = "2023-06-01"
+
 SUPPORTED_LLM_PROVIDERS = frozenset({"ollama", "anthropic", "openai", "dummy"})
 DUMMY_UI_RESPONSE = (
     "This is a UI demo — no AI model is running here.\n\n"
@@ -108,8 +113,10 @@ def _build_ollama_llm(settings: dict[str, Any]) -> ChatOllama:
 def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropic:
     """Construct a ChatAnthropic client from generation settings.
 
-    Haiku 4.5+ rejects requests that set both ``temperature`` and ``top_p``.
-    Prefer temperature only (deterministic 0.0 when ``do_sample`` is false).
+    Haiku 4.5 accepts ``temperature`` on API version 2023-06-01 and rejects the
+    field on 2026-10-21. Pin that header so a newer ``anthropic`` SDK cannot
+    400 the request. Send temperature only (0.0 when ``do_sample`` is false)
+    and never ``top_p`` (Haiku 4.5 rejects both together).
     """
     effective_temperature = settings["temperature"] if settings["do_sample"] else 0.0
     model = str(settings.get("anthropic_model") or DEFAULT_ANTHROPIC_MODEL)
@@ -119,6 +126,7 @@ def _build_anthropic_llm(settings: dict[str, Any], api_key: str) -> ChatAnthropi
         temperature=effective_temperature,
         max_tokens=int(settings["max_new_tokens"]),
         timeout=float(settings["timeout_seconds"]),
+        default_headers={"anthropic-version": _ANTHROPIC_SAMPLING_API_VERSION},
     )
 
 

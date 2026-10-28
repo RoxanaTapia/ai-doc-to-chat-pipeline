@@ -356,8 +356,96 @@ def test_generate_with_anthropic_respects_config_and_prompt(monkeypatch) -> None
     # Haiku 4.5 rejects temperature + top_p together; we send temperature only.
     assert "top_p" not in created["kwargs"]
     assert created["kwargs"]["temperature"] == 0.0
+    # anthropic 2.x defaults to API 2026-10-21, which rejects this field.
+    assert created["kwargs"]["default_headers"]["anthropic-version"] == "2023-06-01"
     assert "CTX=Context text" in created["prompt"]
     assert "Q=Question text" in created["prompt"]
+
+
+def _sampling_temperature(payload: dict) -> float | None:
+    """Temperature as sent: named arg on older SDKs, extra_body on anthropic>=1."""
+    if "temperature" in payload:
+        return payload["temperature"]
+    extra = payload.get("extra_body") or {}
+    return extra.get("temperature")
+
+
+def _sampling_keys(payload: dict) -> set[str]:
+    extra = payload.get("extra_body") or {}
+    return {key for key in ("temperature", "top_p", "top_k") if key in payload or key in extra}
+
+
+def test_haiku_temperature_stays_on_sampling_api_version(monkeypatch) -> None:
+    """Reproduce the live 400 and require the request that Haiku 4.5 accepts.
+
+    langchain-anthropic>=1.7 moves temperature into extra_body when the SDK
+    dropped the named argument. anthropic 2.x then sends API version 2026-10-21,
+    and that version returns ``temperature: Extra inputs are not permitted``
+    for every model, including claude-haiku-4-5-20251001. The previous image
+    stayed on anthropic 1.x (API 2023-06-01), which still honors temperature 0.
+    """
+    import anthropic
+    import httpx2
+    from anthropic.types import Message, TextBlock, Usage
+
+    # Installed 1.x still reads this constant. Force the 2.x default so the
+    # test fails if the builder stops pinning the header.
+    monkeypatch.setattr(anthropic._client, "ANTHROPIC_API_VERSION", "2026-10-21")
+
+    settings = {
+        "temperature": 0.55,
+        "top_p": 0.9,
+        "max_new_tokens": 128,
+        "do_sample": False,
+        "timeout_seconds": 30,
+    }
+    llm = rag.providers._build_anthropic_llm(settings, "test-key-not-real")
+    captured: dict = {}
+
+    class _Raw:
+        def parse(self) -> Message:
+            return Message(
+                id="msg_test",
+                type="message",
+                content=[TextBlock(type="text", text="cited")],
+                model=rag.DEFAULT_ANTHROPIC_MODEL,
+                role="assistant",
+                stop_reason="end_turn",
+                usage=Usage(input_tokens=3, output_tokens=2),
+            )
+
+    def create(**kwargs):
+        version = llm._client.default_headers.get("anthropic-version")
+        captured["kwargs"] = kwargs
+        captured["version"] = version
+        temperature = _sampling_temperature(kwargs)
+        if version != "2023-06-01" and temperature is not None:
+            request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+            body = {
+                "type": "error",
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": "temperature: Extra inputs are not permitted",
+                },
+            }
+            response = httpx2.Response(400, request=request, json=body)
+            raise anthropic.BadRequestError(
+                "temperature: Extra inputs are not permitted",
+                response=response,
+                body=body,
+            )
+        return _Raw()
+
+    llm._client.messages.with_raw_response.create = create
+    answer = llm.invoke("What is the notice period?")
+
+    assert rag.DEFAULT_ANTHROPIC_MODEL == "claude-haiku-4-5-20251001"
+    assert answer.content == "cited"
+    assert captured["version"] == "2023-06-01"
+    assert captured["kwargs"]["model"] == "claude-haiku-4-5-20251001"
+    # do_sample false stays deterministic; top_p is not sent with temperature.
+    assert _sampling_temperature(captured["kwargs"]) == 0.0
+    assert _sampling_keys(captured["kwargs"]) == {"temperature"}
 
 
 def test_generate_with_anthropic_missing_api_key_raises(monkeypatch) -> None:

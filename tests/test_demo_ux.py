@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -15,6 +16,7 @@ for _folder in (DEMO_DIR, SRC_DIR):
 from langchain_core.documents import Document  # noqa: E402
 
 from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER, is_insufficient_answer  # noqa: E402
+from generation_errors import anthropic_user_reason  # noqa: E402
 from page_copy import (  # noqa: E402
     _CLIENT_COPY,
     BOOKING_URL_ENV,
@@ -108,6 +110,25 @@ def test_anthropic_badge_never_says_private_local_or_offline() -> None:
     assert privacy_badge_for_provider("openai") == label
     assert privacy_badge_for_provider("ollama") == "Runs on this server"
     assert "offline" not in privacy_badge_for_provider("ollama").lower()
+
+
+def test_anthropic_chat_hides_raw_provider_error(caplog) -> None:
+    """The live banner used to quote the API body. Log it, don't show it."""
+    exc = RuntimeError(
+        "Anthropic generation unavailable: Error code: 400 - "
+        "{'type': 'error', 'error': {'type': 'invalid_request_error', "
+        "'message': 'temperature: Extra inputs are not permitted'}}"
+    )
+    with caplog.at_level(logging.WARNING, logger="generation_errors"):
+        reason = anthropic_user_reason(exc)
+    assert reason == "The answer service could not use these settings. Please try again."
+    assert "Extra inputs are not permitted" not in reason
+    assert "Anthropic error:" not in reason
+    assert "temperature: Extra inputs are not permitted" in caplog.text
+
+    other = anthropic_user_reason(RuntimeError("provider blew up with secret detail"))
+    assert other == "Could not generate an Anthropic answer right now."
+    assert "secret" not in other
 
 
 def test_refusal_sentinel_is_unchanged() -> None:
