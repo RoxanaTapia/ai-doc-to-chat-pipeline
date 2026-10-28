@@ -11,7 +11,7 @@ from ai_doc.rag import (
     resolve_llm_provider_name,
 )
 
-__version__ = "0.10.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "app",

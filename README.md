@@ -145,22 +145,21 @@ Restart the app and you upload again. Nothing is written to a document library.
 
 ## Pin a version
 
-The core package is `ai-doc`. This tree is **0.10.0** ([`pyproject.toml`](pyproject.toml), and `ai_doc.__version__`). The demo is not its own package. Streamlit ships as the `demo` extra.
+The core package is `ai-doc` **1.0.0** ([`pyproject.toml`](pyproject.toml), and `ai_doc.__version__`). The demo is not its own package. Streamlit is the `demo` extra.
 
-From a checkout of the commit you want:
-
-```bash
-pip install .
-python -c "import ai_doc; print(ai_doc.__version__)"
-```
-
-To install `0.10.0` in another environment, pin this commit:
+Release tags are named `vX.Y.Z`. Pin this release with:
 
 ```bash
-pip install "ai-doc @ git+https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline.git@78924611889e8adb9e5d2f07bbfeb711892510f1"
+pip install "git+https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline@v1.0.0"
 ```
 
-From the same checkout, `pip install ".[demo]"` adds Streamlit. Release tags are named `vX.Y.Z`. Installable package metadata starts at 0.10.0, so pin the commit above (or a later commit of that version) and confirm `__version__`.
+Add the demo extra when you need the Streamlit demo:
+
+```bash
+pip install "ai-doc[demo] @ git+https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline@v1.0.0"
+```
+
+From a checkout of that tag, `pip install .` installs the core, and `python -c "import ai_doc; print(ai_doc.__version__)"` prints `1.0.0`.
 
 ---
 
