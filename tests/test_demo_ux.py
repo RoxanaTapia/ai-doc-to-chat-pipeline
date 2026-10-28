@@ -595,15 +595,26 @@ def test_enter_and_ask_queue_the_same_question_once() -> None:
 
     Also covers Enter on its own: a second commit of the same text (the echo
     rerun) does not queue again. A chip uses this same queue.
+
+    The queue stays until the reply is stored. Popping it when the script
+    starts is what dropped a look-up that the Ask click stopped mid-model.
     """
-    from ask_queue import REPEAT_ASK_WINDOW_S, finish_question, queue_question
+    from ask_queue import (
+        REPEAT_ASK_WINDOW_S,
+        finish_question,
+        note_started,
+        queue_question,
+        reply_is_stored,
+        user_turn_open,
+    )
 
     question = "How long does the agreement last?"
-    state: dict = {"ask_box": question}
+    state: dict = {"ask_box": question, "messages": []}
     now = 1_000.0
 
-    # Enter / blur.
+    # Enter / blur queues. That does not yet mean the look-up has started.
     assert queue_question(state, state["ask_box"], now=now) is True
+    assert state.get("_ask_inflight", "") == ""
     # Ask, 50 ms later, text still in the box.
     assert queue_question(state, state["ask_box"], now=now + 0.05) is False
     # Enter again, still inside the window.
@@ -611,16 +622,25 @@ def test_enter_and_ask_queue_the_same_question_once() -> None:
     assert state["queued_question"] == question
     assert state["_clear_ask_box"] is True
 
-    # Still pending, even well after the window.
+    # The run starts, then the Ask rerun stops it before the reply is stored.
+    note_started(state, question)
+    assert state["_ask_inflight"] == question
+    assert reply_is_stored(state["messages"], question) is False
     assert queue_question(state, question, now=now + 30) is False
+    assert state["queued_question"] == question
 
-    # In flight after the queue was taken, and again just after the reply.
-    state.pop("queued_question")
-    assert queue_question(state, question, now=now + 30) is False
+    # The user line is already in the transcript. Resume must not add another.
+    state["messages"].append({"role": "user", "content": question})
+    assert user_turn_open(state["messages"], question) is True
+    assert reply_is_stored(state["messages"], question) is False
+
+    # Reply stored. The queue is cleared here, not when the script starts.
+    state["messages"].append({"role": "assistant", "content": "3 years"})
+    assert reply_is_stored(state["messages"], question) is True
     finish_question(state, question, now=now + 5)
     assert state["_ask_inflight"] == ""
-    assert queue_question(state, question, now=now + 5.1) is False
     assert "queued_question" not in state
+    assert queue_question(state, question, now=now + 5.1) is False
 
     # A different question is a new look-up. A chip goes through this too.
     other = "Which law governs this agreement?"
@@ -632,6 +652,29 @@ def test_enter_and_ask_queue_the_same_question_once() -> None:
     state["_ask_inflight"] = ""
     state["_last_queued_question"] = (question, now)
     assert queue_question(state, question, now=now + REPEAT_ASK_WINDOW_S) is True
+
+    # An older completed ask of the same text does not count as this turn's reply.
+    again = [
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": "3 years"},
+        {"role": "user", "content": question},
+    ]
+    assert user_turn_open(again, question) is True
+    assert reply_is_stored(again, question) is False
+
+
+def test_stopped_ask_is_logged_and_the_queue_is_not_popped() -> None:
+    """A rerun mid-model must be visible in the log, and the question must remain queued."""
+    text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
+    assert 'pop("queued_question"' not in text
+    assert "pop('queued_question'" not in text
+    assert 'log_ask_stage("interrupted"' in text
+    assert 'log_ask_stage("abandoned"' in text
+    assert "anthropic_call_start" in text
+    assert "anthropic_call_end" in text
+    assert "anthropic_timeout" in text
+    assert "RerunException" in text
+    assert "StopException" in text
 
 
 def test_ask_button_queues_through_the_same_callback_as_enter() -> None:

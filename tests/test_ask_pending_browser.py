@@ -905,3 +905,68 @@ def test_twenty_four_asks_clear_busy_line_at_history_cap() -> None:
             assert "slot-05" in body
             assert "slot-24" in body
             browser.close()
+
+
+def test_type_ask_once_then_enter_keeps_every_card() -> None:
+    """Type and click Ask once, then Enter. Each question shows one card, and earlier cards stay.
+
+    The stub stream pauses so the Ask click can land while the model call is still
+    running, which is the rerun that used to drop the look-up. Starter chips are
+    on screen until the first answer; after that they hide, so the chip is clicked
+    first and its card has to survive the typed asks.
+    """
+    _ensure_streamlit_unpatched()
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server(DEMO_STUB_STREAM_DELAY_MS="25") as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1100, "height": 1400})
+            page.goto(url, wait_until="domcontentloaded")
+            _wait_ready(page, expect)
+            expect(page.get_by_role("button", name=TERM_QUESTION, exact=True)).to_be_visible()
+
+            page.get_by_role("button", name=TERM_QUESTION, exact=True).click()
+            page.wait_for_function(
+                """(expectText) => {
+                  if (document.body.classList.contains('app-ask-pending')) return false;
+                  const cards = document.querySelectorAll(
+                    '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+                  );
+                  return cards.length >= 1 && (document.body.innerText || '').includes(expectText);
+                }""",
+                arg="3 years",
+                timeout=60000,
+            )
+            assert _finished_cards(page) == 1
+
+            _ask_and_wait(page, expect, LAW_QUESTION, expect_text="Spain", min_cards=2)
+            assert _finished_cards(page) == 2
+            assert "3 years" in page.locator("body").inner_text()
+
+            box = page.get_by_placeholder(READY_HINT)
+            before = _ask_done_id(page)
+            box.click()
+            box.fill(FEE_QUESTION)
+            box.press("Enter")
+            page.wait_for_function(
+                """([before, expectText]) => {
+                  const done = document.getElementById('app-ask-done');
+                  const id = done ? done.getAttribute('data-ask-id') : '0';
+                  if (id === before) return false;
+                  if (document.body.classList.contains('app-ask-pending')) return false;
+                  const cards = document.querySelectorAll(
+                    '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+                  );
+                  return cards.length >= 3 && (document.body.innerText || '').includes(expectText);
+                }""",
+                arg=[before, "isn't in the document"],
+                timeout=60000,
+            )
+            body = page.locator("body").inner_text()
+            assert _finished_cards(page) == 3
+            assert "3 years" in body
+            assert "Spain" in body
+            assert "isn't in the document" in body
+            assert not _pending(page)
+            browser.close()
+    _ensure_streamlit_unpatched()

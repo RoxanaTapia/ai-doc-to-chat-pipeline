@@ -308,6 +308,93 @@ def test_type_then_click_ask_once_answers(stub_env) -> None:
     assert _session_get(at, "ask_box", "") in {"", None}
 
 
+def test_interrupted_ask_resumes_once_and_keeps_the_earlier_card(
+    stub_env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Ask click stops the script after the model returns. Resume stores that answer once.
+
+    An earlier card stays. The model runs once for the interrupted question:
+    the worker stashes the text, and the next pass does not call it again.
+    """
+    import logging
+
+    from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
+    from streamlit.runtime.scriptrunner_utils.script_requests import RerunData
+    from streamlit.testing.v1 import AppTest
+
+    import ai_doc.rag as rag
+    import ask_runtime
+
+    ask_runtime.reset_call_state()
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    _ask(at, TERM_QUESTION)
+    assert not at.exception
+    assert TERM_QUESTION in _card_questions(at)
+
+    calls = {"n": 0}
+    real_stream = rag.generate_answer_stream
+
+    def _counting_stream(*args, **kwargs):
+        calls["n"] += 1
+        return real_stream(*args, **kwargs)
+
+    monkeypatch.setattr(rag, "generate_answer_stream", _counting_stream)
+
+    raised = {"n": 0}
+
+    def _handoff(question: str, answer: str) -> str:
+        raised["n"] += 1
+        if raised["n"] == 1:
+            raise RerunException(RerunData())
+        return answer
+
+    monkeypatch.setattr(ask_runtime, "handoff_model_result", _handoff)
+
+    lines: list[str] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            lines.append(record.getMessage())
+
+    handler = _Capture()
+    ask_runtime.ASK_LOGGER.addHandler(handler)
+    try:
+        _ask(at, LAW_QUESTION)
+    finally:
+        ask_runtime.ASK_LOGGER.removeHandler(handler)
+        ask_runtime.reset_call_state()
+
+    assert not at.exception
+    assert calls["n"] == 1
+    assert raised["n"] == 1
+
+    messages = _session_get(at, "messages") or []
+    users = [message for message in messages if message.get("role") == "user"]
+    assistants = [message for message in messages if message.get("role") == "assistant"]
+    assert [message.get("content") for message in users] == [TERM_QUESTION, LAW_QUESTION]
+    assert len(assistants) == 2
+    assert "3 years" in (assistants[0].get("content") or "")
+    assert "Spain" in (assistants[1].get("content") or "")
+
+    questions = _card_questions(at)
+    assert questions.count(TERM_QUESTION) == 1
+    assert questions.count(LAW_QUESTION) == 1
+    assert _session_get(at, "queued_question") in {None, ""}
+
+    law_lines = [line for line in lines if "law" in line.lower()]
+    joined = "\n".join(law_lines)
+    assert joined.count("stage=start") == 1
+    assert joined.count("stage=model_call_start") == 1
+    assert joined.count("stage=model_call_end") == 1
+    assert "stage=interrupted" in joined
+    assert "reason=RerunException" in joined
+    assert "stage=abandoned" in joined
+    assert "source=stash" in joined
+    assert "stage=anthropic_timeout" not in joined
+
+
 def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
     """Live-pilot default: first question must not load BAAI/bge-reranker-base."""
     from streamlit.testing.v1 import AppTest
