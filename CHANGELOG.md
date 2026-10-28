@@ -12,7 +12,7 @@ Release tags are `vX.Y.Z`. Date-based deploy tags are no longer created. Existin
 
 No entries yet.
 
-## [1.0.0]
+## [1.0.0] - 2026-10-28
 
 The core is package `ai-doc` 1.0.0 (`ai_doc` under `src/ai_doc`). The Streamlit demo lives in `apps/demo`.
 
@@ -29,13 +29,10 @@ The core is package `ai-doc` 1.0.0 (`ai_doc` under `src/ai_doc`). The Streamlit 
 - build: add package metadata and a version (#232)
 - docs: fix links to the removed pilot evaluation notes (#233)
 - docs: add a short "How I work with AI" page (#226)
-- docs(contributing): drop the reviewer persona and fix the PR template deploy line (#228)
-- docs: remove hosting details from public docs and config comments (#229)
+- Cleaned up the public docs (#189, #227, #228, #229)
 - ci: run ruff in CI (#230)
-- docs: move internal planning docs out of the public repository (#227)
 - docs: update how-it-works image to say the demo uses a hosted model (#211)
 - docs(pr): adopt concise PR and review standard (#191)
-- docs: remove internal hosting details from public files (#189)
 - docs(assets): add portfolio cover and how-it-works images (#173)
 - refactor(rag): move section filters out of chunking.py (#161)
 - refactor(ui): move the sources panels out of app.py (#160)
@@ -75,5 +72,5 @@ The core is package `ai-doc` 1.0.0 (`ai_doc` under `src/ai_doc`). The Streamlit 
 Tagged release. This log starts at this tag.
 
 [Unreleased]: https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/compare/v0.9.0...HEAD
-[1.0.0]: https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/compare/v0.9.0...HEAD
+[1.0.0]: https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/RoxanaTapia/ai-doc-to-chat-pipeline/releases/tag/v0.9.0

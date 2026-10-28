@@ -33,7 +33,6 @@ Pin the `vX.Y.Z` tag you run when you need a snapshot that will not move.
 
 - Release tags are `vX.Y.Z`. The current supported release is `v1.0.0`.
 - Date-based deploy tags (`ai-doc-YYYY.MM.DD-N`) are no longer created.
-- Existing date-based tags stay in the history: `ai-doc-2026.10.18-1`, `ai-doc-2026.10.18-2`, and `ai-doc-2026.10.23-1`. They are not a supported version line.
 
 ## How to ask for help
 
