@@ -182,3 +182,5 @@ The core uses semantic versions. Fixes go to the latest minor version of `ai-doc
 PyMuPDF · FAISS · BM25 · bge-reranker · sentence-transformers · Streamlit · FastAPI · Ollama or Anthropic
 
 MIT licensed · [Roxana Tapia](https://github.com/RoxanaTapia) · [Upwork](https://www.upwork.com/freelancers/roxanadev) · [How I work with AI](docs/how-we-work.md)
+
+What changed, which versions get fixes, and how to report a problem: [changelog](CHANGELOG.md), [support](SUPPORT.md), [security](SECURITY.md).
