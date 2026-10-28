@@ -48,6 +48,9 @@ The core is package `ai-doc` 1.0.0 (`ai_doc` under `src/ai_doc`). The Streamlit 
 
 ### Fixed
 
+- fix(demo): resume an ask the Ask click stopped (#241)
+- fix(demo): ask each typed question once (#240)
+- fix(llm): stop Haiku answers failing on temperature (#238)
 - fix(ui): keep the busy line until the answer cards paint (#210)
 - fix(ui): keep busy line until follow-up answer lands (#208)
 - fix(ui): clear prior sources while a new answer loads (#206)
