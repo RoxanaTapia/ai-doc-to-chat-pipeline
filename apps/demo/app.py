@@ -45,6 +45,7 @@ from ai_doc.rag.retrieval import (
 )
 from api_client import api_base_url, chat_via_api
 from ask_runtime import AskTimeoutError, log_ask_stage, remaining_timeout, run_with_timeout
+from generation_errors import anthropic_user_reason
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
@@ -448,29 +449,8 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
     provider = _active_provider_for_errors()
 
     if provider == "anthropic":
-        if "api_key" in error_text or "authentication" in error_text or "401" in error_text:
-            reason = "Anthropic rejected the API key. Check `ANTHROPIC_API_KEY` in `.env`."
-        elif "temperature" in error_text and "top_p" in error_text:
-            reason = (
-                "Anthropic rejected the request (sampling settings). "
-                "Restart the app after updating, then retry."
-            )
-        elif "rate" in error_text or "429" in error_text:
-            reason = "Anthropic rate limit reached. Wait a moment, then retry."
-        elif "timeout" in error_text or "timed out" in error_text:
-            reason = "Anthropic timed out. Retry with a shorter question."
-        else:
-            detail = str(exc).strip()
-            # Prefer the API message body when present; keep it short for chat.
-            if "message': '" in detail:
-                try:
-                    reason = (
-                        "Anthropic error: " + detail.split("message': '", 1)[1].split("'", 1)[0]
-                    )
-                except IndexError:
-                    reason = "Could not generate an Anthropic answer right now."
-            else:
-                reason = "Could not generate an Anthropic answer right now."
+        # Raw API text stays in the log. Chat and the banner get a short reason.
+        reason = anthropic_user_reason(exc)
         return reason, error_text
 
     try:
