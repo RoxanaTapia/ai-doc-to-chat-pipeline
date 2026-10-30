@@ -106,7 +106,7 @@ Week A — Retrieval
 
 Week B — Model & prompt
   ├─ Optional law_model A/B vs llama3.1:8b
-  └─ Prompt v3 if Source inline citations still duplicate UI
+  └─ Prompt v3 if the source line still duplicates the page badge
 
 Week C — VPS demo
   ├─ HTTPS + auth smoke test

@@ -57,7 +57,7 @@ Do **not** use [`product/sample-nda.pdf`](../product/sample-nda.pdf). It is a di
 ```mermaid
 flowchart TD
   A[Configure .env for developer mode] --> B[Start Ollama + app]
-  B --> C[Open localhost:8501]
+  B --> C[Open localhost:8501/app]
   C --> D[Enable OCR in sidebar]
   D --> E[Upload scanned PDF]
   E --> F[Confirm OCR banner + ask a question]
@@ -82,7 +82,7 @@ flowchart TD
    docker compose -f deploy/docker-compose.yml up --build -d app
    ```
 
-3. Open [http://localhost:8501](http://localhost:8501).
+3. Open [http://localhost:8501/app](http://localhost:8501/app).
 
 4. Enable developer mode in the sidebar.
 
@@ -102,7 +102,7 @@ flowchart TD
 Scanned PDF uploaded and indexed without crash
 OCR warning banner appears
 Developer diagnostics show scanned_pages_detected > 0, OCR applied > 0
-Answer cites the correct page
+The answer shows the correct page
 ```
 
 ### Failure modes

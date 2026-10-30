@@ -4,7 +4,7 @@
 
 What a short session on the [live pilot](https://ai-doc-pilot.roxanatapia.dev/) should show. Request an invite on the gate; no approval is required.
 
-> **Takeaway:** The sample NDA is already loaded. Ask, open the page citation, then ask something the PDF cannot answer.
+> **Takeaway:** The sample NDA is already loaded. Ask, open the best-matching page, then ask something the PDF cannot answer.
 
 ---
 
@@ -36,7 +36,7 @@ Storyboard stills: [docs/screenshots](../screenshots/).
 2. Which country's law applies, and where are disputes settled? (Spain / courts of Madrid, page 3)
 3. What is the penalty fee if Beta Labs breaks this agreement? (It does not name one.)
 
-Sources for question 1 should stay on the term clause (page 2). Question 2 should cite governing law (page 3).
+Sources for question 1 should stay on the term clause (page 2). Question 2 should point to governing law (page 3).
 
 ### Sample retention policy
 
@@ -50,7 +50,7 @@ Sources for question 1 should stay on the term clause (page 2). Question 2 shoul
 
 | Choice | When |
 |--------|------|
-| **Ollama** | Answers stay on your server. |
-| **Anthropic** | Optional, when you want quicker replies. |
+| **Ollama** | When you run Ollama beside the app. |
+| **Anthropic (Claude)** | When you want a hosted Claude model. |
 
-Search and citations stay on the server either way. How the pieces connect: [docs/README.md](../README.md).
+Search stays the same either way. How the pieces connect: [docs/README.md](../README.md).

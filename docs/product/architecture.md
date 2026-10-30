@@ -4,7 +4,7 @@
 
 How a request moves through the product. For the retrieval steps and module map, see [docs/README.md](../README.md).
 
-> **Takeaway:** A reverse proxy in front. The app and the model stay behind it. The PDF lives in memory for the session.
+> **Takeaway:** A reverse proxy in front of the app. The PDF lives in memory for the session.
 
 ---
 
@@ -22,9 +22,7 @@ flowchart LR
 |-------|------|----------------|
 | **Reverse proxy** | HTTPS in front of the app. | An existing reverse proxy |
 | **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in memory. | This repo (`apps/demo/`, `src/ai_doc/`, `deploy/`) |
-| **Model** | Writes the answer. Ollama when you run it locally, or Anthropic when that provider is selected. | Beside the app, or a hosted API |
-
-Embeddings always run with the app. Switching the writer (Ollama vs Anthropic) does not change search or citations.
+| **Model** | Writes the answer. Ollama when you run it beside the app, or Anthropic (Claude) when you select that provider. | Beside the app, or a hosted API |
 
 Put the app behind an existing reverse proxy. The optional Compose overlay joins that proxy's Docker network and does not publish the app port. Operator commands: [running.md](../operators/running.md).
 
