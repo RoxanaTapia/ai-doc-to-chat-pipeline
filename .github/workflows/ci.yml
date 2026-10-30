@@ -6,7 +6,46 @@ on:
   pull_request:
 
 jobs:
-  test:
+  code-style:
+    name: Code style is clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.17.2"
+      - name: Check Python style
+        id: style
+        run: ruff check .
+      - name: Post a short summary
+        if: always()
+        run: |
+          {
+            echo "## What this check did"
+            echo
+            case "${{ steps.style.outcome }}" in
+              success)
+                echo "Python in this repository was checked for style problems."
+                echo
+                echo "**Passed.** Nothing to fix."
+                ;;
+              failure)
+                echo "Python in this repository was checked for style problems."
+                echo
+                echo "**Failed.** Some style problems need a fix. The log lists the file and line."
+                ;;
+              *)
+                echo "The style check did not finish. The log shows why."
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  tests:
+    name: Automatic tests pass
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,11 +56,46 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest playwright "ruff==0.17.2"
+          pip install pytest playwright
           python -m playwright install --with-deps chromium
-      - name: Ruff
-        run: ruff check .
-      - name: Pytest
+      - name: Run automatic tests
+        id: tests
         env:
           PYTHONPATH: src:apps/demo
-        run: pytest tests/ -q
+        run: |
+          set -o pipefail
+          pytest tests/ -q | tee pytest-summary.txt
+      - name: Post a short summary
+        if: always()
+        run: |
+          {
+            echo "## What this check did"
+            echo
+            detail=""
+            if [ -f pytest-summary.txt ]; then
+              detail="$(grep -v '^$' pytest-summary.txt | tail -n 1 || true)"
+            fi
+            case "${{ steps.tests.outcome }}" in
+              success)
+                echo "The automatic test suite ran on this change."
+                echo
+                if [ -n "$detail" ]; then
+                  echo "**Passed.** $detail"
+                else
+                  echo "**Passed.** Every test succeeded."
+                fi
+                ;;
+              failure)
+                echo "The automatic test suite ran on this change."
+                echo
+                if [ -n "$detail" ]; then
+                  echo "**Failed.** $detail"
+                else
+                  echo "**Failed.** Some tests did not pass. The log lists which ones."
+                fi
+                ;;
+              *)
+                echo "The automatic tests did not finish. The log shows why."
+                ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
