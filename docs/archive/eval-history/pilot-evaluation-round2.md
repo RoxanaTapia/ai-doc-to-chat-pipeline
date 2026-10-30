@@ -139,4 +139,4 @@ Round 2 tests the **config + UX slice** (hybrid retrieval, tighter `top_k`, sect
 
 **Round 3** — [observed results + UX fixes](pilot-evaluation-round3.md) · [retrieval plan](pilot-evaluation-round3-plan.md)
 
-Questions or a pilot on your PDFs: [Try the pilot](../../../README.md#try-the-pilot).
+Questions or a pilot on your PDFs: [Try it](../../../README.md#try-it).

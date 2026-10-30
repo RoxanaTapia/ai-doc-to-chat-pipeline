@@ -72,7 +72,7 @@ These are **expected** for an evaluation pilot, not bugs to hide:
 | Contract asks about “material breaches in Section 3” but the text defines **obligations** and states any breach of them is material | **Question wording matters** — we use “What obligations does Section 3 impose?” in demos |
 | No **calculator** — answers are read from retrieved text, not computed | Invoice totals printed on the page: OK; line-item math: not guaranteed |
 
-See also [Known limits](../../../README.md#known-limits) in the README.
+See also [What works now](../../../README.md#what-works-now) in the README.
 
 ---
 
@@ -250,4 +250,4 @@ Applied in repo for the next evaluation pass on `NDA_contract.pdf`:
 - Round 1 proves the **workflow** (upload → ask → show the page → refuse when appropriate), not perfect accuracy on every question type.  
 - Production engagements add tuning on **your** documents, persistence, auth, and ops — scoped after a successful pilot.
 
-Questions or a pilot on your PDFs: [Try the pilot](../../../README.md#try-the-pilot).
+Questions or a pilot on your PDFs: [Try it](../../../README.md#try-it).

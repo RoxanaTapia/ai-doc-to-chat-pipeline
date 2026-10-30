@@ -303,6 +303,16 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "PyMuPDF" not in text
     heading = text.split("\n", 1)[0].lower()
     assert "private" not in heading
+    headings = [line for line in text.splitlines() if line.startswith("## ")]
+    assert headings == [
+        "## What works now",
+        "## How it fits together",
+        "## What's planned",
+        "## Try it",
+        "## Where things are",
+    ]
+    assert "ollama" not in text.lower()
+    assert "local model" not in text.lower()
     script = (PROJECT_ROOT / "docs" / "product" / "demo-script.md").read_text(encoding="utf-8")
     assert "deleted right after processing" not in script
     assert "tap a starter question" in script
@@ -310,7 +320,7 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "stay on the server" not in script.lower()
     assert "offline" not in script.lower()
     assert "page citation" not in script.lower()
-    pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0].lower()
+    pilot = text.split("## Try it", 1)[1].split("## ", 1)[0].lower()
     assert "private" not in pilot
     assert "local" not in pilot
     assert "deleted" not in pilot
