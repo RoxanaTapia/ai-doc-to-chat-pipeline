@@ -120,4 +120,4 @@ Retrieval tuning (reranker, section filter) from the Round 3 plan is **not yet a
 2. **HTTPS VPS** smoke test (parallel).  
 3. **Go / no-go** for client redacted PDFs after Round 4 source alignment.
 
-Questions or a pilot on your PDFs: [Try the pilot](../../../README.md#try-the-pilot).
+Questions or a pilot on your PDFs: [Try it](../../../README.md#try-it).
