@@ -4,7 +4,7 @@
 
 This page is the map of the repository. The [root README](../README.md) is the product overview. Start here when you want to know where code lives, how an answer is produced, and how work ships.
 
-> **Takeaway:** Retrieval core in `src/ai_doc`. Streamlit demo in `apps/demo`. Tunables in `configs/`. App containers in `deploy/`. A reverse proxy in front handles HTTPS. The app and the model stay behind it.
+> **Takeaway:** Retrieval core in `src/ai_doc`. Streamlit demo in `apps/demo`. Tunables in `configs/`. App containers in `deploy/`. A reverse proxy in front handles HTTPS for the app.
 
 ---
 
@@ -33,7 +33,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/ai_doc/rag/chunking.py`](../src/ai_doc/rag/chunking.py) | Header-aware chunking and section routing |
 | [`src/ai_doc/rag/retrieval.py`](../src/ai_doc/rag/retrieval.py) | Hybrid search (FAISS + BM25 + RRF) and rerank |
 | [`src/ai_doc/rag/citations.py`](../src/ai_doc/rag/citations.py) | Page excerpts, overlap filter, honesty guard |
-| [`src/ai_doc/rag/generation.py`](../src/ai_doc/rag/generation.py) | Answer writing (Ollama or Anthropic) |
+| [`src/ai_doc/rag/generation.py`](../src/ai_doc/rag/generation.py) | Answer writing with Ollama or Anthropic (Claude) |
 | [`src/ai_doc/ocr.py`](../src/ai_doc/ocr.py) | Scanned-page OCR |
 | [`src/ai_doc/api/`](../src/ai_doc/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
@@ -46,11 +46,26 @@ This page is the map of the repository. The [root README](../README.md) is the p
 
 ## How an answer is produced
 
-Two layers: the running services, then the Python modules that do the retrieval work.
+![Upload a PDF, split by page, search, send passages to the model, then show the best-matching page](assets/aidoc_architecture.png)
+
+Each step keeps the answer inside the PDF you uploaded.
+
+| Step | Technique | Why? |
+|------|-----------|------|
+| **Ingest** | PyMuPDF, plus OCR on scanned pages | PDFs mix digital text and scans. Page numbers stay on the passage so you can check the match. |
+| **Chunk** | Split at section headers | A sliding window glues neighboring clauses. Headers are the document's own boundaries. |
+| **Embed** | sentence-transformers, with the app | Search by meaning without sending the file to an outside embedding API. |
+| **Retrieve** | Hybrid search: FAISS + BM25, fused with RRF | Embeddings miss exact terms. Keyword search misses paraphrases. Fusion keeps both. |
+| **Rerank** | Cross-encoder (`bge-reranker`) | First-stage ranking is approximate. Re-score the question and the passage together before the model sees them. |
+| **Match or refuse** | Best-matching page and excerpt, or a note that the document doesn't cover the question | If the pages don't cover the question, you get that note. No evidence means no invented clause. |
+
+Stack: PyMuPDF · FAISS · BM25 · bge-reranker · sentence-transformers · Streamlit · FastAPI · Ollama or Anthropic (Claude).
+
+Two layers follow: the running services, then the Python modules that do the retrieval work.
 
 ### Runtime
 
-The browser never talks to the index or the model directly. A reverse proxy in front terminates HTTPS. The app holds the session (PDF, chunks, FAISS) in memory. The model is Ollama beside the app, or Anthropic when that provider is selected.
+The browser never talks to the index or the model directly. A reverse proxy in front terminates HTTPS. The app holds the session (PDF, chunks, FAISS) in memory. The model is Ollama beside the app, or Anthropic (Claude) when you select that provider.
 
 ```mermaid
 flowchart LR
@@ -72,7 +87,7 @@ sequenceDiagram
   S->>I: Build FAISS + BM25
   U->>S: Ask a question
   S->>I: Hybrid search, then rerank
-  S->>M: Prompt with cited passages
+  S->>M: Prompt with passages
   M-->>S: Answer
   S-->>U: Answer + page excerpts
 ```
@@ -109,7 +124,7 @@ flowchart TB
 | Retrieve | `ai_doc/rag/retrieval.py` | Hybrid search (FAISS + BM25, RRF), then `bge-reranker`. |
 | Filter | `ai_doc/rag/citations.py` | Drop near-duplicates. Refuse when context is too thin. |
 | Generate | `ai_doc/rag/generation.py` | Write the answer from the shortlist only. |
-| Show | `apps/demo/app.py` | Page + excerpt under the reply. |
+| Show | `apps/demo/app.py` | Best-matching page and excerpt under the reply. |
 
 The FastAPI app in `src/ai_doc/api/` exposes the same generation path as `/chat`. It does not replace the Streamlit retrieval loop.
 
@@ -130,7 +145,7 @@ If you only want the product story, these three pages are enough:
 | [Architecture](product/architecture.md) | Reverse proxy, the app, and the model |
 | [Walkthrough](product/demo-script.md) | What a live session shows, plus sample questions |
 | [Sample NDA](product/sample-nda.pdf) | A ready PDF to upload |
-| [Screenshots](screenshots/) | First paint, cited answer, refusal, booking line (real Streamlit renders) |
+| [Screenshots](screenshots/) | First paint, best-matching page, refusal, booking line (real Streamlit renders) |
 
 Contributor pages:
 
@@ -139,6 +154,6 @@ Contributor pages:
 | [Running the stack](operators/running.md) | Local Compose, and the app behind a reverse proxy |
 | [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
 | [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
-| [Archive](archive/) | Early local-Ollama eval rounds. Historical only. |
+| [Archive](archive/) | Early evaluation rounds. Historical only. |
 
 Live pilot: [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/).

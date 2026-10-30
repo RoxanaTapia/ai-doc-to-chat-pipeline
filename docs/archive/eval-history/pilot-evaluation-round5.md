@@ -25,7 +25,7 @@ Round 5 tests **generalization** beyond the 4-page sample NDA: a **client-style 
 
 | ID | Change | Primary effect |
 |----|--------|----------------|
-| **#1** | Prompt v4 — no invented section numbers; one bullet per obligation line | Honest citations on unnumbered docs; complete duty lists |
+| **#1** | Prompt v4 — no invented section numbers; one bullet per obligation line | No invented section numbers on unnumbered docs; complete duty lists |
 | **#2** | Header-aware chunking — split at `N.` and `Title.` legal headers before character split | HERE **Confidentiality** block isolated (~2k chars); obligation language in context |
 | **#3** | Near-duplicate drop + context sufficiency guard + dev sidebar defaults | Sample Q3: no lone “Agreement.” at rank 1; skip LLM when context lacks duty markers |
 

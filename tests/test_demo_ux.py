@@ -281,33 +281,48 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
 
 def test_readme_hosted_wording_does_not_overclaim() -> None:
     text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    hosted = (
-        "Your PDF and search stay on this server for this browser session; "
-        "only the few passages needed for an answer are sent to a hosted model "
-        "(Anthropic). Cleared when you leave or reset."
+    promise = (
+        "My pilot shows the best-matching page next to each answer "
+        "and says when the document doesn't cover the question."
     )
-    assert hosted in text
-    assert text.startswith("# PDF Q&A with page citations\n")
-    assert "On your own server, it can run fully offline with a local model." in text
+    assert text.splitlines()[4] == promise
+    assert text.startswith("# PDF Q&A\n")
+    assert "with page citations" not in text.lower()
+    assert "Every answer cites the page it used." not in text
+    assert "On your own server, it can run fully offline with a local model." not in text
+    assert "stay on this server" not in text.lower()
+    assert "on your server" not in text.lower()
+    assert "offline" not in text.lower()
+    assert "citation" not in text.lower()
     assert "on infrastructure you control" not in text
     assert "processed in memory and never stored" not in text
     assert "# Private PDF Q&A" not in text
-    assert "**On-server embeddings**" in text
+    assert "**On-server embeddings**" not in text
     assert "**Private embeddings**" not in text
+    assert "OLLAMA_MODEL" not in text
+    assert "PyMuPDF" not in text
     heading = text.split("\n", 1)[0].lower()
     assert "private" not in heading
     script = (PROJECT_ROOT / "docs" / "product" / "demo-script.md").read_text(encoding="utf-8")
     assert "deleted right after processing" not in script
     assert "tap a starter question" in script
-    pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0]
-    hosted_block = pilot.split("On your own server", 1)[0].lower()
-    assert "private" not in hosted_block
-    assert "local" not in hosted_block
-    assert "deleted" not in hosted_block
-    arch = text.split("## How an answer is grounded", 1)[1].split("## ", 1)[0]
-    assert "docs/assets/aidoc_architecture.png" in arch
-    assert "caddy" not in arch.lower()
-    assert "```mermaid" not in arch
+    assert "Answers stay on your server." not in script
+    assert "stay on the server" not in script.lower()
+    assert "offline" not in script.lower()
+    assert "page citation" not in script.lower()
+    pilot = text.split("## Try the pilot", 1)[1].split("## ", 1)[0].lower()
+    assert "private" not in pilot
+    assert "local" not in pilot
+    assert "deleted" not in pilot
+    assert "offline" not in pilot
+    produced = (PROJECT_ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    assert "assets/aidoc_architecture.png" in produced
+    assert "PyMuPDF" in produced
+    assert "RRF" in produced
+    assert "bge-reranker" in produced
+    assert "caddy" not in produced.lower()
+    running = (PROJECT_ROOT / "docs" / "operators" / "running.md").read_text(encoding="utf-8")
+    assert "OLLAMA_MODEL" in running
     assert (PROJECT_ROOT / "docs" / "assets" / "aidoc_architecture.png").is_file()
 
 

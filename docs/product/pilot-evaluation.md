@@ -2,7 +2,7 @@
 
 ## Background
 
-May 2026 notes from local Ollama rounds on the sample NDA. Useful as a record of why hybrid search, rerank, and header chunking landed. Not a current scorecard for the live pilot.
+May 2026 notes on the sample NDA. Useful as a record of why hybrid search, rerank, and header chunking landed. Not a current scorecard for the live pilot.
 
 Round-by-round files: [`docs/archive/eval-history/`](../archive/eval-history/). Product map: [docs/README.md](../README.md).
 
@@ -54,7 +54,7 @@ Sample document: [`sample-nda.pdf`](sample-nda.pdf)
 
 | Change | Effect |
 |--------|--------|
-| Prompt v4 (no invented section numbers; one bullet per obligation) | Honest citations on unnumbered docs |
+| Prompt v4 (no invented section numbers; one bullet per obligation) | No invented section numbers on unnumbered docs |
 | Header-aware chunking at legal headers | Confidentiality block isolated on 2-page NDA |
 | Near-duplicate drop + context sufficiency guard | Removed false-positive boilerplate chunks |
 
@@ -76,7 +76,7 @@ Verified on [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev)
 | Q2 | Pass | ~16s |
 | Q3 | Partial (honest No, verbose hedge) | ~41s |
 
-Q3 hedging is a small-model formatting quirk, not a hallucination. Larger models answer more cleanly. Expect slower first answers on CPU; that is normal for the self-host tier.
+Q3 hedging is a small-model formatting quirk, not a hallucination. Larger models answer more cleanly. Expect slower first answers on CPU.
 
 ---
 

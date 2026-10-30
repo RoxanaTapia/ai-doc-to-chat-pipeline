@@ -82,7 +82,7 @@ See also [Known limits](../../../README.md#known-limits) in the README.
 
 1. How is **Confidential Information** defined in **Section 1**?
 2. What **obligations** does **Section 3** impose on the Receiving Party?
-Question 3 (Round 1) is intentionally **not answerable** from the document alone — it tests that the system does not hallucinate legal citations.
+Question 3 (Round 1) is intentionally **not answerable** from the document alone. It tests that the system does not invent a statute the PDF does not contain.
 
 ---
 
@@ -199,7 +199,7 @@ Buyers should know **what “good” looks like** before a pilot on their own PD
 
 | If you need… | Round 1 tells you… |
 |--------------|-------------------|
-| **Fast first-pass review** of policies and contracts with **citations** | The workflow works; question wording and source checks are part of the process |
+| **Fast first-pass review** of policies and contracts, with the matching page beside the answer | The workflow works; question wording and source checks are part of the process |
 | **Replace counsel or guarantee legal conclusions** | This is **not** that product — evaluation pilot only |
 | **Zero hallucination risk** | Q3-style honesty is a design goal; Q1–Q2 still require **human verification** via sources |
 | **Production on your corpus** | Round 1 on a **sample** NDA → Round 2+ on **your** redacted PDFs under NDA, then tuning and persistence |
@@ -246,8 +246,8 @@ Applied in repo for the next evaluation pass on `NDA_contract.pdf`:
 
 ## How to read this as a buyer
 
-- This pilot is for **evaluation** — grounded search + chat with **inspectable sources**, on **your** infrastructure.  
-- Round 1 proves the **workflow** (upload → ask → cite → refuse when appropriate), not perfect accuracy on every question type.  
+- This pilot is for **evaluation**: grounded search and chat, with the matching page you can open.  
+- Round 1 proves the **workflow** (upload → ask → show the page → refuse when appropriate), not perfect accuracy on every question type.  
 - Production engagements add tuning on **your** documents, persistence, auth, and ops — scoped after a successful pilot.
 
 Questions or a pilot on your PDFs: [Try the pilot](../../../README.md#try-the-pilot).
