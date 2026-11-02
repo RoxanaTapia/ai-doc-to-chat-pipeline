@@ -36,20 +36,17 @@ rank-bm25>=0.2.2                           # Sparse keyword ranking for hybrid r
 # Hugging Face ecosystem
 transformers>=5.2.0,<6.0.0
 
-# Torch - powers embeddings + future local LLMs
+# Torch - powers local embeddings
 torch>=2.10.0                              # Stable wheels; excellent performance on modern hardware
 
 # Utilities
 pyyaml>=6.0.3                              # YAML config loading
 python-dotenv>=1.2.1                       # .env support for API keys
 
-# Optional LLM providers (uncomment when needed for faster inference)
-# langchain-openai>=0.3.0                  # OpenAI GPT
-# langchain-groq>=0.2.0                    # Groq (fast & cheap)
+# Answer models: Claude, OpenAI, and Grok (xAI's OpenAI-compatible API).
 # Claude. anthropic 2.x (API 2026-10-21) rejects temperature on every model.
 # Stay on 1.x so Haiku 4.5 still honors temperature 0 when do_sample is false.
 # langchain-anthropic 1.7.7 dropped its anthropic<2 cap; pin both together.
 langchain-anthropic>=1.7.6,<1.8.0
 anthropic>=1.17.0,<2.0.0
-langchain-ollama                           # Local Ollama integration (safest local start)
-ollama                                     # Ollama Python client
+langchain-openai>=1.7.0,<1.8.0

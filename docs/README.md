@@ -18,7 +18,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 ├── apps/demo/         Streamlit demo
 ├── configs/           Chunking, retrieval, and prompt tunables
 ├── tests/             pytest suite
-├── deploy/            App image + Compose (Ollama; optional API)
+├── deploy/            App image + Compose (optional API)
 ├── .cursor/           Coding conventions
 └── docs/              You are here
       product/         Architecture, walkthrough, sample NDA
@@ -33,7 +33,7 @@ This page is the map of the repository. The [root README](../README.md) is the p
 | [`src/ai_doc/rag/chunking.py`](../src/ai_doc/rag/chunking.py) | Header-aware chunking and section routing |
 | [`src/ai_doc/rag/retrieval.py`](../src/ai_doc/rag/retrieval.py) | Hybrid search (FAISS + BM25 + RRF) and rerank |
 | [`src/ai_doc/rag/citations.py`](../src/ai_doc/rag/citations.py) | Page excerpts, overlap filter, honesty guard |
-| [`src/ai_doc/rag/generation.py`](../src/ai_doc/rag/generation.py) | Answer writing with Ollama or Anthropic (Claude) |
+| [`src/ai_doc/rag/generation.py`](../src/ai_doc/rag/generation.py) | Answer writing with Claude, OpenAI, or Grok |
 | [`src/ai_doc/ocr.py`](../src/ai_doc/ocr.py) | Scanned-page OCR |
 | [`src/ai_doc/api/`](../src/ai_doc/api/) | Thin FastAPI `/health` and `/chat` |
 | [`configs/config.yaml`](../configs/config.yaml) | Chunk size, hybrid weights, reranker |
@@ -59,13 +59,13 @@ Each step keeps the answer inside the PDF you uploaded.
 | **Rerank** | Cross-encoder (`bge-reranker`) | First-stage ranking is approximate. Re-score the question and the passage together before the model sees them. |
 | **Match or refuse** | Best-matching page and excerpt, or a note that the document doesn't cover the question | If the pages don't cover the question, you get that note. No evidence means no invented clause. |
 
-Stack: PyMuPDF · FAISS · BM25 · bge-reranker · sentence-transformers · Streamlit · FastAPI · Ollama or Anthropic (Claude).
+Stack: PyMuPDF · FAISS · BM25 · bge-reranker · sentence-transformers · Streamlit · FastAPI · Claude (default), OpenAI, or Grok.
 
 Two layers follow: the running services, then the Python modules that do the retrieval work.
 
 ### Runtime
 
-The browser never talks to the index or the model directly. A reverse proxy in front terminates HTTPS. The app holds the session (PDF, chunks, FAISS) in memory. The model is Ollama beside the app, or Anthropic (Claude) when you select that provider.
+The browser never talks to the index or the model directly. A reverse proxy in front terminates HTTPS. The app holds the session (PDF, chunks, FAISS) in memory. The answer model is Claude by default. OpenAI and Grok are the other choices. The setting and keys are listed once in [running the stack](operators/running.md).
 
 ```mermaid
 flowchart LR

@@ -56,7 +56,7 @@ Do **not** use [`product/sample-nda.pdf`](../product/sample-nda.pdf). It is a di
 
 ```mermaid
 flowchart TD
-  A[Configure .env for developer mode] --> B[Start Ollama + app]
+  A[Configure .env for developer mode] --> B[Start the app]
   B --> C[Open localhost:8501/app]
   C --> D[Enable OCR in sidebar]
   D --> E[Upload scanned PDF]
@@ -71,15 +71,16 @@ flowchart TD
    APP_ALLOW_DEV_TOGGLE=true
    APP_PRESENTATION_MODE=developer
    USE_DUMMY_GENERATOR=false
+   LLM_PROVIDER=anthropic
+   ANTHROPIC_API_KEY=your-key
    ```
 
-2. **Start the local stack** (no Caddy needed):
+   `USE_DUMMY_GENERATOR=true` with `LLM_PROVIDER` left empty is enough when you only need the OCR banners and not a real answer. The three answer models are listed in [running.md](running.md).
+
+2. **Start the app**:
 
    ```bash
-   docker compose -f deploy/docker-compose.yml up -d ollama
-   docker compose -f deploy/docker-compose.yml ps ollama   # wait for STATUS = healthy (~60 s)
-   docker compose -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
-   docker compose -f deploy/docker-compose.yml up --build -d app
+   docker compose --env-file .env -f deploy/docker-compose.yml up --build -d
    ```
 
 3. Open [http://localhost:8501/app](http://localhost:8501/app).

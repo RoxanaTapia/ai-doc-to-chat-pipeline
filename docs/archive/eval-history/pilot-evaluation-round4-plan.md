@@ -144,14 +144,7 @@ rag:
 
 Only after **Q2 context is 100% on-section** and content **Pass** (R4-E complete):
 
-```bash
-# Baseline
-OLLAMA_MODEL=llama3.1:8b
-
-# Optional
-docker compose exec ollama ollama pull <law_model_tag>
-OLLAMA_MODEL=<law_model_tag>
-```
+The comparison in this plan used `llama3.1:8b` as the baseline and an optional legal-tuned tag. Those local writers are no longer offered. Current choices are in [running the stack](../../operators/running.md).
 
 Compare **Q2 content only** — do not chase fluency if retrieval is still wrong.
 

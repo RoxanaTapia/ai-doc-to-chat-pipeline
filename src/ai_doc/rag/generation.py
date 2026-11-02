@@ -100,8 +100,9 @@ def _prepare_generation_inputs(
 def generate_answer(context: str, query: str, dummy_mode: bool = True) -> str:
     """Generate a response from retrieved context and user question.
 
-    Provider selection: explicit `LLM_PROVIDER` env wins; when unset, `dummy_mode`
-    (and thus Streamlit's `USE_DUMMY_GENERATOR`) maps to dummy vs ollama.
+    Provider selection: explicit `LLM_PROVIDER` env wins (`anthropic`, `openai`,
+    `xai`, or `dummy`). When unset, `dummy_mode` (and thus Streamlit's
+    `USE_DUMMY_GENERATOR`) maps to dummy vs the default, Anthropic.
     """
     prepared = _prepare_generation_inputs(context, query)
     if isinstance(prepared, str):

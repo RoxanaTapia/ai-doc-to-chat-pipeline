@@ -11,16 +11,26 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def anthropic_user_reason(exc: BaseException) -> str:
-    """Map an Anthropic failure to a short sentence safe to show in the demo."""
-    logger.warning("Anthropic answer failed: %s", exc)
+def hosted_user_reason(exc: BaseException, *, label: str, key_env: str) -> str:
+    """Map a hosted-model failure to a short sentence safe to show in the demo."""
+    logger.warning("%s answer failed: %s", label, exc)
     error_text = str(exc).lower()
-    if "api_key" in error_text or "authentication" in error_text or "401" in error_text:
-        return "Anthropic rejected the API key. Check `ANTHROPIC_API_KEY` in `.env`."
+    if (
+        "api_key" in error_text
+        or key_env.lower() in error_text
+        or "authentication" in error_text
+        or "401" in error_text
+    ):
+        return f"{label} rejected the API key. Check `{key_env}` in `.env`."
     if "rate" in error_text or "429" in error_text:
-        return "Anthropic rate limit reached. Wait a moment, then retry."
+        return f"{label} rate limit reached. Wait a moment, then retry."
     if "timeout" in error_text or "timed out" in error_text:
-        return "Anthropic timed out. Retry with a shorter question."
+        return f"{label} timed out. Retry with a shorter question."
     if "temperature" in error_text or "top_p" in error_text or "top_k" in error_text:
         return "The answer service could not use these settings. Please try again."
-    return "Could not generate an Anthropic answer right now."
+    return f"Could not generate an {label} answer right now."
+
+
+def anthropic_user_reason(exc: BaseException) -> str:
+    """Map an Anthropic failure to a short sentence safe to show in the demo."""
+    return hosted_user_reason(exc, label="Anthropic", key_env="ANTHROPIC_API_KEY")

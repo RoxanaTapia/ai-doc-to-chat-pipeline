@@ -29,7 +29,7 @@ Architecture: [architecture.md](../../product/architecture.md). Operator run not
 | Item | Detail |
 |------|--------|
 | **Document** | Sample confidentiality / NDA-style agreement (4 pages, digital PDF) |
-| **Environment** | Docker Compose on laptop — app + Ollama (`phi3:mini`) |
+| **Environment** | Docker Compose on a laptop. The writer in this round was a local model (`phi3:mini`), which is no longer offered. |
 | **Goal** | Confirm grounded Q&A, visible sources, and honest refusals before VPS or client demos |
 
 Three question types mirror how we run pilots:
@@ -215,7 +215,7 @@ A serious buyer should ask: *“Can we run the same three question types on our 
 | PDF upload + chunking + FAISS retrieval | Working |
 | Hybrid retrieval (semantic + BM25) | Available |
 | Source previews in chat | Working |
-| Local Ollama generation | Working |
+| Local generation (no longer offered) | Working in this round |
 | HTTPS + basic auth deployment | Documented in operator run notes; VPS validation next |
 | Persistent document library | Planned (M9) |
 | API / agents / SSO | Planned (M8–M10) |
@@ -238,7 +238,7 @@ Applied in repo for the next evaluation pass on `NDA_contract.pdf`:
 | Sources UI | **5** sources max; ~280-char excerpts at word/sentence boundaries |
 | Q3 (honesty) | Liquidated damages / fixed penalty — **no amount in doc** |
 
-**Model (manual):** pull and set `OLLAMA_MODEL=llama3.1:8b` for Round 2 if RAM allows (~8 GB+); keep `phi3:mini` for CPU-only comparison.
+**Model (manual):** Round 2 used `llama3.1:8b` when memory allowed (~8 GB+), and kept `phi3:mini` for a CPU-only comparison. Those local writers are no longer offered.
 
 **Re-test checklist:** same Q1–Q2; new Q3 above; score vs gold standard; see [Round 2 results](pilot-evaluation-round2.md) and [Round 3 plan](pilot-evaluation-round3-plan.md).
 

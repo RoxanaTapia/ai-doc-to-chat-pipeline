@@ -15,7 +15,7 @@ The image and Compose files live under [`deploy/`](../../deploy/). `.dockerignor
 ```text
 deploy/
 ├── Dockerfile
-├── docker-compose.yml              app + ollama (+ api profile)
+├── docker-compose.yml              app (+ api profile)
 └── docker-compose.shared-edge.yml  Behind a reverse proxy: alias `app`, no published port
 ```
 

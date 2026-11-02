@@ -2,7 +2,7 @@
 
 ## Background
 
-May 2026 notes on the sample NDA. Useful as a record of why hybrid search, rerank, and header chunking landed. Not a current scorecard for the live pilot.
+May 2026 notes on the sample NDA. Useful as a record of why hybrid search, rerank, and header chunking landed. Not a current scorecard for the live pilot. The writer in these rounds was a local model that is no longer offered. Answers now come from Claude, OpenAI, or Grok.
 
 Round-by-round files: [`docs/archive/eval-history/`](../archive/eval-history/). Product map: [docs/README.md](../README.md).
 

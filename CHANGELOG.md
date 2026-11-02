@@ -10,7 +10,9 @@ Release tags are `vX.Y.Z`. Date-based deploy tags are no longer created. Existin
 
 ## [Unreleased]
 
-No entries yet.
+### Added
+
+- feat(llm): offer Claude, OpenAI, and Grok as answer models, and remove the local writer (#250)
 
 ## [1.0.0] - 2026-10-28
 

@@ -22,7 +22,7 @@ flowchart LR
 |-------|------|----------------|
 | **Reverse proxy** | HTTPS in front of the app. | An existing reverse proxy |
 | **App** | Streamlit UI plus retrieval. The PDF, chunks, and FAISS index stay in memory. | This repo (`apps/demo/`, `src/ai_doc/`, `deploy/`) |
-| **Model** | Writes the answer. Ollama when you run it beside the app, or Anthropic (Claude) when you select that provider. | Beside the app, or a hosted API |
+| **Model** | Writes the answer. Claude is the default. OpenAI and Grok are the other choices. | A hosted API |
 
 Put the app behind an existing reverse proxy. The optional Compose overlay joins that proxy's Docker network and does not publish the app port. Operator commands: [running.md](../operators/running.md).
 
@@ -47,7 +47,7 @@ sequenceDiagram
   A-->>U: Answer + page excerpts
 ```
 
-Nothing is written to a document library. Restart the app and you upload again. Model weights on disk are the only durable data (Ollama volume).
+Nothing is written to a document library. Restart the app and you upload again. The answer is written by a hosted model, so this app does not keep model weights on disk.
 
 ---
 
