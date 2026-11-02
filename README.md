@@ -41,7 +41,7 @@ A shared library, sign-in for your organization, and a separate space per projec
 - Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
 - Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
-Only the few passages needed for an answer are sent to a hosted model, Anthropic (Claude). Your upload is cleared when you leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+Only the few passages needed for an answer are sent to a hosted model. Claude is the default. OpenAI and Grok are the other choices. Your upload is cleared when you leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
 
 ## Where things are
 

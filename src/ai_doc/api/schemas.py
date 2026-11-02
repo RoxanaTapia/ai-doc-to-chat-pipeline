@@ -32,8 +32,9 @@ class ChatRequest(BaseModel):
     dummy_mode: bool | None = Field(
         default=None,
         description=(
-            "When set, maps to dummy vs ollama if LLM_PROVIDER is unset. "
-            "Omit to follow LLM_PROVIDER / server defaults (dummy_mode=True)."
+            "When set, maps to dummy vs the default hosted model (anthropic) "
+            "if LLM_PROVIDER is unset. Omit to follow LLM_PROVIDER / server "
+            "defaults (dummy_mode=True)."
         ),
     )
 

@@ -53,16 +53,11 @@ _CLIENT_COPY = {
     "progress_done": "ready",
     "chat_blocked_indexing": ("Still reading the document. Wait until you can type, then ask."),
     "chat_blocked_empty": "The sample NDA is still loading. Try again in a moment.",
-    "privacy_badge_ollama": "Runs on this server",
     "privacy_badge_hosted": "How your data is handled",
-    "privacy_ollama": (
-        "Runs on this server: your PDF, search and answers never leave it. "
-        "Kept only for this browser session, and cleared when you leave or reset."
-    ),
-    "privacy_anthropic": (
+    "privacy_hosted": (
         "Your PDF and search stay on this server for this browser session; "
         "only the few passages needed for an answer are sent to a hosted model "
-        "(Anthropic). Cleared when you leave or reset."
+        "({vendor}). Cleared when you leave or reset."
     ),
     "privacy_memory": (
         "Your PDF is kept only for this browser session, and cleared when you leave or reset."
@@ -88,21 +83,25 @@ STARTER_CHIPS = (
 BOOKING_URL_ENV = "DEMO_BOOKING_URL"
 
 
+# Buyer-facing vendor names. The setting values stay anthropic / openai / xai.
+_HOSTED_VENDORS = {
+    "anthropic": "Anthropic",
+    "openai": "OpenAI",
+    "xai": "xAI",
+}
+
+
 def privacy_line_for_provider(provider: str) -> str:
     """One accurate privacy line for the active generator. Do not overclaim."""
     name = (provider or "").strip().lower()
-    if name == "ollama":
-        return _CLIENT_COPY["privacy_ollama"]
-    if name == "anthropic":
-        return _CLIENT_COPY["privacy_anthropic"]
+    vendor = _HOSTED_VENDORS.get(name)
+    if vendor:
+        return _CLIENT_COPY["privacy_hosted"].format(vendor=vendor)
     return _CLIENT_COPY["privacy_memory"]
 
 
 def privacy_badge_for_provider(provider: str) -> str:
     """Collapsed lock-badge label. Do not call a hosted model private."""
-    name = (provider or "").strip().lower()
-    if name == "ollama":
-        return _CLIENT_COPY["privacy_badge_ollama"]
     return _CLIENT_COPY["privacy_badge_hosted"]
 
 

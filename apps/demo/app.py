@@ -67,7 +67,7 @@ from ask_runtime import (
     run_model_once,
     run_with_timeout,
 )
-from generation_errors import anthropic_user_reason
+from generation_errors import hosted_user_reason
 from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
@@ -162,9 +162,39 @@ def _human_model_label(provider: str, model: str) -> str:
         if "opus" in lower:
             return "Claude Opus"
         return "Claude"
-    if provider == "ollama":
-        return raw or "local model"
+    if provider == "openai":
+        if "4.1-mini" in lower or lower.startswith("gpt-4.1-mini"):
+            return "GPT-4.1 mini"
+        return raw or "OpenAI"
+    if provider == "xai":
+        if "grok-4.7" in lower:
+            return "Grok 4.7"
+        if "grok" in lower:
+            return "Grok"
+        return raw or "Grok"
     return raw or provider
+
+
+_PROVIDER_CAPTION = {
+    "anthropic": "Anthropic",
+    "openai": "OpenAI",
+    "xai": "xAI",
+}
+_PROVIDER_MODEL_KEY = {
+    "anthropic": "anthropic_model",
+    "openai": "openai_model",
+    "xai": "xai_model",
+}
+_PROVIDER_ERROR = {
+    "anthropic": ("Anthropic", "ANTHROPIC_API_KEY"),
+    "openai": ("OpenAI", "OPENAI_API_KEY"),
+    "xai": ("xAI", "XAI_API_KEY"),
+}
+_HOSTED_TIMEOUT_STAGES = {
+    "anthropic": ("anthropic_call_start", "anthropic_call_end", "anthropic_timeout"),
+    "openai": ("openai_call_start", "openai_call_end", "openai_timeout"),
+    "xai": ("xai_call_start", "xai_call_end", "xai_timeout"),
+}
 
 
 def _active_generator_label(dummy_mode: bool) -> str:
@@ -173,12 +203,11 @@ def _active_generator_label(dummy_mode: bool) -> str:
     if provider == "dummy":
         return "Dummy · UI placeholder (no LLM)"
     settings = load_generation_config()
-    if provider == "anthropic":
-        model_id = str(settings.get("anthropic_model") or "")
-        return f"Anthropic · {_human_model_label(provider, model_id)}"
-    if provider == "ollama":
-        model_id = str(settings.get("model") or "")
-        return f"Ollama · {_human_model_label(provider, model_id)}"
+    caption = _PROVIDER_CAPTION.get(provider)
+    model_key = _PROVIDER_MODEL_KEY.get(provider)
+    if caption and model_key:
+        model_id = str(settings.get(model_key) or "")
+        return f"{caption} · {_human_model_label(provider, model_id)}"
     return provider
 
 
@@ -432,34 +461,6 @@ def _finalize_retrieval_candidates(
     return pool, mode, warning, rerank_elapsed_ms
 
 
-def _ollama_recommended_models() -> list[str]:
-    try:
-        model_name = load_generation_config().get("model", "llama3.1:8b")
-    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
-        model_name = "llama3.1:8b"
-    preferred = [model_name, "llama3.1:8b", "phi3.5:latest", "phi3:mini"]
-    return list(dict.fromkeys(preferred))
-
-
-def _ollama_recovery_expander(*, expanded: bool = False) -> None:
-    """Terminal commands and model hints; no duplicate banners."""
-    recommended_models = _ollama_recommended_models()
-    pull_commands = "\n".join(f"ollama pull {name}" for name in recommended_models)
-    recommended_order_text = " → ".join(f"`{name}`" for name in recommended_models)
-    with st.expander("How to fix local generation (Ollama)", expanded=expanded):
-        st.markdown(
-            "**Metal / GPU crashes on macOS** often come from the Ollama runner. "
-            "Update Ollama, try another model/quantization, or reduce context "
-            "(`OLLAMA_NUM_CTX` in `.env`). See `docs/ollama-troubleshooting.md`."
-        )
-        st.markdown("Run these commands in a terminal:")
-        st.code(
-            f"ollama serve\n{pull_commands}\nollama list",
-            language="bash",
-        )
-        st.caption(f"CPU smoke-test order: {recommended_order_text}.")
-
-
 def _active_provider_for_errors() -> str:
     """Provider name used when mapping generation failures to user-facing copy."""
     return resolve_llm_provider_name(dummy_mode=st.session_state.get("dummy_generator_only", True))
@@ -470,33 +471,12 @@ def _generation_failure_reason(exc: BaseException) -> tuple[str, str]:
     error_text = str(exc).lower()
     provider = _active_provider_for_errors()
 
-    if provider == "anthropic":
+    known = _PROVIDER_ERROR.get(provider)
+    if known:
         # Raw API text stays in the log. Chat and the banner get a short reason.
-        reason = anthropic_user_reason(exc)
-        return reason, error_text
-
-    try:
-        model_name = load_generation_config().get("model", "llama3.1:8b")
-    except (FileNotFoundError, OSError, yaml.YAMLError, TypeError, ValueError, KeyError):
-        model_name = "llama3.1:8b"
-    if "connection" in error_text or "refused" in error_text:
-        reason = "Could not connect to Ollama. Start the Ollama server first."
-    elif "not found" in error_text or "model" in error_text:
-        reason = f"The model `{model_name}` is unavailable locally. Pull it, then retry."
-    elif "timeout" in error_text or "timed out" in error_text:
-        reason = "Local model timed out. Retry with a shorter question or smaller context."
-    elif (
-        "mtllibrary" in error_text
-        or "metal" in error_text
-        or "llama runner process has terminated" in error_text
-    ):
-        reason = (
-            "Ollama’s local model runner crashed (often a Metal/GPU issue on macOS). "
-            "Update Ollama, try a smaller model, or lower `OLLAMA_NUM_CTX`."
-        )
-    else:
-        reason = "Could not generate an Ollama answer right now."
-    return reason, error_text
+        label, key_env = known
+        return hosted_user_reason(exc, label=label, key_env=key_env), error_text
+    return "Could not generate an answer right now.", error_text
 
 
 def _render_persistent_generation_error() -> None:
@@ -506,8 +486,6 @@ def _render_persistent_generation_error() -> None:
         return
     reason = err.get("user_reason", "Generation failed.")
     st.error(reason)
-    if _active_provider_for_errors() == "ollama":
-        _ollama_recovery_expander(expanded=False)
     detail = err.get("detail")
     if st.session_state.developer_mode and detail:
         with st.expander("Technical details", expanded=False):
@@ -674,18 +652,21 @@ def _collect_generated_answer(
     is not called again. Anthropic gets its own timeout log on this thread:
     a hung call logs ``anthropic_timeout`` even if the script is already gone.
     """
+    provider = resolve_llm_provider_name(dummy_mode=dummy_mode)
+    stages = _HOSTED_TIMEOUT_STAGES.get(provider)
     if api_base_url():
         text = chat_via_api(context=context, query=query, dummy_mode=dummy_mode)
-    elif resolve_llm_provider_name(dummy_mode=dummy_mode) == "anthropic":
+    elif stages:
+        start_stage, end_stage, timeout_stage = stages
         text = call_with_stage_timeout(
             lambda: "".join(
                 generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode)
             ),
             timeout_seconds,
             question=query,
-            start_stage="anthropic_call_start",
-            end_stage="anthropic_call_end",
-            timeout_stage="anthropic_timeout",
+            start_stage=start_stage,
+            end_stage=end_stage,
+            timeout_stage=timeout_stage,
         )
     else:
         text = "".join(generate_answer_stream(context=context, query=query, dummy_mode=dummy_mode))
@@ -772,7 +753,8 @@ if _show_sidebar:
                 value=st.session_state.dummy_generator_only,
                 help=(
                     "Used only when LLM_PROVIDER is unset. ON: placeholder answers. "
-                    "OFF: Ollama. Non-empty LLM_PROVIDER (e.g. anthropic) always wins."
+                    "OFF: Claude (the default hosted model). "
+                    "Non-empty LLM_PROVIDER (anthropic, openai, or xai) always wins."
                 ),
             )
             st.caption(
@@ -803,11 +785,8 @@ if _show_sidebar:
         )
         _dev_provider = resolve_llm_provider_name(st.session_state.dummy_generator_only)
         _dev_settings = load_generation_config()
-        _dev_model = (
-            _dev_settings.get("anthropic_model")
-            if _dev_provider == "anthropic"
-            else _dev_settings.get("model")
-        )
+        _dev_model_key = _PROVIDER_MODEL_KEY.get(_dev_provider)
+        _dev_model = _dev_settings.get(_dev_model_key) if _dev_model_key else None
         if _dev_model:
             st.sidebar.caption(f"API id: `{_dev_model}`")
     _render_sidebar_footer(

@@ -73,30 +73,34 @@ def test_timing_caption_formats_sub_second() -> None:
     assert "0.0s" not in _response_timing_caption(total_ms=90.0)
 
 
-def test_privacy_wording_matches_session_lifetime() -> None:
-    """Pin the visitor lines so they cannot claim a delete the code does not do."""
-    ollama = privacy_line_for_provider("ollama")
-    anthropic = privacy_line_for_provider("anthropic")
-    dummy = privacy_line_for_provider("dummy")
-    assert ollama == (
-        "Runs on this server: your PDF, search and answers never leave it. "
-        "Kept only for this browser session, and cleared when you leave or reset."
-    )
-    assert anthropic == (
+def _hosted_privacy(vendor: str) -> str:
+    return (
         "Your PDF and search stay on this server for this browser session; "
         "only the few passages needed for an answer are sent to a hosted model "
-        "(Anthropic). Cleared when you leave or reset."
+        f"({vendor}). Cleared when you leave or reset."
     )
+
+
+def test_privacy_wording_matches_session_lifetime() -> None:
+    """Pin the visitor lines so they cannot claim a delete the code does not do."""
+    anthropic = privacy_line_for_provider("anthropic")
+    openai = privacy_line_for_provider("openai")
+    xai = privacy_line_for_provider("xai")
+    dummy = privacy_line_for_provider("dummy")
+    assert anthropic == _hosted_privacy("Anthropic")
+    assert openai == _hosted_privacy("OpenAI")
+    assert xai == _hosted_privacy("xAI")
     assert dummy == (
         "Your PDF is kept only for this browser session, and cleared when you leave or reset."
     )
-    for line in (ollama, anthropic, dummy):
+    for line in (anthropic, openai, xai, dummy):
         assert "deleted" not in line.lower()
         assert "dsgvo" not in line.lower()
         assert "gdpr" not in line.lower()
     assert "never leave" not in anthropic
-    assert "passages" not in ollama
-    assert "Anthropic" not in ollama
+    assert "OpenAI" not in anthropic
+    assert "Anthropic" not in openai
+    assert "passages" not in dummy
 
 
 def test_anthropic_badge_never_says_private_local_or_offline() -> None:
@@ -108,8 +112,7 @@ def test_anthropic_badge_never_says_private_local_or_offline() -> None:
     assert "offline" not in lowered
     assert privacy_badge_for_provider("dummy") == label
     assert privacy_badge_for_provider("openai") == label
-    assert privacy_badge_for_provider("ollama") == "Runs on this server"
-    assert "offline" not in privacy_badge_for_provider("ollama").lower()
+    assert privacy_badge_for_provider("xai") == label
 
 
 def test_anthropic_chat_hides_raw_provider_error(caplog) -> None:
@@ -332,7 +335,14 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "bge-reranker" in produced
     assert "caddy" not in produced.lower()
     running = (PROJECT_ROOT / "docs" / "operators" / "running.md").read_text(encoding="utf-8")
-    assert "OLLAMA_MODEL" in running
+    assert "LLM_PROVIDER" in running
+    assert "`anthropic`" in running
+    assert "`openai`" in running
+    assert "`xai`" in running
+    assert "Claude Haiku 4.5" in running
+    assert "GPT-4.1 mini" in running
+    assert "Grok 4.7" in running
+    assert "ollama" not in running.lower()
     assert (PROJECT_ROOT / "docs" / "assets" / "aidoc_architecture.png").is_file()
 
 

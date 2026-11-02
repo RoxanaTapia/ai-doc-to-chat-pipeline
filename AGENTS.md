@@ -22,7 +22,7 @@ CI runs this pytest suite on every pull request. `pyproject.toml` also has Ruff 
 | `apps/demo/` | Streamlit demo, the reference client |
 | `configs/` | Chunking, retrieval, and prompt tunables |
 | `tests/` | pytest suite |
-| `deploy/` | App image and Compose (Ollama; optional API) |
+| `deploy/` | App image and Compose (optional API) |
 | `docs/` | Product and operator pages. Start at [docs/README.md](docs/README.md) |
 | `.env.example` | Product knobs. Copy to `.env` locally; never commit a filled file |
 

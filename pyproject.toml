@@ -32,8 +32,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "langchain-anthropic>=1.7.6,<1.8.0",
     "anthropic>=1.17.0,<2.0.0",
-    "langchain-ollama",
-    "ollama",
+    "langchain-openai>=1.7.0,<1.8.0",
 ]
 
 [project.optional-dependencies]

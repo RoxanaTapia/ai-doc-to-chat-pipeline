@@ -17,8 +17,13 @@ APP_ROOT = Path(__file__).resolve().parents[3]
 PROMPTS_PATH = APP_ROOT / "configs" / "prompts.yaml"
 CONFIG_PATH = APP_ROOT / "configs" / "config.yaml"
 
-# Current Anthropic Haiku (fast demo/video). Override with ANTHROPIC_MODEL.
+# Fast hosted defaults. Override with ANTHROPIC_MODEL, OPENAI_MODEL, or XAI_MODEL.
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_XAI_MODEL = "grok-4.7"
+# xAI's OpenAI-compatible chat endpoint. The key is XAI_API_KEY, not OPENAI_API_KEY.
+XAI_BASE_URL = "https://api.x.ai/v1"
+DEFAULT_LLM_PROVIDER = "anthropic"
 DEFAULT_PROMPT_TEMPLATE = (
     "You are a precise and concise legal assistant.\n"
     "Answer ONLY using information from the provided context.\n"
@@ -97,31 +102,29 @@ def load_generation_config() -> dict[str, Any]:
             logger.warning("Invalid %s=%r; using default %s", name, raw, default)
             return int(default)
 
-    default_model = str(generation.get("model", "llama3.1:8b"))
-    model_override = _env_text("OLLAMA_MODEL")
-    # Env wins when set; YAML `provider` is informational default for operators.
+    # Env wins when set. YAML `provider` documents the hosted default.
+    # Runtime selection still lives in resolve_llm_provider_name (dummy mode
+    # applies only when LLM_PROVIDER is empty).
     yaml_provider = str(generation.get("provider", "") or "").strip().lower()
     env_provider = _env_text("LLM_PROVIDER")
-    anthropic_model = _env_text("ANTHROPIC_MODEL") or DEFAULT_ANTHROPIC_MODEL
+
+    def _model(env_name: str, yaml_key: str, default: str) -> str:
+        return _env_text(env_name) or str(generation.get(yaml_key) or default)
 
     return {
-        "provider": (env_provider or yaml_provider or "").lower() or None,
-        "model": model_override or default_model,
-        "anthropic_model": anthropic_model,
-        "temperature": _env_float("OLLAMA_TEMPERATURE", float(generation.get("temperature", 0.3))),
-        "top_p": _env_float("OLLAMA_TOP_P", float(generation.get("top_p", 0.9))),
+        "provider": (env_provider or yaml_provider or DEFAULT_LLM_PROVIDER).lower(),
+        "anthropic_model": _model("ANTHROPIC_MODEL", "anthropic_model", DEFAULT_ANTHROPIC_MODEL),
+        "openai_model": _model("OPENAI_MODEL", "openai_model", DEFAULT_OPENAI_MODEL),
+        "xai_model": _model("XAI_MODEL", "xai_model", DEFAULT_XAI_MODEL),
+        "temperature": _env_float("LLM_TEMPERATURE", float(generation.get("temperature", 0.3))),
+        "top_p": _env_float("LLM_TOP_P", float(generation.get("top_p", 0.9))),
         "max_new_tokens": _env_int(
-            "OLLAMA_MAX_NEW_TOKENS",
+            "LLM_MAX_NEW_TOKENS",
             int(generation.get("max_new_tokens", 256)),
         ),
-        "do_sample": _env_bool("OLLAMA_DO_SAMPLE", bool(generation.get("do_sample", False))),
-        "fallback_to_dummy_on_error": _env_bool(
-            "OLLAMA_FALLBACK_TO_DUMMY",
-            bool(generation.get("fallback_to_dummy_on_error", False)),
-        ),
-        "num_ctx": _env_int("OLLAMA_NUM_CTX", int(generation.get("num_ctx", 4096))),
+        "do_sample": _env_bool("LLM_DO_SAMPLE", bool(generation.get("do_sample", False))),
         "timeout_seconds": _env_int(
-            "OLLAMA_TIMEOUT_SECONDS",
+            "LLM_TIMEOUT_SECONDS",
             int(generation.get("timeout_seconds", 90)),
         ),
     }

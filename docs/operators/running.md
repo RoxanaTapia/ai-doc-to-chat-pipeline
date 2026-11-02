@@ -4,11 +4,11 @@
 
 ## Background
 
-This repo runs the PDF Q&A app and the model. Put the app behind an existing reverse proxy when you want public HTTPS.
+This repo runs the PDF Q&A app. Put the app behind an existing reverse proxy when you want public HTTPS.
 
-> **Takeaway:** Compose here is `app` + `ollama` (optional `api`). The reverse proxy in front owns the public ports.
+> **Takeaway:** Compose here is `app` (optional `api`). The reverse proxy in front owns the public ports. The answer model is a hosted API.
 
-Python 3.12 or newer. The answer writer is Ollama or Anthropic (Claude).
+Python 3.12 or newer. The answer writer is Claude by default. OpenAI and Grok are the other choices.
 
 ---
 
@@ -22,12 +22,18 @@ cd ai-doc-to-chat-pipeline
 cp .env.example .env
 ```
 
-An empty `OLLAMA_MODEL` selects `llama3.1:8b`. Append `phi3:mini` and pass `--env-file .env` so the model you pull is the one the app calls. A value only in the shell is not enough. Both tags are Ollama models.
+Set one answer model in `.env`, then pass `--env-file .env`. A value only in the shell is not enough.
+
+| `LLM_PROVIDER` | Model | Key |
+|----------------|-------|-----|
+| `anthropic` (empty, dummy mode off) | Claude Haiku 4.5 | `ANTHROPIC_API_KEY` |
+| `openai` | GPT-4.1 mini | `OPENAI_API_KEY` |
+| `xai` | Grok 4.7 | `XAI_API_KEY` |
+
+`LLM_PROVIDER=xai` with no `XAI_API_KEY` stops the answer and names that missing key. The same pattern applies to `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`. Leave `LLM_PROVIDER` empty and set `USE_DUMMY_GENERATOR=true` for placeholder answers with no key.
 
 ```bash
-printf '\nOLLAMA_MODEL=phi3:mini\n' >> .env
 docker compose --env-file .env -f deploy/docker-compose.yml up --build -d
-docker compose --env-file .env -f deploy/docker-compose.yml exec ollama ollama pull phi3:mini
 ```
 
 The demo listens on port **8501**, path **`/app`**: [http://localhost:8501/app](http://localhost:8501/app).
@@ -53,7 +59,7 @@ pip install -r requirements.txt
 PYTHONPATH=src streamlit run apps/demo/app.py
 ```
 
-On Windows, activate with `.venv\Scripts\activate`. The same port and path apply. Set `OLLAMA_HOST` in `.env` to an Ollama you can reach. The comments in `.env.example` list the usual values.
+On Windows, activate with `.venv\Scripts\activate`. The same port and path apply. Put the provider and its key in `.env`. The comments in `.env.example` list the usual values.
 
 ---
 
@@ -68,7 +74,7 @@ docker compose --env-file .env -p ai-doc-to-chat-pipeline \
   -f deploy/docker-compose.yml -f deploy/docker-compose.shared-edge.yml up -d
 ```
 
-Expect: `ollama` healthy, `app` up. The app port stays unpublished.
+Expect: `app` up. The app port stays unpublished.
 
 | Alias | Port | Role |
 |-------|------|------|
@@ -76,7 +82,7 @@ Expect: `ollama` healthy, `app` up. The app port stays unpublished.
 
 Point the reverse proxy at `app:8501`. Streamlit's `baseUrlPath` is `app` (`.streamlit/config.toml`), so keep that prefix when the proxy serves the app under `/app`. The proxy owns `/`. The UI entrypoint is `apps/demo/app.py`.
 
-Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Ollama volume names stay stable. Do not copy this example over a filled `.env`.
+Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Compose project names stay stable. Do not copy this example over a filled `.env`.
 
 ---
 

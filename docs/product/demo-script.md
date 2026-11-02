@@ -50,7 +50,8 @@ Sources for question 1 should stay on the term clause (page 2). Question 2 shoul
 
 | Choice | When |
 |--------|------|
-| **Ollama** | When you run Ollama beside the app. |
-| **Anthropic (Claude)** | When you want a hosted Claude model. |
+| **Claude** | The default. |
+| **OpenAI** | When you set that provider. |
+| **Grok** | When you set that provider. |
 
-Search stays the same either way. How the pieces connect: [docs/README.md](../README.md).
+Search stays the same either way. The one list of settings is in [running the stack](../operators/running.md). How the pieces connect: [docs/README.md](../README.md).

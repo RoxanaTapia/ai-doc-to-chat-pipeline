@@ -15,12 +15,32 @@ import ai_doc.rag as rag  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _clear_llm_provider_env(monkeypatch) -> None:
-    """Keep legacy dummy_mode mapping tests independent of the host env."""
-    monkeypatch.delenv("LLM_PROVIDER", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
-    monkeypatch.delenv("DEMO_STUB_LLM", raising=False)
+    """Keep provider selection tests independent of the host env. No live API calls."""
+    for name in (
+        "LLM_PROVIDER",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_MODEL",
+        "OPENAI_API_KEY",
+        "OPENAI_MODEL",
+        "XAI_API_KEY",
+        "XAI_MODEL",
+        "DEMO_STUB_LLM",
+        "USE_DUMMY_GENERATOR",
+    ):
+        monkeypatch.delenv(name, raising=False)
     rag.load_generation_config.cache_clear()
+
+
+_SAMPLE_SETTINGS = {
+    "anthropic_model": "claude-haiku-4-5-20251001",
+    "openai_model": "gpt-4.1-mini",
+    "xai_model": "grok-4.7",
+    "temperature": 0.55,
+    "top_p": 0.9,
+    "max_new_tokens": 128,
+    "do_sample": False,
+    "timeout_seconds": 30,
+}
 
 
 def test_generate_answer_dummy_mode_returns_placeholder() -> None:
@@ -33,16 +53,16 @@ def test_generate_answer_dummy_mode_returns_placeholder() -> None:
     assert "live pilot" in answer
 
 
-def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
+def test_generate_answer_real_mode_uses_anthropic_by_default(monkeypatch) -> None:
     captured = {}
 
     def _fake_generate(context: str, query: str, settings=None) -> str:
         captured["context"] = context
         captured["query"] = query
         captured["settings"] = settings
-        return "final from ollama"
+        return "final from anthropic"
 
-    monkeypatch.setattr(rag.providers, "_generate_with_ollama", _fake_generate)
+    monkeypatch.setattr(rag.providers, "_generate_with_anthropic", _fake_generate)
 
     answer = rag.generate_answer(
         context="Clause 5: Non-compete applies for 3 years.",
@@ -50,223 +70,49 @@ def test_generate_answer_real_mode_calls_ollama_wrapper(monkeypatch) -> None:
         dummy_mode=False,
     )
 
-    assert answer == "final from ollama"
+    assert answer == "final from anthropic"
     assert captured["query"] == "Summarize restrictions."
     assert "Clause 5" in captured["context"]
     assert isinstance(captured["settings"], dict)
 
 
-def test_generate_answer_passes_settings_to_ollama_wrapper(monkeypatch) -> None:
-    captured = {}
-
-    def _fake_generate(context: str, query: str, settings=None) -> str:
-        captured["settings"] = settings
-        return "ok"
-
-    monkeypatch.setattr(rag.providers, "_generate_with_ollama", _fake_generate)
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {
-            "model": "phi3:mini",
-            "temperature": 0.1,
-            "top_p": 0.9,
-            "max_new_tokens": 64,
-            "do_sample": False,
-            "fallback_to_dummy_on_error": False,
-            "num_ctx": 2048,
-            "timeout_seconds": 30,
-        },
-    )
-
-    answer = rag.generate_answer(
-        context="Sample context",
-        query="Sample query",
-        dummy_mode=False,
-    )
-
-    assert answer == "ok"
-    assert captured["settings"]["model"] == "phi3:mini"
-    assert captured["settings"]["max_new_tokens"] == 64
-
-
-def test_generate_with_ollama_respects_config_and_prompt(monkeypatch) -> None:
-    created = {}
-
-    class FakeChatOllama:
-        def __init__(self, **kwargs):
-            created["kwargs"] = kwargs
-
-        def invoke(self, prompt):
-            created["prompt"] = prompt
-            return SimpleNamespace(content=" Generated answer. ")
-
-    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {
-            "model": "phi3:mini",
-            "temperature": 0.55,
-            "top_p": 0.9,
-            "max_new_tokens": 128,
-            "do_sample": False,
-            "fallback_to_dummy_on_error": False,
-            "num_ctx": 2048,
-            "timeout_seconds": 30,
-        },
-    )
-    monkeypatch.setattr(
-        rag.providers,
-        "load_rag_prompt",
-        lambda: "CTX={context}\nQ={question}\nA=",
-    )
-
-    output = rag._generate_with_ollama("Context text", "Question text")
-
-    assert output == "Generated answer."
-    assert created["kwargs"]["model"] == "phi3:mini"
-    assert created["kwargs"]["num_predict"] == 128
-    assert created["kwargs"]["num_ctx"] == 2048
-    assert created["kwargs"]["timeout"] == 30
-    assert created["kwargs"]["top_p"] == 0.9
-    # do_sample=False should force deterministic temperature.
-    assert created["kwargs"]["temperature"] == 0.0
-    assert "base_url" not in created["kwargs"]
-    assert "CTX=Context text" in created["prompt"]
-    assert "Q=Question text" in created["prompt"]
-
-
-def test_build_ollama_llm_passes_compose_host(monkeypatch) -> None:
-    created = {}
-
-    class FakeChatOllama:
-        def __init__(self, **kwargs):
-            created["kwargs"] = kwargs
-
-        def invoke(self, prompt):
-            return SimpleNamespace(content="ok")
-
-    monkeypatch.setenv("OLLAMA_HOST", "http://ollama:11434")
-    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {
-            "model": "phi3:mini",
-            "temperature": 0.0,
-            "top_p": 0.9,
-            "max_new_tokens": 64,
-            "do_sample": False,
-            "fallback_to_dummy_on_error": False,
-            "num_ctx": 2048,
-            "timeout_seconds": 30,
-        },
-    )
-    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}")
-    rag._generate_with_ollama("Context text", "Question text")
-    assert created["kwargs"]["base_url"] == "http://ollama:11434"
-    assert created["kwargs"]["timeout"] == 30
-
-
-def test_generate_answer_falls_back_to_dummy_when_enabled(monkeypatch) -> None:
-    monkeypatch.setattr(
-        rag.providers,
-        "_generate_with_ollama",
-        lambda context, query, settings=None: (_ for _ in ()).throw(
-            ConnectionError("connection refused")
-        ),
-    )
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {"fallback_to_dummy_on_error": True},
-    )
-
-    answer = rag.generate_answer(
-        context="Section A says notice period is 30 days.",
-        query="What is the notice period?",
-        dummy_mode=False,
-    )
-
-    assert "Ollama unavailable, falling back to dummy mode." in answer
-    assert "no AI model is running here" in answer
-
-
-def test_generate_answer_raises_structured_error_when_fallback_disabled(monkeypatch) -> None:
-    monkeypatch.setattr(
-        rag.providers,
-        "_generate_with_ollama",
-        lambda context, query, settings=None: (_ for _ in ()).throw(
-            RuntimeError("model not found")
-        ),
-    )
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {"fallback_to_dummy_on_error": False},
-    )
-
-    try:
-        rag.generate_answer(
-            context="Section A says notice period is 30 days.",
-            query="What is the notice period?",
-            dummy_mode=False,
-        )
-    except RuntimeError as exc:
-        assert "Ollama generation unavailable:" in str(exc)
-        assert "model not found" in str(exc)
-    else:
-        raise AssertionError("Expected RuntimeError when fallback is disabled.")
-
-
-def test_generate_answer_raises_structured_timeout_when_fallback_disabled(monkeypatch) -> None:
-    monkeypatch.setattr(
-        rag.providers,
-        "_generate_with_ollama",
-        lambda context, query, settings=None: (_ for _ in ()).throw(TimeoutError("timed out")),
-    )
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {"fallback_to_dummy_on_error": False},
-    )
-
-    try:
-        rag.generate_answer(
-            context="Section A says notice period is 30 days.",
-            query="What is the notice period?",
-            dummy_mode=False,
-        )
-    except RuntimeError as exc:
-        assert "Ollama generation unavailable:" in str(exc)
-        assert "timed out" in str(exc)
-    else:
-        raise AssertionError("Expected RuntimeError on timeout when fallback is disabled.")
-
-
 def test_resolve_llm_provider_name_env_wins_over_dummy_mode(monkeypatch) -> None:
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
-    assert rag.resolve_llm_provider_name(dummy_mode=True) == "ollama"
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    assert rag.resolve_llm_provider_name(dummy_mode=True) == "openai"
 
     monkeypatch.setenv("LLM_PROVIDER", "dummy")
     assert rag.resolve_llm_provider_name(dummy_mode=False) == "dummy"
 
+    monkeypatch.setenv("LLM_PROVIDER", "  XAI  ")
+    assert rag.resolve_llm_provider_name(dummy_mode=True) == "xai"
+
 
 def test_resolve_llm_provider_name_maps_dummy_mode_when_env_unset() -> None:
     assert rag.resolve_llm_provider_name(dummy_mode=True) == "dummy"
-    assert rag.resolve_llm_provider_name(dummy_mode=False) == "ollama"
+    assert rag.resolve_llm_provider_name(dummy_mode=False) == "anthropic"
+    assert rag.DEFAULT_LLM_PROVIDER == "anthropic"
 
 
-def test_get_llm_provider_dummy_ollama_and_anthropic() -> None:
+@pytest.mark.parametrize(
+    ("env_value", "provider_type"),
+    [
+        ("anthropic", rag.AnthropicLLMProvider),
+        ("openai", rag.OpenAILLMProvider),
+        ("xai", rag.XAILLMProvider),
+        ("ANTHROPIC", rag.AnthropicLLMProvider),
+    ],
+)
+def test_llm_provider_env_selects_each_backend(monkeypatch, env_value, provider_type) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", env_value)
+    name = rag.resolve_llm_provider_name(dummy_mode=True)
+    assert isinstance(rag.get_llm_provider(name), provider_type)
+
+
+def test_get_llm_provider_dummy_and_hosted() -> None:
     assert isinstance(rag.get_llm_provider("dummy"), rag.DummyLLMProvider)
-    assert isinstance(rag.get_llm_provider("OLLAMA"), rag.OllamaLLMProvider)
     assert isinstance(rag.get_llm_provider("anthropic"), rag.AnthropicLLMProvider)
-
-
-def test_get_llm_provider_openai_not_implemented() -> None:
-    with pytest.raises(NotImplementedError, match="openai"):
-        rag.get_llm_provider("openai")
+    assert isinstance(rag.get_llm_provider("openai"), rag.OpenAILLMProvider)
+    assert isinstance(rag.get_llm_provider("xai"), rag.XAILLMProvider)
 
 
 def test_get_llm_provider_unknown_raises_value_error() -> None:
@@ -284,19 +130,50 @@ def test_generate_answer_llm_provider_dummy_env(monkeypatch) -> None:
     assert "no AI model is running here" in answer
 
 
-def test_generate_answer_llm_provider_ollama_env(monkeypatch) -> None:
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
-    monkeypatch.setattr(
-        rag.providers,
-        "_generate_with_ollama",
-        lambda context, query, settings=None: "via env",
-    )
+@pytest.mark.parametrize(
+    ("provider", "key_env", "wrapper"),
+    [
+        ("anthropic", "ANTHROPIC_API_KEY", "_generate_with_anthropic"),
+        ("openai", "OPENAI_API_KEY", "_generate_with_openai"),
+        ("xai", "XAI_API_KEY", "_generate_with_xai"),
+    ],
+)
+def test_selected_provider_missing_key_is_a_clear_error(
+    monkeypatch, provider, key_env, wrapper
+) -> None:
+    """The error names the missing key and never builds a client."""
+
+    def _refuse_client(*args, **kwargs):
+        raise AssertionError("a missing key must not construct a model client")
+
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    monkeypatch.setattr(rag.providers, "ChatAnthropic", _refuse_client)
+    monkeypatch.setattr(rag.providers, "ChatOpenAI", _refuse_client)
+    with pytest.raises(RuntimeError, match=key_env) as exc_info:
+        rag.generate_answer(
+            context="Section A says notice period is 30 days.",
+            query="What is the notice period?",
+            dummy_mode=True,
+        )
+    message = str(exc_info.value)
+    assert f"LLM_PROVIDER={provider}" in message
+    assert "not set" in message
+    assert wrapper.startswith("_generate_with_")
+
+
+def test_dummy_mode_answers_without_any_api_key(monkeypatch) -> None:
+    def _refuse_client(*args, **kwargs):
+        raise AssertionError("dummy mode must not construct a model client")
+
+    monkeypatch.setattr(rag.providers, "ChatAnthropic", _refuse_client)
+    monkeypatch.setattr(rag.providers, "ChatOpenAI", _refuse_client)
     answer = rag.generate_answer(
-        context="Clause text",
-        query="What applies?",
+        context="Section A says notice period is 30 days.",
+        query="What is the notice period?",
         dummy_mode=True,
     )
-    assert answer == "via env"
+    assert "no AI model is running here" in answer
+    assert "live pilot" in answer
 
 
 def test_generate_answer_llm_provider_anthropic_env(monkeypatch) -> None:
@@ -480,16 +357,60 @@ def test_anthropic_provider_generate_routes_and_invokes(monkeypatch) -> None:
     assert "30 days" in captured["context"]
 
 
-def test_load_generation_config_anthropic_model_default_and_env(monkeypatch) -> None:
-    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+def test_load_generation_config_model_defaults_and_env(monkeypatch) -> None:
     rag.load_generation_config.cache_clear()
     cfg = rag.load_generation_config()
+    assert cfg["provider"] == "anthropic"
     assert cfg["anthropic_model"] == rag.DEFAULT_ANTHROPIC_MODEL
+    assert cfg["openai_model"] == rag.DEFAULT_OPENAI_MODEL
+    assert cfg["xai_model"] == rag.DEFAULT_XAI_MODEL
 
     monkeypatch.setenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1")
+    monkeypatch.setenv("XAI_MODEL", "grok-4")
     rag.load_generation_config.cache_clear()
     cfg = rag.load_generation_config()
     assert cfg["anthropic_model"] == "claude-haiku-4-5"
+    assert cfg["openai_model"] == "gpt-4.1"
+    assert cfg["xai_model"] == "grok-4"
+
+
+def test_openai_and_xai_builders_use_fakes_and_their_own_keys(monkeypatch) -> None:
+    created = []
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+
+        def invoke(self, prompt):
+            created[-1]["prompt"] = prompt
+            return SimpleNamespace(content=" Hosted answer. ")
+
+    monkeypatch.setattr(rag.providers, "ChatOpenAI", FakeChatOpenAI)
+    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
+    monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
+
+    openai_answer = rag._generate_with_openai(
+        "Context text", "Question text", settings=_SAMPLE_SETTINGS
+    )
+    xai_answer = rag._generate_with_xai(
+        "Context text", "Question text", settings=_SAMPLE_SETTINGS
+    )
+
+    assert openai_answer == "Hosted answer."
+    assert xai_answer == "Hosted answer."
+    assert created[0]["model"] == "gpt-4.1-mini"
+    assert created[0]["api_key"] == "openai-test-key"
+    assert created[0]["max_tokens"] == 128
+    assert created[0]["temperature"] == 0.0
+    assert "base_url" not in created[0]
+    assert "top_p" not in created[0]
+    assert created[1]["model"] == "grok-4.7"
+    assert created[1]["api_key"] == "xai-test-key"
+    assert created[1]["base_url"] == rag.XAI_BASE_URL
+    assert "CTX=Context text" in created[0]["prompt"]
+    assert "Q=Question text" in created[1]["prompt"]
 
 
 def test_generate_answer_stream_dummy_yields_placeholder() -> None:
@@ -652,57 +573,18 @@ def test_anthropic_provider_stream_falls_back_to_generate(monkeypatch) -> None:
     assert chunks == ["fallback full answer"]
 
 
-def test_stream_with_ollama_uses_langchain_stream(monkeypatch) -> None:
-    created = {}
-
-    class FakeChatOllama:
-        def __init__(self, **kwargs):
-            created["kwargs"] = kwargs
-
-        def stream(self, prompt):
-            created["prompt"] = prompt
-            yield SimpleNamespace(content="Hello ")
-            yield SimpleNamespace(content="world")
-
-        def invoke(self, prompt):
-            raise AssertionError("invoke should not be used for streaming path")
-
-    monkeypatch.setattr(rag.providers, "ChatOllama", FakeChatOllama)
-    monkeypatch.setattr(
-        rag.providers,
-        "load_generation_config",
-        lambda: {
-            "model": "phi3:mini",
-            "temperature": 0.55,
-            "top_p": 0.9,
-            "max_new_tokens": 128,
-            "do_sample": False,
-            "fallback_to_dummy_on_error": False,
-            "num_ctx": 2048,
-            "timeout_seconds": 30,
-        },
-    )
-    monkeypatch.setattr(rag.providers, "load_rag_prompt", lambda: "CTX={context}\nQ={question}\nA=")
-
-    chunks = list(rag._stream_with_ollama("Context text", "Question text"))
-
-    assert chunks == ["Hello ", "world"]
-    assert created["kwargs"]["model"] == "phi3:mini"
-    assert created["kwargs"]["temperature"] == 0.0
-    assert "CTX=Context text" in created["prompt"]
-
-
-def test_generate_answer_stream_ollama_falls_back_to_generate(monkeypatch) -> None:
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+def test_generate_answer_stream_openai_falls_back_to_generate(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
 
     def _failing_stream(context: str, query: str, settings=None):
         raise TimeoutError("stream timed out")
         yield  # pragma: no cover
 
-    monkeypatch.setattr(rag.providers, "_stream_with_ollama", _failing_stream)
+    monkeypatch.setattr(rag.providers, "_stream_with_openai", _failing_stream)
     monkeypatch.setattr(
         rag.providers,
-        "_generate_with_ollama",
+        "_generate_with_openai",
         lambda context, query, settings=None: "non-stream answer",
     )
 
@@ -710,7 +592,7 @@ def test_generate_answer_stream_ollama_falls_back_to_generate(monkeypatch) -> No
         rag.generate_answer_stream(
             context="Clause text",
             query="What applies?",
-            dummy_mode=False,
+            dummy_mode=True,
         )
     )
     assert chunks == ["non-stream answer"]

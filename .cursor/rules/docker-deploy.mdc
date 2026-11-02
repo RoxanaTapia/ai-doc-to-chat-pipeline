@@ -1,5 +1,5 @@
 ---
-description: Docker Compose and Dockerfile conventions for the app + Ollama stack
+description: Docker Compose and Dockerfile conventions for the app stack
 globs: deploy/**
 alwaysApply: false
 ---
@@ -7,12 +7,9 @@ alwaysApply: false
 # Docker & deploy
 
 - Pin base image tags; prefer Python 3.12+ for the Streamlit app.
-- In Compose, set `OLLAMA_HOST=http://ollama:11434` (service name, not localhost).
-- Self-host profile: `USE_DUMMY_GENERATOR=false`.
-- Persist Ollama models via a named volume; document `ollama pull` in `docs/operators/running.md`.
-- Do not bake secrets into images; use env files excluded from git.
+- Answer models are hosted. Pass `LLM_PROVIDER` and the matching API key through the env file. Do not bake secrets into images.
+- `USE_DUMMY_GENERATOR=false` selects the hosted default (Claude) when `LLM_PROVIDER` is empty.
 - Expose Streamlit on 8501 for local Compose. Behind an existing reverse proxy, use `deploy/docker-compose.shared-edge.yml` so the proxy owns the public ports.
-- Healthcheck Ollama before app depends on it when possible.
 - Do not add a reverse proxy or invite service in this repo. Those stay with the proxy in front.
 
 PRs and reviews follow the standard in `AGENTS.md`.

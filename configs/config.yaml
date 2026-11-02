@@ -37,18 +37,19 @@ rag:
       hard_context_filter: true   # R4-E: LLM context + Sources use section-matching chunks only
       context_min_chunks: 2
   generation:
-    # Informational / self-host default (ollama). Runtime selection:
-    #   1. Non-empty env LLM_PROVIDER wins (ollama|anthropic|openai|dummy)
-    #   2. Else dummy_mode / USE_DUMMY_GENERATOR → dummy vs ollama
+    # Hosted answer models. The operator list is docs/operators/running.md.
+    # Runtime selection:
+    #   1. Non-empty env LLM_PROVIDER wins (anthropic|openai|xai|dummy)
+    #   2. Else dummy_mode / USE_DUMMY_GENERATOR → dummy vs anthropic
     # YAML alone does not select the backend when LLM_PROVIDER is unset.
-    # anthropic: needs ANTHROPIC_API_KEY; model via ANTHROPIC_MODEL
-    #   (default claude-haiku-4-5-20251001). openai: not implemented yet.
-    provider: ollama
-    model: "llama3.1:8b"     # default local Ollama model (override with OLLAMA_MODEL)
+    # Each provider needs its own key: ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY.
+    # A missing key for the selected provider is an error. Dummy mode needs no key.
+    provider: anthropic
+    anthropic_model: "claude-haiku-4-5-20251001"  # override with ANTHROPIC_MODEL
+    openai_model: "gpt-4.1-mini"                  # override with OPENAI_MODEL
+    xai_model: "grok-4.7"                         # override with XAI_MODEL
     max_new_tokens: 384      # room for bullet answers (Round 2)
     temperature: 0.3         # creativity when do_sample is true
-    top_p: 0.9               # nucleus sampling (useful to reduce repetition)
+    top_p: 0.9               # stored for tuning; requests send temperature only
     do_sample: false         # false => deterministic (temperature forced to 0)
-    fallback_to_dummy_on_error: false  # if true, returns dummy output when Ollama is unavailable
-    num_ctx: 4096            # context window limit passed to Ollama
     timeout_seconds: 90      # generation timeout safeguard
