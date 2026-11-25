@@ -12,7 +12,12 @@ Release tags are `vX.Y.Z`. Date-based deploy tags are no longer created. Existin
 
 ### Added
 
+- feat(ui): walk through Read before you sign on the sample NDA (#255)
 - feat(demo): warm the sample NDA index and show a reading line on first paint (#256)
+
+### Fixed
+
+- fix(ui): keep earlier answers visible, cite the parties on page 1, and scroll the highlighted passage into view (#255, #242, #180)
 - feat(llm): offer Claude, OpenAI, and Grok as answer models, and remove the local writer (#250)
 
 ## [1.0.0] - 2026-10-28

@@ -30,7 +30,7 @@ APP_PATH = DEMO_DIR / "app.py"
 TERM_QUESTION = "How long does this agreement last?"
 FEE_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
 LAW_QUESTION = "Which country's law applies, and where are disputes settled?"
-TERM_CHIP = "How long does this agreement last?"
+TERM_CHIP = "How long does this last?"
 READY_HINT = "Ask about this document"
 
 STUB_ENV = {
@@ -923,9 +923,9 @@ def test_type_ask_once_then_enter_keeps_every_card() -> None:
             page = browser.new_page(viewport={"width": 1100, "height": 1400})
             page.goto(url, wait_until="domcontentloaded")
             _wait_ready(page, expect)
-            expect(page.get_by_role("button", name=TERM_QUESTION, exact=True)).to_be_visible()
+            expect(page.get_by_role("button", name=TERM_CHIP, exact=True)).to_be_visible()
 
-            page.get_by_role("button", name=TERM_QUESTION, exact=True).click()
+            page.get_by_role("button", name=TERM_CHIP, exact=True).click()
             page.wait_for_function(
                 """(expectText) => {
                   if (document.body.classList.contains('app-ask-pending')) return false;

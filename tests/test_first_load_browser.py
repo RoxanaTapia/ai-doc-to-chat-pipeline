@@ -26,7 +26,7 @@ DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
 DEPLOY_DIR = PROJECT_ROOT / "deploy"
 APP_PATH = DEMO_DIR / "app.py"
 READY_HINT = "Ask about this document"
-TERM_CHIP = "How long does this agreement last?"
+TERM_CHIP = "How long does this last?"
 
 STUB_ENV = {
     "USE_STUB_EMBEDDINGS": "1",
@@ -382,7 +382,10 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             expect(page.get_by_role("link", name="Book a call")).to_be_visible()
             expect(page.get_by_role("button", name="Try your own PDF")).to_have_count(0)
             expect(page.locator('[data-testid="stFileUploader"]')).to_have_count(0)
-            expect(page.get_by_text("Sample NDA", exact=False).first).to_be_visible()
+            expect(
+                page.get_by_text("NDA · Acme Corp and Beta Labs", exact=False).first
+            ).to_be_visible()
+            expect(page.get_by_text("sample-nda.pdf")).to_have_count(0)
             browser.close()
 
 

@@ -62,6 +62,36 @@ def _ask(at, question: str) -> None:
     at.run(timeout=30)
 
 
+def test_case_study_chips_cite_page_section_and_an_honest_miss(stub_env) -> None:
+    """The three taps cite page 2, page 3, and a search of all 3 sample pages."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(DEMO_DIR / "app.py"), default_timeout=30)
+    at.run(timeout=30)
+    assert not at.exception
+    labels = [str(getattr(btn, "label", "") or "") for btn in at.button]
+    own = {str(getattr(btn, "key", "") or "") for btn in at.button}
+    assert "own_pdf_toggle" not in own
+    assert "Try your own PDF" not in " ".join(labels)
+
+    for chip in STARTER_CHIPS:
+        at.button(f"chip_{chip['label']}").click()
+        at.run(timeout=30)
+        assert not at.exception
+
+    labels = [str(getattr(btn, "label", "") or "") for btn in at.button]
+    blob = _markdown_blob(at)
+    assert any(label.startswith("Page 2 · Section") for label in labels)
+    assert any(label.startswith("Page 3 · Section") for label in labels)
+    assert "Searched all 3 pages" in blob
+    assert "Sample walkthrough" in blob
+    assert "3 questions · 3 sources · 1 honest no" in blob
+    assert "Book a call" in blob
+    assert "Exit demo" in blob
+    assert "sample-nda.pdf" not in blob
+    assert blob.count("data-ask-timing") >= 3
+
+
 def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     from streamlit.testing.v1 import AppTest
 
@@ -133,7 +163,8 @@ def test_header_stays_intact_through_load_ask_and_answer(stub_env) -> None:
     at.run(timeout=30)
     assert not at.exception
     _assert_header_intact(at)
-    assert not _chip_button_keys(at)
+    assert TERM_CHIP_KEY not in _chip_button_keys(at)
+    assert len(_chip_button_keys(at)) == 2
     messages = _session_get(at, "messages") or []
     assistants = [m for m in messages if m.get("role") == "assistant"]
     assert assistants and "3 years" in (assistants[0].get("content") or "")
@@ -209,8 +240,6 @@ def _chip_label_visible(at) -> bool:
             continue
         if 'class="app-chips-label app-chip-mark"' in value:
             return True
-        if "Try a starter question" in value:
-            return True
     return False
 
 
@@ -244,8 +273,9 @@ def test_starter_chips_hidden_until_chat_ready(stub_env) -> None:
     assistants = [m for m in messages if m.get("role") == "assistant"]
     assert users and users[0]["content"] == TERM_QUESTION
     assert assistants and "3 years" in (assistants[0].get("content") or "")
-    assert not _chip_button_keys(at)
-    assert not _chip_label_visible(at)
+    assert TERM_CHIP_KEY not in _chip_button_keys(at)
+    assert len(_chip_button_keys(at)) == 2
+    assert _chip_label_visible(at)
 
 
 def test_starter_chip_submits_and_answers(stub_env) -> None:
@@ -268,7 +298,8 @@ def test_starter_chip_submits_and_answers(stub_env) -> None:
     assert assistants and "3 years" in (assistants[0].get("content") or "")
     ask_box = _session_get(at, "ask_box", "")
     assert ask_box in {"", None}
-    assert not _chip_button_keys(at)
+    assert TERM_CHIP_KEY not in _chip_button_keys(at)
+    assert len(_chip_button_keys(at)) == 2
     leaked = "\n".join(_plain_markdown_values(at))
     assert LAW_QUESTION not in leaked
     assert FEE_QUESTION not in leaked
@@ -386,6 +417,7 @@ def test_interrupted_ask_resumes_once_and_keeps_the_earlier_card(
     law_lines = [line for line in lines if "law" in line.lower()]
     joined = "\n".join(law_lines)
     assert joined.count("stage=start") == 1
+    assert joined.count("stage=retrieval_done") == 1
     assert joined.count("stage=model_call_start") == 1
     assert joined.count("stage=model_call_end") == 1
     assert "stage=interrupted" in joined
@@ -420,7 +452,9 @@ def test_client_first_ask_skips_cross_encoder(stub_env) -> None:
 
 
 def _page_badge_visible(at) -> bool:
-    return any('class="app-page-badge"' in (block.value or "") for block in at.markdown)
+    if any('class="app-page-badge"' in (block.value or "") for block in at.markdown):
+        return True
+    return any(str(getattr(btn, "label", "") or "").startswith("Page ") for btn in at.button)
 
 
 def _show_page_buttons(at) -> list[str]:
@@ -440,12 +474,12 @@ def _inline_quote_visible(at) -> bool:
 def test_second_ask_clears_prior_sources_while_loading(
     stub_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Second question must not keep the first answer's sources at full contrast.
+    """Earlier cards stay while the next answer loads.
 
     Delays generation so the loading window is observable. AppTest does not
     refresh its element tree mid-script, so the test watches session flags and
-    source-render calls: history is cleared before the model runs, and no page
-    badge / quote / Show page is painted again until the new answer lands.
+    source-render calls: history is not cleared, and the first answer's sources
+    are painted again before the new answer lands.
     """
     from streamlit.testing.v1 import AppTest
 
@@ -502,10 +536,10 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert not at.exception
     assert loading_snapshots, "expected a mid-generation snapshot during the second ask"
     mid = loading_snapshots[0]
-    assert mid["cleared"] is True
+    assert mid["cleared"] is False
     assert mid["status"] == "answering"
     assert mid["status_detail"] == "Looking through the document"
-    assert mid["source_paints_before_answer"] == paints_after_first
+    assert len(mid["source_paints_before_answer"]) > len(paints_after_first)
 
     messages = _session_get(at, "messages") or []
     assistants = [m for m in messages if m.get("role") == "assistant"]
@@ -612,7 +646,7 @@ def test_followup_refusal_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPa
 def test_cards_never_paint_alongside_busy_line(
     stub_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Prior cards stay cleared for the whole busy window (no overlap with busy)."""
+    """Earlier cards stay visible for the whole busy window."""
     from streamlit.testing.v1 import AppTest
 
     import ai_doc.rag as rag
@@ -668,9 +702,9 @@ def test_cards_never_paint_alongside_busy_line(
     assert not at.exception
     assert loading_snapshots
     mid = loading_snapshots[0]
-    assert mid["cleared"] is True
+    assert mid["cleared"] is False
     assert mid["status"] == "answering"
-    assert mid["source_paints"] == paints_before
+    assert mid["source_paints"] > paints_before
     assert mid["card_paints_while_cleared"] == 0
     assert card_paints_while_cleared == 0
     assert _session_get(at, "doc_status") == "ready"

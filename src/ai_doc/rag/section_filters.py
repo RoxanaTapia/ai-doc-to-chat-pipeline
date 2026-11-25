@@ -260,5 +260,96 @@ def _text_looks_on_section(chunk_text: str, target_section: str) -> bool:
     )
 
 
+# Questions that should open on a specific kind of clause, even when the
+# first-stage ranking prefers a later boilerplate sentence.
+_DURATION_QUERY_RE = re.compile(
+    r"(?i)\b(how long|how many years|does this last|agreement last)\b"
+)
+_DURATION_CHUNK_RE = re.compile(r"(?i)(section\s+4\b|remain in effect|three \(3\) years)")
+_LAW_QUERY_RE = re.compile(
+    r"(?i)\b(which law|what law|law applies|governing law|country'?s law|disputes settled)\b"
+)
+_LAW_CHUNK_RE = re.compile(r"(?i)(section\s+7\b|governed by the laws|governing law)")
+_PARTIES_QUERY_RE = re.compile(
+    r"(?i)\bwho are the parties\b|\bparties to (?:this|the) (?:agreement|nda|contract)\b"
+)
+_PARTY_INTRO_RE = re.compile(
+    r"(?i)\bentered into\b.{0,240}\bbetween\b.{0,240}\b(?:disclosing party|receiving party)\b"
+)
+_ENTIRE_AGREEMENT_RE = re.compile(
+    r"(?i)\bentire agreement\b|\bentire understanding between the parties\b"
+)
+
+
+def query_asks_for_parties(query: str) -> bool:
+    """True when the question asks who signed, not what the whole agreement says."""
+    return bool(_PARTIES_QUERY_RE.search(query or ""))
+
+
+def chunk_introduces_parties(text: str) -> bool:
+    """True for the opening 'between X and Y' sentence, not the entire-agreement clause."""
+    body = text or ""
+    if not _PARTY_INTRO_RE.search(body):
+        return False
+    if _ENTIRE_AGREEMENT_RE.search(body) and "entered into" not in body.lower():
+        return False
+    return True
+
+
+def _first_matching_chunk(chunks: list[Document], pattern: re.Pattern[str]) -> Document | None:
+    for chunk in chunks:
+        if pattern.search(chunk.page_content or ""):
+            return chunk
+    return None
+
+
+def _preferred_documents(query: str, chunks: list[Document]) -> list[Document]:
+    """One supporting chunk for duration, governing law, or the party introduction."""
+    if _DURATION_QUERY_RE.search(query or ""):
+        hit = _first_matching_chunk(chunks, _DURATION_CHUNK_RE)
+        return [hit] if hit is not None else []
+    if _LAW_QUERY_RE.search(query or ""):
+        hit = _first_matching_chunk(chunks, _LAW_CHUNK_RE)
+        return [hit] if hit is not None else []
+    if query_asks_for_parties(query):
+        for chunk in chunks:
+            if chunk_introduces_parties(chunk.page_content or ""):
+                return [chunk]
+    return []
+
+
+def _chunk_identity(doc: Document) -> tuple[object, str]:
+    return (doc.metadata.get("page"), (doc.page_content or "")[:180])
+
+
+def prefer_clause_chunks(
+    query: str,
+    ranked: list[tuple[Document, float]],
+    chunks: list[Document] | None = None,
+) -> list[tuple[Document, float]]:
+    """Put the clause that answers the question ahead of a higher boilerplate score.
+
+    Semantic search can rank "between the parties" in the entire-agreement
+    clause above the sentence that names the parties. The same happens for
+    term and governing law. The preferred chunk is taken from the full
+    document, so a weak first-stage list still cites the right page.
+    """
+    picked = _preferred_documents(query, list(chunks or []))
+    if not picked:
+        return ranked
+    picked_keys = {_chunk_identity(doc) for doc in picked}
+    rest = [(doc, score) for doc, score in ranked if _chunk_identity(doc) not in picked_keys]
+    lifted: list[tuple[Document, float]] = []
+    for doc in picked:
+        score = 1.0
+        for existing, existing_score in ranked:
+            if _chunk_identity(existing) == _chunk_identity(doc):
+                score = existing_score
+                break
+        doc.metadata["similarity"] = score
+        lifted.append((doc, score))
+    return lifted + rest
+
+
 # Loaded after chunking defines the span helpers, so the two modules can import each other.
 from ai_doc.rag.chunking import _slugify_title, section_spans_in_chunk  # noqa: E402

@@ -24,6 +24,7 @@ from ai_doc.rag.citations import (  # noqa: E402
 from ai_doc.rag.config import load_rag_prompt  # noqa: E402
 from ai_doc.rag.ingestion import extract_pdf  # noqa: E402
 from ai_doc.rag.retrieval import build_bm25_index, tokenize_for_bm25  # noqa: E402
+from ai_doc.rag.section_filters import prefer_clause_chunks  # noqa: E402
 
 PENALTY_QUESTION = "What is the penalty fee if Beta Labs breaks this agreement?"
 TERM_QUESTION = "How long does this agreement last?"
@@ -137,3 +138,30 @@ def test_term_answer_with_trailing_unspecified_keeps_sources() -> None:
     joined = " ".join(entry.get("preview") or "" for entry in payload)
     assert "Entire Agreement" not in joined
     assert "Governing Law" not in joined
+
+
+def test_who_are_the_parties_cites_page_one_not_section_8() -> None:
+    """Entire Agreement mentions 'the parties'. The names are on page 1."""
+    extracted = extract_pdf(SAMPLE_NDA, enable_ocr=False)
+    chunks = chunk_pages(
+        extracted.page_docs,
+        chunk_size=1000,
+        chunk_overlap=200,
+        split_on_legal_headers=True,
+    )
+    entire = next(doc for doc in chunks if "Entire Agreement" in (doc.page_content or ""))
+    ranked = [(entire, 0.95)] + [(doc, 0.1) for doc in chunks if doc is not entire]
+    lifted = prefer_clause_chunks("Who are the parties?", ranked, chunks)
+    assert int(lifted[0][0].metadata.get("page")) == 1
+    assert "Acme Corp" in (lifted[0][0].page_content or "")
+    assert "Entire Agreement" not in (lifted[0][0].page_content or "")
+    payload = build_sources_payload(
+        [doc for doc, _score in lifted],
+        query="Who are the parties?",
+        answer="Acme Corp is the disclosing party and Beta Labs Ltd is the receiving party.",
+        display_max=3,
+        preview_chars=280,
+    )
+    assert payload
+    assert int(payload[0]["page"]) == 1
+    assert payload[0].get("section") not in {"8", 8}

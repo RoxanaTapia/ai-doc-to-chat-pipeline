@@ -20,6 +20,7 @@ from generation_errors import anthropic_user_reason  # noqa: E402
 from page_copy import (  # noqa: E402
     _CLIENT_COPY,
     BOOKING_URL_ENV,
+    STARTER_CHIPS,
     booking_cta,
     booking_url,
     checked_all_pages_note,
@@ -56,11 +57,14 @@ SAMPLE_NDA = PROJECT_ROOT / "docs" / "product" / "sample-nda.pdf"
 
 
 def test_hero_is_one_subtitle() -> None:
+    assert _CLIENT_COPY["hero_title"] == "Read before you sign"
     assert _CLIENT_COPY["hero_lead"] == (
-        "Ask your contract anything. It shows the best-matching page next to each "
-        "answer and says when the document doesn't cover the question."
+        "Beta Labs has an NDA from Acme Corp the night before a kickoff. "
+        "Tap a question. Each answer shows the page it came from, and how long it took."
     )
-    assert "doesn't cover the question" in _CLIENT_COPY["hero_lead"]
+    assert "\u2014" not in _CLIENT_COPY["hero_lead"]
+    assert "TTL" not in _CLIENT_COPY["hero_lead"]
+    assert "simulation" not in _CLIENT_COPY["hero_lead"].lower()
     assert not _CLIENT_COPY["hero_kicker"]
 
 
@@ -444,7 +448,7 @@ def test_booking_env_is_documented() -> None:
     assert "calendar" not in example.lower()
 
 
-def test_starter_chips_hide_after_first_answer() -> None:
+def test_starter_chips_hide_after_each_is_answered() -> None:
     assert should_show_starter_chips([])
     assert should_show_starter_chips([], chat_ready=True)
     assert should_show_starter_chips([{"role": "user", "content": "How long?"}])
@@ -453,12 +457,24 @@ def test_starter_chips_hide_after_first_answer() -> None:
         [{"role": "user", "content": "How long?"}],
         chat_ready=False,
     )
-    assert not should_show_starter_chips(
+    assert should_show_starter_chips(
         [
             {"role": "user", "content": "How long?"},
             {"role": "assistant", "content": "3 years"},
         ]
     )
+    term = STARTER_CHIPS[0]["question"]
+    assert should_show_starter_chips(
+        [
+            {"role": "user", "content": term},
+            {"role": "assistant", "content": "3 years"},
+        ]
+    )
+    done: list[dict[str, str]] = []
+    for chip in STARTER_CHIPS:
+        done.append({"role": "user", "content": chip["question"]})
+        done.append({"role": "assistant", "content": "ok"})
+    assert not should_show_starter_chips(done)
     assert not should_show_starter_chips([], query="How long does this agreement last?")
     assert not should_show_starter_chips(
         [{"role": "user", "content": "How long?"}],
@@ -633,16 +649,17 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "chip_slot = _render_starter_chips(" in text
     assert "chip_slot.empty()" in text
     assert "answers_slot = st.empty()" in text
-    assert "def _clear_answer_history" in text
-    assert "_clear_answer_history(answers_slot)" in text
+    assert "def _keep_earlier_answers" in text
+    assert "_keep_earlier_answers(answers_slot)" in text
+    assert "_clear_answer_history" not in text
     assert "with answers_slot.container()" in text
     assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
-    assert text.find("answers_slot = st.empty()") < text.find("_clear_answer_history(answers_slot)")
+    assert text.find("answers_slot = st.empty()") < text.find("_keep_earlier_answers(answers_slot)")
     assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')
-    assert text.find("_clear_answer_history(answers_slot)") < text.find(
+    assert text.find("_keep_earlier_answers(answers_slot)") < text.find(
         'paint_status(status_slot, "answering"'
     )
-    assert text.find("_clear_answer_history(answers_slot)") < text.find(
+    assert text.find("_keep_earlier_answers(answers_slot)") < text.find(
         "with answers_slot.container()"
     )
     assert "Press Enter to apply" not in text
@@ -655,7 +672,8 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
 
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
     text = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
-    assert '"Show page"' in text
+    assert "def source_chip_label" in text
+    assert 'return f"Page {page} · Section {section}"' in text
     assert "click the quote" not in text.lower()
     # The toggle runs in on_click, before an ask rerun can skip the button body.
     assert "on_click=_toggle_page_preview" in text
@@ -781,6 +799,31 @@ def test_ask_button_queues_through_the_same_callback_as_enter() -> None:
     assert "on_click=_on_ask_click if chat_ready else None" in text
     assert "if submitted and _queue_question" not in text
     assert "return queue_question(st.session_state, text)" in text
+
+
+def test_highlight_covers_the_whole_passage_when_the_string_does_not_match() -> None:
+    """A heading glued on with a different dash must not highlight only the first words."""
+    import pymupdf
+
+    quote = "Section 4 – Term " + SECTION_4_SENTENCE
+    doc = pymupdf.open(SAMPLE_NDA)
+    try:
+        page = doc[1]
+        rects = highlight_rects(page, quote)
+        sentence = page.search_for(SECTION_4_SENTENCE)
+        opening = page.search_for(" ".join(SECTION_4_SENTENCE.split()[:3]))
+    finally:
+        doc.close()
+    assert sentence
+    assert rects
+    sentence_area = sum(rect.get_area() for rect in sentence)
+    covered = 0.0
+    for target in sentence:
+        for hit in rects:
+            covered += (target & hit).get_area()
+    assert covered + 1e-6 >= sentence_area * 0.9
+    opening_area = sum(rect.get_area() for rect in opening) or 1.0
+    assert sum(rect.get_area() for rect in rects) > opening_area * 1.5
 
 
 def test_highlight_covers_section_4_sentence() -> None:

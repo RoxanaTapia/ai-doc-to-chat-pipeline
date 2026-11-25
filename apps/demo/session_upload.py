@@ -8,7 +8,14 @@ import os
 
 import streamlit as st
 
-from page_copy import _CLIENT_COPY, sample_preload_error_copy, should_preload_sample
+from page_copy import (
+    _CLIENT_COPY,
+    SAMPLE_DOCUMENT_TITLE,
+    human_document_name,
+    sample_document_line,
+    sample_preload_error_copy,
+    should_preload_sample,
+)
 from sample_warm import SAMPLE_NDA_NAME, sample_nda_path
 
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
@@ -239,7 +246,7 @@ def _set_doc_status(kind: str, message: str) -> None:
 
 
 def _reading_message(name: str, step: str) -> str:
-    return _CLIENT_COPY["doc_reading"].format(name=name, step=step)
+    return _CLIENT_COPY["doc_reading"].format(name=human_document_name(name), step=step)
 
 
 def _ready_message(name: str, pages: int | None = None) -> str:
@@ -248,12 +255,11 @@ def _ready_message(name: str, pages: int | None = None) -> str:
         stats = st.session_state.get("indexed_doc_stats") or {}
         page_count = int(stats.get("pages") or 0)
     if name == SAMPLE_NDA_NAME:
-        if page_count:
-            return _CLIENT_COPY["doc_ready"].format(pages=page_count)
-        return "Sample NDA"
+        return sample_document_line(page_count)
+    pretty = human_document_name(name)
     if page_count:
-        return _CLIENT_COPY["doc_ready_named"].format(name=name, pages=page_count)
-    return name
+        return _CLIENT_COPY["doc_ready_named"].format(name=pretty, pages=page_count)
+    return pretty
 
 
 def _derive_document_status(
@@ -292,11 +298,18 @@ def _derive_document_status(
 
 
 def paint_status(slot, kind: str, message: str) -> None:
-    """Draw the one status pill and remember it."""
+    """Draw the one status pill and remember it.
+
+    The sample document uses a card with its human title, never the filename.
+    """
     _set_doc_status(kind, message)
     safe = html.escape(message)
+    card = kind == "ready" and SAMPLE_DOCUMENT_TITLE in (message or "")
+    classes = f"app-status app-status--{kind}"
+    if card:
+        classes += " app-doc-card"
     slot.markdown(
-        f'<div class="app-status app-status--{kind}" role="status">{safe}</div>',
+        f'<div class="{classes}" role="status">{safe}</div>',
         unsafe_allow_html=True,
     )
 

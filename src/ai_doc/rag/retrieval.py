@@ -12,6 +12,7 @@ from langchain_core.documents import Document
 
 from ai_doc.rag.chunking import apply_section_aware_retrieval, limit_chunks_per_page
 from ai_doc.rag.citations import dedupe_similar_chunks
+from ai_doc.rag.section_filters import prefer_clause_chunks
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
@@ -225,12 +226,15 @@ def first_stage_retrieval(
             config=config,
             limit=candidate_limit,
         )
-        return results, mode, warning or bm25_warning, diag
-
-    semantic_results, mode, semantic_diag = semantic_search(
-        query, vector_store=vector_store, config=config, limit=candidate_limit
-    )
-    return semantic_results, mode, None, semantic_diag
+        warning = warning or bm25_warning
+    else:
+        results, mode, semantic_diag = semantic_search(
+            query, vector_store=vector_store, config=config, limit=candidate_limit
+        )
+        warning = None
+        diag = semantic_diag
+    results = prefer_clause_chunks(query, results, chunks)
+    return results, mode, warning, diag
 
 
 def apply_reranker(

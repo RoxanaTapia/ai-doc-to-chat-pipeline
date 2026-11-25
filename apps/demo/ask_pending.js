@@ -3,9 +3,11 @@
   if (window.__appAskBootBound) return;
   window.__appAskBootBound = true;
 
-  // On a real ask, hide prior cards and show the busy line via CSS on .app-status
-  // (no separate busy node that can mount before status exists).
+  // On a real ask, show the busy line via CSS on .app-status.
+  // Earlier answer cards stay on screen. (No separate busy node.)
   const PENDING = "app-ask-pending";
+  const askStarted = new Map();
+  const askShown = new Map();
   const DONE_SEL = "#app-ask-done";
   const CARD_SEL = '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]';
   const testHooks = () => window.__APP_ASK_TEST_HOOKS === true;
@@ -76,6 +78,68 @@
     pendingBaseline = null;
     pendingKeys = [];
     clearFailsafe();
+  };
+
+  const questionText = (fromEl) => {
+    if (isChipButton(fromEl)) {
+      const button = fromEl.closest("button") || fromEl;
+      return ((button && button.innerText) || "").trim();
+    }
+    return trimmedAskValue();
+  };
+
+  const noteAskStart = (question) => {
+    const text = (question || "").trim();
+    if (!text || askShown.has(text)) return;
+    askStarted.set(text, performance.now());
+  };
+
+  const formatAskSeconds = (ms) => {
+    const seconds = Math.max(0, ms) / 1000;
+    const shown = seconds >= 0.1 ? seconds.toFixed(1) : seconds.toFixed(2);
+    return "answered in " + shown + " s";
+  };
+
+  const paintBrowserTimes = () => {
+    const nodes = document.querySelectorAll("[data-ask-timing]");
+    nodes.forEach((el) => {
+      const question = el.getAttribute("data-ask-question") || "";
+      if (askShown.has(question)) {
+        const saved = askShown.get(question);
+        if (el.textContent !== saved) el.textContent = saved;
+        return;
+      }
+      const started = askStarted.get(question);
+      if (started == null) return;
+      const card = el.closest(
+        '[class*="st-key-answer_card_"], [class*="st-key-refusal_card_"]'
+      );
+      if (!card) return;
+      const label = formatAskSeconds(performance.now() - started);
+      askShown.set(question, label);
+      askStarted.delete(question);
+      if (el.textContent !== label) el.textContent = label;
+    });
+  };
+
+  const scrollHighlightedPassage = () => {
+    const anchors = document.querySelectorAll(".app-page-anchor");
+    anchors.forEach((anchor) => {
+      if (anchor.dataset.scrolled === "1") return;
+      const ratio = parseFloat(anchor.getAttribute("data-highlight-top") || "");
+      if (!Number.isFinite(ratio)) return;
+      const block = anchor.closest('[data-testid="stVerticalBlock"]') || anchor.parentElement;
+      const img = block ? block.querySelector("img") : null;
+      if (!img) return;
+      const box = img.getBoundingClientRect();
+      if (!(box.height >= 20)) return;
+      const y = box.top + box.height * ratio;
+      const margin = 96;
+      if (!(y >= margin) || y > window.innerHeight - 120) {
+        window.scrollBy(0, y - Math.min(window.innerHeight * 0.33, 240));
+      }
+      anchor.dataset.scrolled = "1";
+    });
   };
 
   const markPending = () => {
@@ -162,12 +226,14 @@
     if (event.defaultPrevented) return;
     const t = event.target;
     if (isChipButton(t)) {
+      noteAskStart(questionText(t));
       markPending();
       return;
     }
     if (!isAskSubmit(t)) return;
     if (!askEnabled(t)) return;
     if (!trimmedAskValue()) return;
+    noteAskStart(trimmedAskValue());
     markPending();
   };
 
@@ -183,6 +249,7 @@
     if (!isAskInput(t)) return;
     if (t.disabled || t.getAttribute("aria-disabled") === "true") return;
     if (!((t.value || "").trim())) return;
+    noteAskStart((t.value || "").trim());
     markPending();
   };
 
@@ -192,6 +259,8 @@
   document.addEventListener("keyup", onEnter, true);
 
   const syncPending = () => {
+    paintBrowserTimes();
+    scrollHighlightedPassage();
     if (!answerReady()) return;
     // Drop the busy line in the same frame as the cards, not when the marker first changes.
     scheduleClear();
