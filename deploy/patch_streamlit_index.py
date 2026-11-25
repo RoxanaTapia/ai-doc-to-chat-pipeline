@@ -75,10 +75,10 @@ def _brand_body(prefix: str, js: str) -> str:
         f"{MARKER}\n"
         f"{header}\n"
         f'<div id="app-boot" role="status" aria-live="polite">'
-        f'<span class="app-boot__label">Loading the document…</span>'
-        f'<span class="app-boot__busy" aria-hidden="true">'
-        f"<span></span><span></span><span></span>"
-        f"</span>"
+        f'<p class="app-boot__line">'
+        f'<span class="app-boot__label">Reading the contract</span>'
+        f'<span class="app-boot__dots" aria-hidden="true"></span>'
+        f"</p>"
         f"</div>\n"
         f"<script>\n{js.rstrip()}\n</script>\n"
         f'<script src="{prefix}/theme.js"></script>\n'

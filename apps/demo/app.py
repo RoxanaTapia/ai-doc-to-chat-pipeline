@@ -3,7 +3,6 @@ import os
 # Before tokenizers/sentence-transformers import: avoid a first-ask deadlock.
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-import hashlib
 import html
 import logging
 import sys
@@ -18,7 +17,6 @@ import yaml
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 from streamlit.runtime.scriptrunner_utils.exceptions import RerunException, StopException
 
@@ -81,6 +79,7 @@ from page_copy import (
     request_is_operator,
     should_show_starter_chips,
 )
+from sample_warm import embeddings_for, sample_index_for
 from session_upload import (
     SAMPLE_NDA_NAME,
     _cache_upload,
@@ -304,12 +303,8 @@ except (FileNotFoundError, OSError, yaml.YAMLError, KeyError, TypeError, ValueEr
 
 @st.cache_resource(show_spinner=False)
 def get_embeddings(model_name: str):
-    """Cache embedding model to avoid repeated heavy initialization."""
-    if _env_bool("USE_STUB_EMBEDDINGS", False):
-        from langchain_core.embeddings import FakeEmbeddings
-
-        return FakeEmbeddings(size=32)
-    return HuggingFaceEmbeddings(model_name=model_name)
+    """Reuse the process-wide embedding model, including one warmed at startup."""
+    return embeddings_for(model_name)
 
 
 @st.cache_resource(show_spinner=False)
@@ -319,30 +314,8 @@ def get_sample_nda_index(
     chunk_overlap: int,
     header_split: bool,
 ) -> dict:
-    """Index the walkthrough NDA once per process so first paint can skip setup."""
-    from ai_doc.rag.ingestion import extract_pdf as _extract_pdf
-    from session_upload import sample_nda_path
-
-    path = sample_nda_path()
-    extracted = _extract_pdf(path, enable_ocr=False)
-    chunks = chunk_pages(
-        extracted.page_docs,
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        split_on_legal_headers=header_split,
-    )
-    store = FAISS.from_documents(chunks, get_embeddings(model_name))
-    text_pages, blank_pages = page_text_counts(extracted.page_docs)
-    return {
-        "bytes": path.read_bytes(),
-        "chunks": chunks,
-        "vector_store": store,
-        "pages": len(extracted.page_docs),
-        "text_pages": text_pages,
-        "blank_pages": blank_pages,
-        "chars": len(extracted.preview_text.strip()),
-        "hash": hashlib.sha256(path.read_bytes()).hexdigest(),
-    }
+    """Reuse the walkthrough index warmed at container start, or build it once."""
+    return sample_index_for(model_name, chunk_size, chunk_overlap, header_split)
 
 
 @st.cache_resource(show_spinner=False)

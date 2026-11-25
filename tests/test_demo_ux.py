@@ -392,7 +392,7 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     patcher = (PROJECT_ROOT / "deploy" / "patch_streamlit_index.py").read_text(encoding="utf-8")
     dockerfile = (PROJECT_ROOT / "deploy" / "Dockerfile").read_text(encoding="utf-8")
     assert 'id="app-boot"' in boot_js or 'getElementById("app-boot")' in boot_js
-    assert "Loading the document…" in patcher
+    assert "Reading the contract" in patcher
     assert '[data-testid="stSkeleton"]' in boot_css
     assert "opacity: 0 !important" in boot_css
     assert "background: #f8f4f9" in boot_css
@@ -404,12 +404,16 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     )
     assert "IBM Plex" not in boot_css
     assert "fonts.googleapis.com" not in boot_css
+    assert "color: #9d174d" in boot_css
+    assert "background: #14061f" in boot_css
+    assert "color: #f7a8c6" in boot_css
     # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
     assert "visibility: hidden" in boot_css
     assert 'body:has([data-testid="stHeading"] h1)' in boot_css
     assert ':has([data-testid="stTextInput"] input)' in boot_css
     assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
+    assert "deploy/warm_start.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
     assert "vendor/demo-kit/" in dockerfile
     assert "deploy/ai_doc_ops.py" in dockerfile

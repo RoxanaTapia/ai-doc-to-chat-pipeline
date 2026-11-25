@@ -1,4 +1,4 @@
-/* First paint before any Streamlit/Python CSS. Kit colors, no white flash. */
+/* First paint before any Streamlit/Python CSS. Reading line, then skeletons. */
 html, body {
   background: #f8f4f9 !important;
   margin: 0;
@@ -7,6 +7,11 @@ html, body {
 html[data-theme="dark"],
 html[data-theme="dark"] body {
   background: #14061f !important;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background: #f8f4f9 !important;
 }
 
 /* The kit sheet sets body to a flex column. Streamlit needs a normal block. */
@@ -32,7 +37,7 @@ body {
   justify-content: center;
   gap: 0.85rem;
   background: #f8f4f9;
-  color: #5c4a66;
+  color: #9d174d;
   /* Plus Jakarta wins over any later first-paint family that is not !important. */
   font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif !important;
   font-size: 1.05rem;
@@ -42,11 +47,12 @@ body {
 
 html[data-theme="dark"] #app-boot {
   background: #14061f;
-  color: #f3cfe2;
+  color: #f7a8c6;
 }
 
-html[data-theme="dark"] .app-boot__busy > span {
-  background: #f3cfe2;
+html[data-theme="light"] #app-boot {
+  background: #f8f4f9;
+  color: #9d174d;
 }
 
 /* Clear the fixed brand bar before the Python theme arrives. */
@@ -68,46 +74,42 @@ section.main .block-container {
   display: none !important;
 }
 
-.app-boot__busy {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  height: 0.55rem;
+.app-boot__line {
+  margin: 0;
+  color: inherit;
+  font: inherit;
 }
 
-.app-boot__busy > span {
-  display: block;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: #5c6670;
-  opacity: 0.35;
-  animation: app-boot-pulse 1s ease-in-out infinite;
+.app-boot__dots::after {
+  display: inline-block;
+  width: 1.5em;
+  text-align: left;
+  content: "";
+  animation: app-boot-dots 1.2s steps(4, end) infinite;
 }
 
-.app-boot__busy > span:nth-child(2) {
-  animation-delay: 0.15s;
+@keyframes app-boot-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
 }
 
-.app-boot__busy > span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes app-boot-pulse {
-  0%, 80%, 100% {
-    opacity: 0.35;
-    transform: translateY(0);
+@media (prefers-color-scheme: dark) {
+  html, body {
+    background: #14061f !important;
   }
-  40% {
-    opacity: 1;
-    transform: translateY(-0.15rem);
+
+  #app-boot {
+    background: #14061f;
+    color: #f7a8c6;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-boot__busy > span {
+  .app-boot__dots::after {
     animation: none;
-    opacity: 0.7;
+    content: "...";
   }
 
   #app-boot {

@@ -5,22 +5,15 @@ from __future__ import annotations
 import hashlib
 import html
 import os
-from pathlib import Path
 
 import streamlit as st
 
 from page_copy import _CLIENT_COPY, sample_preload_error_copy, should_preload_sample
+from sample_warm import SAMPLE_NDA_NAME, sample_nda_path
 
 # Stable for the lifetime of the Streamlit process (survives reruns, changes on container restart).
 _APP_BOOT_ID = str(os.getpid())
-SAMPLE_NDA_NAME = "sample-nda.pdf"
 _STATUS_KINDS = frozenset({"empty", "reading", "ready", "answering", "error"})
-
-
-def sample_nda_path() -> Path:
-    """Repo path to the walkthrough NDA PDF."""
-    # apps/demo/session_upload.py → repo root.
-    return Path(__file__).resolve().parents[2] / "docs" / "product" / SAMPLE_NDA_NAME
 
 
 def _on_new_browser_session() -> None:
