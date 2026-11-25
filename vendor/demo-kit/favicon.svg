@@ -1,0 +1,14 @@
+<!-- R from Bricolage Grotesque SemiBold (SIL OFL). Coral and magenta field, cream frame and letter, so the mark stays bright on a dark tab. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Roxana Tapia">
+<title>Roxana Tapia</title>
+<defs>
+<linearGradient id="g" x1="1" y1="0" x2="31" y2="32" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="#ff4d9a"/>
+<stop offset="0.48" stop-color="#e2186c"/>
+<stop offset="1" stop-color="#ff7a4a"/>
+</linearGradient>
+</defs>
+<rect width="32" height="32" fill="url(#g)"/>
+<rect x="2.15" y="2.15" width="27.7" height="27.7" fill="none" stroke="#fff7f4" stroke-width="1.6"/>
+<path fill="#fff7f4" d="M6.56 27.65V4.35H15.49Q17.08 4.35 18.45 4.61Q19.83 4.88 20.96 5.43Q22.09 5.97 22.9 6.8Q23.71 7.63 24.16 8.75Q24.6 9.86 24.6 11.27Q24.6 12.33 24.24 13.32Q23.89 14.31 23.13 15.12Q22.37 15.93 21.1 16.46Q19.83 16.99 17.99 17.13V17.41Q20.11 17.55 21.33 18.28Q22.55 19 23.2 20.22Q23.85 21.44 24.24 22.99L25.44 27.65H20.5L19.62 23.38Q19.37 22.11 18.86 21.19Q18.35 20.27 17.39 19.76Q16.44 19.25 14.82 19.25H11.04V27.65ZM11.04 15.72H14.92Q17.39 15.72 18.67 14.8Q19.94 13.88 19.94 11.98Q19.94 10 18.74 9.01Q17.54 8.02 15.1 8.02H11.04Z"/>
+</svg>

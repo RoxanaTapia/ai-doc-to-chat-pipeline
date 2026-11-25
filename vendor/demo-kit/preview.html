@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f8f4f9" />
+    <meta name="description" content="Shared header, buttons, cards, and chips for the portfolio demos." />
+    <title>Demo kit preview</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <script src="theme-init.js"></script>
+    <link rel="preload" href="fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="stylesheet" href="demo-kit.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="dk-header">
+      <div class="dk-bar">
+        <div class="dk-brand">
+          <a class="dk-wordmark" href="https://roxanatapia.dev/">
+            <img class="dk-mark" src="favicon.svg" alt="" width="16" height="16" />
+            <span class="dk-wordmark-name">RoxanaTapia<span class="dk-wordmark-dev">.dev</span></span>
+          </a>
+          <span class="dk-divider" aria-hidden="true"></span>
+          <span class="dk-product">Sample product</span>
+        </div>
+        <div class="dk-tools">
+          <div class="theme-menu">
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="theme-menu" aria-label="Auto">
+              <svg class="theme-icon theme-icon-auto" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3.5" y="4.5" width="17" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 20h8M12 15.5V20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <svg class="theme-icon theme-icon-light" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <svg class="theme-icon theme-icon-dark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.6A7.4 7.4 0 0 1 9.4 4 7.2 7.2 0 1 0 20 14.6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="theme-dropdown" id="theme-menu" role="menu" aria-labelledby="theme-toggle" hidden>
+              <button type="button" class="theme-option" role="menuitemradio" data-set-theme="auto" aria-checked="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><rect x="3.5" y="4.5" width="17" height="11" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 20h8M12 15.5V20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                <span class="theme-option-copy">
+                  <span>Auto</span>
+                  <span class="theme-hint">Same as this device</span>
+                </span>
+              </button>
+              <button type="button" class="theme-option" role="menuitemradio" data-set-theme="light" aria-checked="false">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                <span>Light</span>
+              </button>
+              <button type="button" class="theme-option" role="menuitemradio" data-set-theme="dark" aria-checked="false">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M20 14.6A7.4 7.4 0 0 1 9.4 4 7.2 7.2 0 1 0 20 14.6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+                <span>Dark</span>
+              </button>
+            </div>
+          </div>
+          <a class="btn btn-primary dk-exit" id="demo-exit" href="https://roxanatapia.dev/">
+            <span class="dk-exit-visitor">Exit demo</span>
+            <span class="dk-exit-ops">Log out</span>
+          </a>
+        </div>
+      </div>
+      <p class="dk-note">Portfolio demo · fictional business · sample data</p>
+    </header>
+
+    <main id="main">
+      <div class="dk-wrap dk-enter">
+        <h1>Demo kit</h1>
+        <p class="dk-lead">Header, buttons, a card, and chips. Switch Auto, Light, or Dark. The numbers below are samples.</p>
+        <div class="dk-actions">
+          <button type="button" class="btn btn-primary">Primary</button>
+          <button type="button" class="btn btn-secondary">Secondary</button>
+        </div>
+        <article class="dk-card" id="sample-card">
+          <h2>Sample card</h2>
+          <p>A fictional shop, with made-up rows so the layout can be checked.</p>
+          <p class="dk-stat"><span data-count-up="12480">12,480</span> sample rows</p>
+          <p>The matching line is marked: <span class="dk-source">Invoice 1042, page 3</span></p>
+          <ul class="dk-chips">
+            <li>Python</li>
+            <li>Sample data</li>
+            <li>Fictional shop</li>
+          </ul>
+        </article>
+      </div>
+    </main>
+
+    <footer class="dk-footer">
+      <div class="dk-footer-slot">
+        <a href="https://roxanatapia.dev/">Built by Roxana Tapia</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/RoxanaTapia" target="_blank" rel="noopener noreferrer">How it's built</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://calendar.google.com/calendar/appointments/schedules/AcZssZ3r5LJ7bPLsMMNRH2fcH9DkzDNTf8oA8XIg0NX9aNpoKezPGMN2Z2OTD-baqG9XoB5vfehzJnzt?gv=true" target="_blank" rel="noopener noreferrer">Book a call</a>
+      </div>
+    </footer>
+
+    <script src="theme.js"></script>
+    <script src="motion.js"></script>
+    <script src="ops-heartbeat.js"></script>
+  </body>
+</html>
