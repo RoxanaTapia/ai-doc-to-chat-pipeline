@@ -76,6 +76,7 @@ from page_copy import (
     _render_sidebar_footer,
     _render_sidebar_pitch,
     booking_url,
+    request_is_operator,
     should_show_starter_chips,
 )
 from sample_warm import embeddings_for, sample_index_for
@@ -113,8 +114,10 @@ from sources_panel import (
     _render_source_checklist,
 )
 
+_FAVICON = Path(__file__).resolve().parents[2] / "vendor" / "demo-kit" / "favicon-32.png"
 st.set_page_config(
     page_title="Ask your document",
+    page_icon=str(_FAVICON),
     layout="centered",
     initial_sidebar_state="collapsed",
     menu_items={
@@ -796,27 +799,33 @@ if preload_sample_nda():
 _render_client_hero(hide_sidebar=not _show_sidebar)
 
 st.markdown('<div class="app-toolbar-mark" aria-hidden="true"></div>', unsafe_allow_html=True)
-privacy_col, status_col, own_col = st.columns([1.1, 2.2, 1.4])
+operator = request_is_operator()
+if operator:
+    privacy_col, status_col, own_col = st.columns([1.1, 2.2, 1.4])
+else:
+    privacy_col, status_col = st.columns([1.1, 2.2])
+    own_col = None
 with privacy_col:
     _render_privacy_badge(
         resolve_llm_provider_name(dummy_mode=st.session_state.dummy_generator_only)
     )
 status_slot = status_col.empty()
-with own_col:
-    st.markdown('<div class="app-own-pdf">', unsafe_allow_html=True)
-    if st.button(
-        _CLIENT_COPY["own_pdf_link"],
-        key="own_pdf_toggle",
-        help=_CLIENT_COPY["own_pdf_help"],
-    ):
-        st.session_state.show_own_pdf = not bool(st.session_state.get("show_own_pdf"))
-        st.session_state.own_pdf_mode = True
-        st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
+if own_col is not None:
+    with own_col:
+        st.markdown('<div class="app-own-pdf">', unsafe_allow_html=True)
+        if st.button(
+            _CLIENT_COPY["own_pdf_link"],
+            key="own_pdf_toggle",
+            help=_CLIENT_COPY["own_pdf_help"],
+        ):
+            st.session_state.show_own_pdf = not bool(st.session_state.get("show_own_pdf"))
+            st.session_state.own_pdf_mode = True
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = None
-if st.session_state.get("show_own_pdf") or st.session_state.get("own_pdf_mode"):
+if operator and (st.session_state.get("show_own_pdf") or st.session_state.get("own_pdf_mode")):
     uploaded_file = st.file_uploader(
         "PDF",
         type=["pdf"],
@@ -1600,7 +1609,6 @@ if st.session_state.get("doc_status") == "answering" and not (query and str(quer
 if not _show_sidebar:
     _render_client_footer(
         generator_label=_active_generator_label(st.session_state.dummy_generator_only),
-        github_url=_github,
     )
 
 if st.session_state.developer_mode:

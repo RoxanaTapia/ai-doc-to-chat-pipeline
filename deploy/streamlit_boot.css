@@ -4,10 +4,33 @@ html, body {
   margin: 0;
 }
 
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #14061f !important;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background: #f8f4f9 !important;
+}
+
+/* The kit sheet sets body to a flex column. Streamlit needs a normal block. */
+body {
+  display: block !important;
+}
+
+.dk-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000000;
+}
+
 #app-boot {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 1000001;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -15,10 +38,31 @@ html, body {
   gap: 0.85rem;
   background: #f8f4f9;
   color: #9d174d;
-  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+  /* Plus Jakarta wins over any later first-paint family that is not !important. */
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif !important;
   font-size: 1.05rem;
   letter-spacing: 0.01em;
   transition: opacity 0.15s ease;
+}
+
+html[data-theme="dark"] #app-boot {
+  background: #14061f;
+  color: #f7a8c6;
+}
+
+html[data-theme="light"] #app-boot {
+  background: #f8f4f9;
+  color: #9d174d;
+}
+
+/* Clear the fixed brand bar before the Python theme arrives. */
+section.main .block-container {
+  padding-top: 7rem;
+}
+
+[data-testid="stHeader"] {
+  display: none !important;
+  height: 0 !important;
 }
 
 #app-boot[data-done="1"] {

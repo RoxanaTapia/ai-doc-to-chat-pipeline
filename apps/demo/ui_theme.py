@@ -1,9 +1,8 @@
 """Streamlit-safe theme for the answer-first client demo.
 
-Off-white paper, near-black ink, one indigo accent, rounded cards, no sidebar.
-Ask-pending (#207) CSS lives here and loads with the theme; the first-load
-overlay/gates stay on deploy/streamlit_boot.* via the existing index patch.
-Busy copy is supplied at inject time via ``--app-doc-answering``.
+Kit tokens, light and dark, keyed on data-theme. The boot patch sets that
+attribute before first paint. Ask-pending CSS lives here and loads with the
+theme. Busy copy is supplied at inject time via ``--app-doc-answering``.
 """
 
 from __future__ import annotations
@@ -16,34 +15,57 @@ _ASK_PENDING_JS = Path(__file__).resolve().with_name("ask_pending.js")
 
 _THEME_CSS = """
 :root {
-  --app-bg: #f7f7f5;
-  --app-ink: #1a1f24;
-  --app-slate: #5c6670;
-  --app-muted: #7a838c;
-  --app-line: #e6e8ec;
+  --app-bg: #f8f4f9;
+  --app-ink: #1c1024;
+  --app-slate: #5c4a66;
+  --app-muted: #5c4a66;
+  --app-line: #e4d6ea;
   --app-panel: #ffffff;
-  --app-paper: #f7f7f5;
-  --app-accent: #3d4fd8;
-  --app-accent-hover: #4a5be0;
+  --app-paper: #f8f4f9;
+  --app-accent: #9d174d;
+  --app-accent-hover: #7f1239;
   --app-accent-ink: #ffffff;
-  --app-accent-soft: #eef0fc;
+  --app-accent-soft: rgba(157, 23, 77, 0.08);
   --app-warn: #6b5330;
   --app-warn-bg: #fbf6ee;
-  --app-err: #8a1f2b;
+  --app-err: #8f1d3a;
   --app-err-bg: #fdecef;
   --app-ok: #2f6b4f;
   --app-ok-bg: #eaf6ef;
-  --app-radius: 16px;
+  --app-radius: 18px;
   --app-space: 8px;
-  --app-shadow: 0 1px 2px rgba(26, 31, 36, 0.04), 0 12px 32px rgba(26, 31, 36, 0.05);
+  --app-shadow: 0 10px 30px rgba(28, 16, 36, 0.08);
   --app-header-min-height: 2.75rem;
   --app-status-line: 1.5rem;
   /* Space under the status row while the absolute note is open (desktop). */
   --app-lock-note-clearance: 7.75rem;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --app-bg: #14061f;
+  --app-ink: #fff7f4;
+  --app-slate: #f3cfe2;
+  --app-muted: #f3cfe2;
+  --app-line: rgba(255, 247, 244, 0.2);
+  --app-panel: #2a103c;
+  --app-paper: #14061f;
+  --app-accent: #a3134e;
+  --app-accent-hover: #861043;
+  --app-accent-ink: #ffffff;
+  --app-accent-soft: rgba(255, 208, 166, 0.16);
+  --app-warn: #ffb39a;
+  --app-warn-bg: #3a1a2c;
+  --app-err: #ffb4c4;
+  --app-err-bg: #3a1520;
+  --app-ok: #c9f0d8;
+  --app-ok-bg: #1a3328;
+  --app-shadow: 0 10px 30px rgba(8, 2, 16, 0.28);
+  color-scheme: dark;
 }
 
 html, body, [class*="css"], .stApp, button, input, textarea {
-  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 .stApp {
@@ -51,9 +73,32 @@ html, body, [class*="css"], .stApp, button, input, textarea {
 }
 
 section.main .block-container {
-  padding-top: 3.25rem;
+  padding-top: 7rem;
   padding-bottom: 5rem;
   max-width: 860px;
+}
+
+html[data-theme="dark"] .stApp,
+html[data-theme="dark"] [data-testid="stAppViewContainer"],
+html[data-theme="dark"] [data-testid="stMain"],
+html[data-theme="dark"] section.main,
+html[data-theme="dark"] [data-testid="stHeader"],
+html[data-theme="dark"] [data-testid="stBottom"] {
+  background: var(--app-bg) !important;
+  color: var(--app-ink);
+}
+
+html[data-theme="dark"] [data-testid="stTextInput"] input,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea {
+  background: var(--app-panel) !important;
+  color: var(--app-ink) !important;
+  border-color: var(--app-line) !important;
+}
+
+html[data-theme="dark"] [data-testid="stTextInput"] input::placeholder,
+html[data-theme="dark"] [data-testid="stTextArea"] textarea::placeholder {
+  color: var(--app-muted) !important;
+  opacity: 1;
 }
 
 section.main h1 {
@@ -381,7 +426,7 @@ body.app-ask-pending .app-status::before {
   font-size: 0.95rem;
   line-height: 1.35;
   font-weight: 600;
-  color: #2f6fed;
+  color: var(--app-accent);
   min-height: 1.5rem;
 }
 
@@ -563,25 +608,51 @@ p.app-timing {
   text-decoration: underline;
 }
 
-.app-footer {
-  margin-top: 2.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--app-line);
+/* Streamlit hides every footer tag and paints markdown links blue. */
+footer.dk-footer,
+footer.dk-footer * {
+  visibility: visible !important;
+}
+
+footer.dk-footer .dk-footer-slot a {
+  color: var(--color-text, var(--app-ink)) !important;
+  font-weight: 650;
+  text-decoration: none !important;
+}
+
+footer.dk-footer .dk-footer-slot a:hover {
+  color: #9d174d !important;
+}
+
+html[data-theme="dark"] footer.dk-footer .dk-footer-slot a:hover {
+  color: #f7a8c6 !important;
+}
+
+.dk-footer-slot .app-how {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dk-footer-slot .app-how summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--color-text, var(--app-ink));
+  font-weight: 650;
+}
+
+.dk-footer-slot .app-how summary::-webkit-details-marker {
+  display: none;
+}
+
+.dk-footer-slot .app-how__line {
+  margin: 0.35rem 0 0 0;
+  max-width: 22rem;
   font-size: 0.9rem;
-  color: var(--app-muted);
-}
-
-.app-footer__link {
-  color: var(--app-muted);
-  text-decoration: none;
-}
-
-.app-footer__link:hover {
-  color: var(--app-ink);
-}
-
-.app-footer__dot {
-  margin: 0 0.4rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--color-muted, var(--app-muted));
 }
 
 .app-page-preview {
@@ -656,7 +727,8 @@ p.app-timing {
 
 .stAppDeployButton,
 [data-testid="stAppDeployButton"],
-[data-testid="stToolbar"] {
+[data-testid="stToolbar"],
+[data-testid="stHeader"] {
   display: none !important;
 }
 

@@ -31,6 +31,22 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     assert js in text
     assert text.index("</style>") < text.index("</head>")
     assert text.index("app-boot") < text.index("</body>")
+    assert 'src="/app/demo-kit/theme-init.js"' in text
+    assert 'href="/app/demo-kit/favicon.svg"' in text
+    assert 'href="/app/demo-kit/favicon-32.png"' in text
+    assert 'href="/app/demo-kit/apple-touch-icon.png"' in text
+    assert "plus-jakarta-sans-latin.woff2" in text
+    assert "bricolage-grotesque-latin.woff2" in text
+    assert 'href="/app/demo-kit/demo-kit.css"' in text
+    assert 'class="dk-header"' in text
+    assert "Ask your document" in text
+    assert "Portfolio demo · fictional business · sample data" in text
+    assert "Exit demo" in text
+    assert "Log out" in text
+    assert 'src="/app/demo-kit/theme.js"' in text
+    assert 'src="/app/demo-kit/motion.js"' in text
+    assert "ops-heartbeat.js" not in text
+    assert text.index("theme-init.js") < text.index("</style>")
     assert patch(index, css, js) is False
 
 
@@ -82,3 +98,87 @@ def test_boot_js_dismiss_gate_waits_for_theme_fonts_and_frame() -> None:
     assert "prefers-color-scheme: dark" in css
     assert 'class="app-boot__dots"' in patcher
     assert 'class="app-boot__label"' in patcher
+    assert "theme-init.js" in patcher
+    assert "install_server_hook" in patcher
+    ops = (DEPLOY_DIR / "ai_doc_ops.py").read_text(encoding="utf-8")
+    assert 'OPS_HEADER = "X-Ops-Ok"' in ops
+    assert "ops-heartbeat.js" in ops
+    assert 'data-operator="true"' in ops
+
+
+def test_operator_header_adds_flag_and_heartbeat() -> None:
+    from ai_doc_ops import transform_index
+
+    raw = b"<!DOCTYPE html><html lang=\"en\"><body><p>Hi</p></body></html>"
+    visitor = transform_index(raw, operator=False)
+    assert visitor == raw
+    operator = transform_index(raw, operator=True).decode("utf-8")
+    assert '<html data-operator="true"' in operator
+    assert 'src="/app/demo-kit/ops-heartbeat.js"' in operator
+    again = transform_index(operator.encode("utf-8"), operator=True).decode("utf-8")
+    assert again.count("data-operator=") == 1
+    assert again.count("ops-heartbeat.js") == 1
+
+
+def _handler_bytes(content: object) -> bytes:
+    if isinstance(content, (bytes, bytearray)):
+        return bytes(content)
+    return b"".join(content)  # type: ignore[arg-type]
+
+
+def test_ops_hook_rewrites_only_operator_index(tmp_path: Path) -> None:
+    """The static handler keeps visitors unchanged and rewrites an operator index."""
+    import tornado.web
+    from ai_doc_ops import install
+
+    page = tmp_path / "index.html"
+    page.write_text("<html><body>Hi</body></html>", encoding="utf-8")
+    plain = tmp_path / "plain.txt"
+    plain.write_bytes(b"plain")
+
+    class Handler(tornado.web.StaticFileHandler):
+        pass
+
+    install(Handler)
+    hashed = _handler_bytes(Handler.get_content(str(page)))
+    assert b"data-operator" not in hashed
+
+    class _Request:
+        def __init__(self, headers: dict[str, str]) -> None:
+            self.headers = headers
+
+    def _fake(path: Path, headers: dict[str, str]) -> Handler:
+        handler = Handler.__new__(Handler)
+        handler.absolute_path = str(path)
+        handler.request = _Request(headers)  # type: ignore[attr-defined]
+        return handler
+
+    visitor = _fake(page, {})
+    operator = _fake(page, {"X-Ops-Ok": "1"})
+    asset = _fake(plain, {"X-Ops-Ok": "1"})
+
+    visitor_body = _handler_bytes(Handler.get_content(visitor, str(page)))
+    operator_body = _handler_bytes(Handler.get_content(operator, str(page)))
+    assert b"data-operator" not in visitor_body
+    assert b"ops-heartbeat.js" not in visitor_body
+    assert b'data-operator="true"' in operator_body
+    assert b"/app/demo-kit/ops-heartbeat.js" in operator_body
+    assert Handler.get_content_size(operator) == len(operator_body)
+    assert Handler.get_content_size(visitor) == page.stat().st_size
+    assert Handler.compute_etag(operator) != Handler.compute_etag(visitor)
+    assert _handler_bytes(Handler.get_content(asset, str(plain))) == b"plain"
+
+
+def test_vendored_demo_kit_matches_sums() -> None:
+    import subprocess
+
+    script = PROJECT_ROOT / "vendor" / "demo-kit" / "check-hash.sh"
+    completed = subprocess.run(["sh", str(script)], check=False, capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+    version = (PROJECT_ROOT / "vendor" / "demo-kit" / "VERSION").read_text(encoding="utf-8")
+    assert version == "1\n"
+    kit_css = (PROJECT_ROOT / "vendor" / "demo-kit" / "demo-kit.css").read_text(encoding="utf-8")
+    motion = (PROJECT_ROOT / "vendor" / "demo-kit" / "motion.js").read_text(encoding="utf-8")
+    assert "prefers-reduced-motion" in kit_css
+    assert "reducedMotion" in motion or "prefers-reduced-motion" in motion
+    assert "fonts.googleapis.com" not in kit_css
