@@ -18,6 +18,7 @@ Release tags are `vX.Y.Z`. Date-based deploy tags are no longer created. Existin
 ### Changed
 
 - chore(ui): use demo kit version 2 so the product name stays whole on a phone
+- docs: say visitors use the sample NDA, and only a signed-in operator uploads
 
 ### Fixed
 
