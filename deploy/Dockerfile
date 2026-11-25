@@ -17,23 +17,31 @@ COPY deploy/streamlit_boot.css deploy/streamlit_boot.js deploy/patch_streamlit_i
 RUN python deploy/patch_streamlit_index.py
 
 COPY configs/ configs/
-COPY src/ src/
-COPY apps/demo/ apps/demo/
-COPY .streamlit/config.toml .streamlit/
-# Walkthrough sample for sidebar download (no separate static host needed).
-COPY docs/product/sample-nda.pdf docs/product/sample-nda.pdf
 
-EXPOSE 8501
-
+# HF_HOME is set before the weight download so runtime loads the same files.
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
     STREAMLIT_SERVER_PORT=8501 \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none \
     TOKENIZERS_PARALLELISM=false \
+    HF_HOME=/app/.cache/huggingface \
     HF_HUB_DISABLE_PROGRESS_BARS=1 \
     HF_HUB_VERBOSITY=error \
     TRANSFORMERS_VERBOSITY=error \
     TQDM_DISABLE=1 \
     PYTHONPATH=/app/src:/app/apps/demo
 
-CMD ["streamlit", "run", "apps/demo/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+# Bake the embedding weights so container start does not download them.
+RUN python -c "import yaml; from langchain_huggingface import HuggingFaceEmbeddings; cfg=yaml.safe_load(open('configs/config.yaml', encoding='utf-8')); HuggingFaceEmbeddings(model_name=cfg['embeddings']['model_name'])"
+
+COPY src/ src/
+COPY apps/demo/ apps/demo/
+COPY deploy/warm_start.py deploy/warm_start.py
+COPY .streamlit/config.toml .streamlit/
+# Walkthrough sample for sidebar download (no separate static host needed).
+COPY docs/product/sample-nda.pdf docs/product/sample-nda.pdf
+
+EXPOSE 8501
+
+# Warm the sample index in this process, then run apps/demo/app.py.
+CMD ["python", "deploy/warm_start.py", "--server.address=0.0.0.0", "--server.port=8501"]

@@ -38,6 +38,8 @@ docker compose --env-file .env -f deploy/docker-compose.yml up --build -d
 
 The demo listens on port **8501**, path **`/app`**: [http://localhost:8501/app](http://localhost:8501/app).
 
+On start, the app loads the sample NDA embeddings and search index before it opens that port. The first question uses the ready index.
+
 Stop the stack:
 
 ```bash
