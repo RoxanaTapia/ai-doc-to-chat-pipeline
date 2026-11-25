@@ -25,7 +25,8 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     text = index.read_text(encoding="utf-8")
     assert MARKER in text
     assert "id=\"app-boot\"" in text
-    assert "Loading the document…" in text
+    assert "Reading the contract" in text
+    assert "app-boot__dots" in text
     assert css in text
     assert js in text
     assert text.index("</style>") < text.index("</head>")
@@ -36,7 +37,7 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
 def test_boot_js_fail_safes_and_slow_copy() -> None:
     """Overlay must not cover exceptions forever; cold starts keep a longer loader."""
     js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
-    assert 'BOOT_TEXT = "Loading the document…"' in js
+    assert 'BOOT_TEXT = "Reading the contract"' in js
     assert 'SLOW_TEXT = "Still starting up…"' in js
     assert "SLOW_MS = 8000" in js
     assert "FAILSAFE_MS = 30000" in js
@@ -70,8 +71,14 @@ def test_boot_js_dismiss_gate_waits_for_theme_fonts_and_frame() -> None:
     assert "settleThemeThenDismiss()" in ready_block
     assert "dismiss()" not in ready_block.replace("settleThemeThenDismiss()", "")
 
-    assert "app-boot__busy" in css
+    assert "app-boot__dots" in css
     assert "prefers-reduced-motion" in css
-    assert "app-boot-pulse" in css
-    assert 'class="app-boot__busy"' in patcher
+    assert "app-boot-dots" in css
+    assert "animation: none" in css
+    assert "#9d174d" in css
+    assert "#f8f4f9" in css
+    assert "#f7a8c6" in css
+    assert "#14061f" in css
+    assert "prefers-color-scheme: dark" in css
+    assert 'class="app-boot__dots"' in patcher
     assert 'class="app-boot__label"' in patcher

@@ -2,7 +2,7 @@
   const boot = document.getElementById("app-boot");
   if (!boot) return;
 
-  const BOOT_TEXT = "Loading the document…";
+  const BOOT_TEXT = "Reading the contract";
   const SLOW_TEXT = "Still starting up…";
   const SLOW_MS = 8000;
   const FAILSAFE_MS = 30000;
@@ -118,6 +118,8 @@
     const label = labelEl();
     if (elapsed >= SLOW_MS && label && label.textContent === BOOT_TEXT) {
       label.textContent = SLOW_TEXT;
+      const dots = boot.querySelector(".app-boot__dots");
+      if (dots) dots.setAttribute("hidden", "");
     }
     if (hasErrorSurface() || elapsed >= FAILSAFE_MS) {
       dismiss();
