@@ -1,24 +1,61 @@
-/* First paint before any Streamlit/Python CSS. Calm blank + skeletons. */
+/* First paint before any Streamlit/Python CSS. Kit colors, no white flash. */
 html, body {
-  background: #f6f7f9 !important;
+  background: #f8f4f9 !important;
   margin: 0;
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #14061f !important;
+}
+
+/* The kit sheet sets body to a flex column. Streamlit needs a normal block. */
+body {
+  display: block !important;
+}
+
+.dk-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000000;
 }
 
 #app-boot {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 1000001;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.85rem;
-  background: #f6f7f9;
-  color: #5c6670;
-  font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", sans-serif;
+  background: #f8f4f9;
+  color: #5c4a66;
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   font-size: 1.05rem;
   letter-spacing: 0.01em;
   transition: opacity 0.15s ease;
+}
+
+html[data-theme="dark"] #app-boot {
+  background: #14061f;
+  color: #f3cfe2;
+}
+
+html[data-theme="dark"] .app-boot__busy > span {
+  background: #f3cfe2;
+}
+
+/* Clear the fixed brand bar before the Python theme arrives. */
+section.main .block-container {
+  padding-top: 7rem;
+}
+
+[data-testid="stHeader"] {
+  display: none !important;
+  height: 0 !important;
 }
 
 #app-boot[data-done="1"] {

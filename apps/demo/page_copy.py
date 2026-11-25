@@ -276,20 +276,29 @@ def _render_sidebar_footer(*, generator_label: str, github_url: str) -> None:
     )
 
 
-def _render_client_footer(*, generator_label: str, github_url: str) -> None:
-    """Quiet exit + model line when the sidebar is hidden."""
-    st.markdown(
-        f"""
-        <div class="app-footer">
-          <a class="app-footer__link" href="/invite/exit">Exit demo</a>
-          <span class="app-footer__dot" aria-hidden="true">·</span>
-          <a class="app-footer__link"
-             href="{html.escape(github_url, quote=True)}"
-             target="_blank"
-             rel="noopener noreferrer">GitHub</a>
-          <span class="app-footer__dot" aria-hidden="true">·</span>
-          <span class="app-footer__meta">{html.escape(generator_label)}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+_PORTFOLIO_URL = "https://roxanatapia.dev/"
+
+
+def client_footer_html(generator_label: str) -> str:
+    """Kit footer. The model line sits in the How it's built drawer."""
+    label = html.escape(generator_label)
+    href = html.escape(_PORTFOLIO_URL, quote=True)
+    return f"""
+<footer class="dk-footer">
+  <div class="dk-footer-slot">
+    <a href="{href}">Built by Roxana Tapia</a>
+    <span aria-hidden="true">·</span>
+    <details class="app-how">
+      <summary>How it's built</summary>
+      <p class="app-how__line">{label}</p>
+    </details>
+    <span aria-hidden="true">·</span>
+    <a href="{href}">Book a call</a>
+  </div>
+</footer>
+"""
+
+
+def _render_client_footer(*, generator_label: str) -> None:
+    """Kit footer when the sidebar is hidden."""
+    st.markdown(client_footer_html(generator_label), unsafe_allow_html=True)

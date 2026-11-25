@@ -23,6 +23,7 @@ from page_copy import (  # noqa: E402
     booking_cta,
     booking_url,
     checked_all_pages_note,
+    client_footer_html,
     privacy_badge_for_provider,
     privacy_line_for_provider,
     sample_preload_error_copy,
@@ -60,6 +61,24 @@ def test_hero_is_one_subtitle() -> None:
     )
     assert "doesn't cover the question" in _CLIENT_COPY["hero_lead"]
     assert not _CLIENT_COPY["hero_kicker"]
+
+
+def test_client_footer_is_the_kit_footer() -> None:
+    html = client_footer_html("Claude · Claude Haiku 4.5")
+    assert "Built by Roxana Tapia" in html
+    assert "How it's built" in html
+    assert "Book a call" in html
+    assert html.count("https://roxanatapia.dev/") == 2
+    assert "Claude · Claude Haiku 4.5" in html
+    assert "Exit demo" not in html
+    assert "fonts.googleapis.com" not in html
+    theme = (DEMO_DIR / "ui_theme.py").read_text(encoding="utf-8")
+    assert "footer.dk-footer" in theme
+    assert "visibility: visible !important" in theme
+    assert "text-decoration: none !important" in theme
+    app = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
+    assert 'page_icon=str(_FAVICON)' in app
+    assert 'vendor" / "demo-kit" / "favicon-32.png"' in app or "favicon-32.png" in app
 
 
 def test_timing_caption_formats_sub_second() -> None:
@@ -193,8 +212,12 @@ def test_split_answer_headline_prefers_short_first_line() -> None:
 
 def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
     assert '[data-testid="stSidebar"]' in _HIDE_SIDEBAR_CSS
-    assert "--app-accent: #3d4fd8" in _THEME_CSS
-    assert "sans-serif" in _THEME_CSS
+    assert "--app-accent: #9d174d" in _THEME_CSS
+    assert "--app-accent: #a3134e" in _THEME_CSS
+    assert 'data-theme="dark"' in _THEME_CSS
+    assert "Plus Jakarta Sans" in _THEME_CSS
+    assert "IBM Plex" not in _THEME_CSS
+    assert "fonts.googleapis.com" not in _THEME_CSS
     assert "app-typing-dots" in _THEME_CSS
     assert "max-width: 860px" in _THEME_CSS
     assert "0.72rem" not in _THEME_CSS
@@ -350,11 +373,15 @@ def test_streamlit_keeps_base_path_and_no_usage_stats() -> None:
     text = (PROJECT_ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     assert 'baseUrlPath = "app"' in text
     assert "gatherUsageStats = false" in text
-    # Page grey for chrome; keep secondary white so inputs stay contrasted.
-    # Page grey for chrome; keep secondary white so inputs stay contrasted.
-    # First-paint white flash is handled by deploy/streamlit_boot.css, not secondary.
-    assert 'backgroundColor = "#f6f7f9"' in text
+    # Page colour for chrome; keep secondary white so inputs stay contrasted.
+    # First-paint flash is handled by deploy/streamlit_boot.css, keyed on data-theme.
+    assert 'backgroundColor = "#f8f4f9"' in text
     assert 'secondaryBackgroundColor = "#ffffff"' in text
+    assert 'primaryColor = "#9d174d"' in text
+    assert 'textColor = "#1c1024"' in text
+    assert 'font = "Plus Jakarta Sans"' in text
+    assert "/app/demo-kit/fonts/plus-jakarta-sans-latin.woff2" in text
+    assert "fonts.googleapis.com" not in text
 
 
 def test_streamlit_boot_patch_covers_first_paint() -> None:
@@ -367,7 +394,11 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert "Loading the document…" in patcher
     assert '[data-testid="stSkeleton"]' in boot_css
     assert "opacity: 0 !important" in boot_css
-    assert "background: #f6f7f9" in boot_css
+    assert "background: #f8f4f9" in boot_css
+    assert "#14061f" in boot_css
+    assert 'html[data-theme="dark"]' in boot_css
+    assert "Plus Jakarta Sans" in boot_css
+    assert "fonts.googleapis.com" not in boot_css
     # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
     assert "visibility: hidden" in boot_css
     assert 'body:has([data-testid="stHeading"] h1)' in boot_css
@@ -375,6 +406,8 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert ":has(.app-status--ready)" in boot_css
     assert "python deploy/patch_streamlit_index.py" in dockerfile
     assert "deploy/streamlit_boot.css" in dockerfile
+    assert "vendor/demo-kit/" in dockerfile
+    assert "deploy/ai_doc_ops.py" in dockerfile
     assert "apps/demo/app.py" in dockerfile
     assert "COPY apps/demo/ apps/demo/" in dockerfile
     # Follow-up busy (#207) must not ride this first-load patch.

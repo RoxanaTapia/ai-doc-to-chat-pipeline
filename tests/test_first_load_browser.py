@@ -38,7 +38,13 @@ STUB_ENV = {
 
 
 def _strip_boot_patch(text: str) -> str:
-    """Remove a previous ai-doc boot injection (main's inline-script shape)."""
+    """Remove a previous ai-doc boot injection so the fixture can patch cleanly."""
+    text = re.sub(
+        r"<!-- ai-doc-boot -->.*?<!-- /ai-doc-boot -->\s*",
+        "",
+        text,
+        flags=re.DOTALL,
+    )
     text = re.sub(
         r"<!-- ai-doc-boot -->\s*<style>.*?</style>\s*",
         "",
@@ -61,7 +67,7 @@ def _production_boot_patch() -> Iterator[None]:
     """Match the Dockerfile: patch Streamlit's index with boot CSS/JS, then restore."""
     if str(DEPLOY_DIR) not in sys.path:
         sys.path.insert(0, str(DEPLOY_DIR))
-    from patch_streamlit_index import _index_path, patch
+    from patch_streamlit_index import _index_path, install_server_hook, patch
 
     index = _index_path()
     original = _strip_boot_patch(index.read_text(encoding="utf-8"))
@@ -69,11 +75,21 @@ def _production_boot_patch() -> Iterator[None]:
     css = (DEPLOY_DIR / "streamlit_boot.css").read_text(encoding="utf-8")
     js = (DEPLOY_DIR / "streamlit_boot.js").read_text(encoding="utf-8")
     assert patch(index, css, js) is True
-    assert "ai-doc-boot" in index.read_text(encoding="utf-8")
-    assert 'id="app-boot"' in index.read_text(encoding="utf-8")
+    hooked = index.parent  # kit is copied beside index.html
+    assert (hooked / "demo-kit" / "theme-init.js").is_file()
+    import streamlit
+
+    routes = Path(streamlit.__file__).resolve().parent / "web" / "server" / "routes.py"
+    ops_copy = routes.parent / "ai_doc_ops.py"
+    original_routes = routes.read_text(encoding="utf-8")
+    had_ops = ops_copy.exists()
+    install_server_hook()
     try:
         yield
     finally:
+        routes.write_text(original_routes, encoding="utf-8")
+        if not had_ops and ops_copy.exists():
+            ops_copy.unlink()
         index.write_text(original, encoding="utf-8")
 
 
@@ -174,6 +190,7 @@ def _sample_first_paint(page, *, max_ms: int = 8000) -> dict:
           let sawUnstyledDeploy = false;
           let blankFrames = 0;
           let whiteFrames = 0;
+          let bootBg = "";
 
           const tick = () => {
             const boot = document.getElementById('app-boot');
@@ -184,7 +201,10 @@ def _sample_first_paint(page, *, max_ms: int = 8000) -> dict:
               && getComputedStyle(boot).display !== 'none'
               && parseFloat(getComputedStyle(boot).opacity || '1') > 0.05
             );
-            if (bootVisible) sawBoot = true;
+            if (bootVisible) {
+              sawBoot = true;
+              if (!bootBg) bootBg = getComputedStyle(boot).backgroundColor || "";
+            }
 
             const bodyBg = getComputedStyle(document.body).backgroundColor || '';
             const htmlBg = getComputedStyle(document.documentElement).backgroundColor || '';
@@ -253,6 +273,7 @@ def _sample_first_paint(page, *, max_ms: int = 8000) -> dict:
                 sawVisibleSkeleton,
                 sawUnstyledDeploy,
                 samples: samples.length,
+                bootBg,
                 readyMs: Math.round(performance.now() - started),
               });
               return;
@@ -265,6 +286,7 @@ def _sample_first_paint(page, *, max_ms: int = 8000) -> dict:
                 sawVisibleSkeleton,
                 sawUnstyledDeploy,
                 samples: samples.length,
+                bootBg,
                 readyMs: Math.round(performance.now() - started),
                 timedOut: true,
               });
@@ -352,6 +374,12 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(
                 timeout=30000
             )
+            expect(page.locator(".dk-product")).to_have_text("Ask your document")
+            expect(page.locator("#demo-exit")).to_have_attribute("href", "/invite/exit")
+            expect(page.locator(".dk-exit-visitor")).to_be_visible()
+            expect(page.locator("footer.dk-footer")).to_be_visible()
+            expect(page.get_by_role("link", name="Built by Roxana Tapia")).to_be_visible()
+            expect(page.get_by_role("link", name="Book a call")).to_be_visible()
             browser.close()
 
 
@@ -381,4 +409,56 @@ def test_first_load_chips_at_390px_do_not_jump() -> None:
             assert shift["samples"] >= 1, shift
             assert shift["maxStepShift"] == 0, shift
             assert shift["span"] == 0, shift
+            browser.close()
+
+
+def _dark_rgb(color: str) -> bool:
+    match = re.match(r"rgba?\((\d+),\s*(\d+),\s*(\d+)", color.strip())
+    if not match:
+        return False
+    red, green, blue = (int(part) for part in match.groups())
+    return red == 20 and green == 6 and blue == 31
+
+
+@pytest.mark.usefixtures("_production_boot_patch")
+def test_dark_first_load_has_no_white_flash() -> None:
+    """Saved dark theme paints #14061f before the shell, with no white frame."""
+    sync_playwright, _expect = _import_playwright()
+    with _streamlit_server() as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(
+                viewport={"width": 1280, "height": 800},
+                color_scheme="dark",
+            )
+            page.add_init_script("localStorage.setItem('theme', 'dark');")
+            page.goto(url, wait_until="commit")
+            result = _sample_first_paint(page, max_ms=15000)
+            assert result.get("sawBoot"), result
+            assert result.get("blankFrames", 99) == 0, result
+            assert result.get("whiteFrames", 99) == 0, result
+            assert _dark_rgb(str(result.get("bootBg") or "")), result
+            assert not result.get("timedOut"), result
+            theme = page.evaluate("document.documentElement.getAttribute('data-theme')")
+            assert theme == "dark"
+            browser.close()
+
+
+@pytest.mark.usefixtures("_production_boot_patch")
+def test_operator_header_loads_logout_and_heartbeat() -> None:
+    sync_playwright, expect = _import_playwright()
+    with _streamlit_server() as url:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1280, "height": 800})
+            page.set_extra_http_headers({"X-Ops-Ok": "1"})
+            page.goto(url, wait_until="commit")
+            page.get_by_placeholder(READY_HINT).wait_for(state="visible", timeout=30000)
+            assert page.evaluate(
+                "document.documentElement.getAttribute('data-operator')"
+            ) == "true"
+            expect(page.locator("#demo-exit")).to_have_attribute("href", "/ops/logout")
+            expect(page.locator(".dk-exit-ops")).to_be_visible()
+            expect(page.locator(".dk-exit-visitor")).to_be_hidden()
+            expect(page.locator('script[src="/app/demo-kit/ops-heartbeat.js"]')).to_have_count(1)
             browser.close()

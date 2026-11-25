@@ -14,10 +14,18 @@ showErrorDetails = "type"
 gatherUsageStats = false
 
 [theme]
-# Match receipt-intelligence-demo: indigo accent, off-white paper, near-black ink.
-# Page grey is backgroundColor; keep secondary white so inputs/chips stay contrasted.
-# The static boot CSS (not secondaryBackgroundColor) prevents a white first-paint flash.
-primaryColor = "#3d4fd8"
-backgroundColor = "#f6f7f9"
+# Light tokens from the shared demo kit. Dark mode is data-theme, set before paint.
+# backgroundColor is the page. secondary stays white so inputs and chips stay lifted.
+# Boot CSS, not secondaryBackgroundColor, stops a white flash. Dark uses #14061f there.
+primaryColor = "#9d174d"
+backgroundColor = "#f8f4f9"
 secondaryBackgroundColor = "#ffffff"
-textColor = "#1a1f24"
+textColor = "#1c1024"
+font = "Plus Jakarta Sans"
+headingFont = "Plus Jakarta Sans"
+
+[[theme.fontFaces]]
+family = "Plus Jakarta Sans"
+url = "/app/demo-kit/fonts/plus-jakarta-sans-latin.woff2"
+weight = "400 700"
+style = "normal"

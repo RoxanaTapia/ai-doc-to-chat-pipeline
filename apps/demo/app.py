@@ -114,8 +114,10 @@ from sources_panel import (
     _render_source_checklist,
 )
 
+_FAVICON = Path(__file__).resolve().parents[2] / "vendor" / "demo-kit" / "favicon-32.png"
 st.set_page_config(
     page_title="Ask your document",
+    page_icon=str(_FAVICON),
     layout="centered",
     initial_sidebar_state="collapsed",
     menu_items={
@@ -1627,7 +1629,6 @@ if st.session_state.get("doc_status") == "answering" and not (query and str(quer
 if not _show_sidebar:
     _render_client_footer(
         generator_label=_active_generator_label(st.session_state.dummy_generator_only),
-        github_url=_github,
     )
 
 if st.session_state.developer_mode:
