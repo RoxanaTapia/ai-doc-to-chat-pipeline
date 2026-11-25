@@ -176,7 +176,7 @@ def test_vendored_demo_kit_matches_sums() -> None:
     completed = subprocess.run(["sh", str(script)], check=False, capture_output=True, text=True)
     assert completed.returncode == 0, completed.stderr
     version = (PROJECT_ROOT / "vendor" / "demo-kit" / "VERSION").read_text(encoding="utf-8")
-    assert version == "1\n"
+    assert version == "2\n"
     kit_css = (PROJECT_ROOT / "vendor" / "demo-kit" / "demo-kit.css").read_text(encoding="utf-8")
     motion = (PROJECT_ROOT / "vendor" / "demo-kit" / "motion.js").read_text(encoding="utf-8")
     assert "prefers-reduced-motion" in kit_css

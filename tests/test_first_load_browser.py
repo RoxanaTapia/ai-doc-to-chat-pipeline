@@ -408,6 +408,25 @@ def test_first_load_chips_at_390px_do_not_jump() -> None:
             )
             chip = page.get_by_role("button", name=TERM_CHIP, exact=True)
             expect(chip).to_be_visible(timeout=30000)
+            header = page.evaluate(
+                """() => {
+                  const product = document.querySelector('.dk-product');
+                  const wordmark = document.querySelector('.dk-wordmark');
+                  const productBox = product.getBoundingClientRect();
+                  const wordmarkBox = wordmark.getBoundingClientRect();
+                  return {
+                    text: (product.textContent || '').trim(),
+                    overflow: product.scrollWidth - product.clientWidth,
+                    whiteSpace: getComputedStyle(product).whiteSpace,
+                    productTop: productBox.top,
+                    wordmarkBottom: wordmarkBox.bottom,
+                  };
+                }"""
+            )
+            assert header["text"] == "Ask your document"
+            assert header["whiteSpace"] == "normal"
+            assert header["overflow"] <= 1
+            assert header["productTop"] >= header["wordmarkBottom"] - 1
 
             # Reload so we can measure chip motion from first appearance.
             page.goto(url, wait_until="commit")
