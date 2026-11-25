@@ -385,6 +385,12 @@ def build_sources_payload(
             "score": round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A",
             "preview": readable_excerpt(chunk.page_content, preview_chars),
         }
+        section = chunk.metadata.get("section")
+        section_title = chunk.metadata.get("section_title")
+        if section not in (None, ""):
+            entry["section"] = str(section)
+        if isinstance(section_title, str) and section_title.strip():
+            entry["section_title"] = section_title.strip()
         if target_section is not None:
             entry["checklist_preview"] = readable_excerpt(
                 chunk.page_content,

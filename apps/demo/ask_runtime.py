@@ -113,6 +113,8 @@ _GENERATION: dict[tuple[str, str], int] = {}
 _STASH: dict[tuple[str, str], tuple[int, str]] = {}
 _PENDING: dict[tuple[str, str], tuple[int, Future[Any]]] = {}
 _POOLS: dict[tuple[str, str], ThreadPoolExecutor] = {}
+_RETRIEVAL: dict[tuple[str, str], tuple[int, dict[str, Any]]] = {}
+_CLAIMED: dict[tuple[str, str], set[tuple[int | None, str]]] = {}
 
 
 def reset_call_state() -> None:
@@ -123,6 +125,8 @@ def reset_call_state() -> None:
         _STASH.clear()
         _PENDING.clear()
         _POOLS.clear()
+        _RETRIEVAL.clear()
+        _CLAIMED.clear()
     for pool in pools:
         pool.shutdown(wait=False, cancel_futures=False)
 
@@ -140,6 +144,8 @@ def open_generation(key: tuple[str, str]) -> int:
         _GENERATION[key] = generation
         _STASH.pop(key, None)
         _PENDING.pop(key, None)
+        _RETRIEVAL.pop(key, None)
+        _CLAIMED.pop(key, None)
         _release_pool(key)
         return generation
 
@@ -176,7 +182,40 @@ def invalidate_answer(key: tuple[str, str]) -> None:
         _GENERATION[key] = _GENERATION.get(key, 0) + 1
         _STASH.pop(key, None)
         _PENDING.pop(key, None)
+        _RETRIEVAL.pop(key, None)
+        _CLAIMED.pop(key, None)
         _release_pool(key)
+
+
+def remember_retrieval(key: tuple[str, str], generation: int, payload: dict[str, Any]) -> None:
+    """Keep a finished look-up so a resume does not retrieve or log it again."""
+    with _CALL_LOCK:
+        if _GENERATION.get(key) == generation:
+            _RETRIEVAL[key] = (generation, payload)
+
+
+def peek_retrieval(key: tuple[str, str]) -> dict[str, Any] | None:
+    with _CALL_LOCK:
+        item = _RETRIEVAL.get(key)
+        if item is None or _GENERATION.get(key) != item[0]:
+            return None
+        return item[1]
+
+
+def claim_log_stage(key: tuple[str, str], stage: str) -> bool:
+    """True only the first time this attempt logs ``stage``.
+
+    Two script passes can wait on one model call. Only one of them should
+    write ``model_call_start`` or ``model_call_end``.
+    """
+    with _CALL_LOCK:
+        generation = _GENERATION.get(key)
+        claimed = _CLAIMED.setdefault(key, set())
+        token = (generation, stage)
+        if token in claimed:
+            return False
+        claimed.add(token)
+        return True
 
 
 def drop_answer(key: tuple[str, str]) -> None:
@@ -272,16 +311,18 @@ def run_model_once(
         if resuming:
             log_ask_stage("resume", question=question, source="stash")
         return stashed
-    if not generation_pending(key):
+    if claim_log_stage(key, "model_call_start"):
         log_ask_stage("model_call_start", question=question, elapsed_ms=retrieval_ms)
     started = time.perf_counter()
     text = call_once(key, fn, timeout_seconds)
     answer = text if isinstance(text, str) else ""
     # Log before any session-state write. That write is where a pending Ask
     # rerun stops the script, and it does so without an Exception traceback.
-    log_ask_stage(
-        "model_call_end",
-        question=question,
-        elapsed_ms=(time.perf_counter() - started) * 1000.0,
-    )
+    # A second pass waiting on the same call must not log the end again.
+    if claim_log_stage(key, "model_call_end"):
+        log_ask_stage(
+            "model_call_end",
+            question=question,
+            elapsed_ms=(time.perf_counter() - started) * 1000.0,
+        )
     return handoff_model_result(question, answer)

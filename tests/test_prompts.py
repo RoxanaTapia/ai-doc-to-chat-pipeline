@@ -124,9 +124,9 @@ def test_starter_chips_include_two_hits_and_one_miss() -> None:
 
     questions = [chip["question"] for chip in STARTER_CHIPS]
     assert questions == [
-        "How long does this agreement last?",
-        "Which country's law applies, and where are disputes settled?",
-        "What is the penalty fee if Beta Labs breaks this agreement?",
+        "How long does this last?",
+        "Which law applies?",
+        "What's the penalty fee?",
     ]
     assert [chip["label"] for chip in STARTER_CHIPS] == questions
 
@@ -158,6 +158,6 @@ def test_privacy_line_follows_generator_without_overclaiming() -> None:
     assert "never stored" not in dummy
     assert "infrastructure you control" not in _CLIENT_COPY["hero_lead"]
     assert _CLIENT_COPY["hero_lead"] == (
-        "Ask your contract anything. It shows the best-matching page next to each "
-        "answer and says when the document doesn't cover the question."
+        "Beta Labs has an NDA from Acme Corp the night before a kickoff. "
+        "Tap a question. Each answer shows the page it came from, and how long it took."
     )

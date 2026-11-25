@@ -60,8 +60,10 @@ from ask_runtime import (
     invalidate_answer,
     log_ask_stage,
     open_generation,
+    peek_retrieval,
     remaining_timeout,
     remember_answer,
+    remember_retrieval,
     run_model_once,
     run_with_timeout,
 )
@@ -70,14 +72,17 @@ from page_copy import (
     _CLIENT_COPY,
     STARTER_CHIPS,
     _render_booking_cta,
+    _render_case_end,
     _render_client_footer,
     _render_client_hero,
     _render_privacy_badge,
     _render_sidebar_footer,
     _render_sidebar_pitch,
     booking_url,
+    remaining_starter_chips,
     request_is_operator,
     should_show_starter_chips,
+    walkthrough_tally,
 )
 from sample_warm import embeddings_for, sample_index_for
 from session_upload import (
@@ -559,10 +564,75 @@ def _continue_queued_ask(already_taken: str | None) -> None:
         st.rerun()
 
 
-def _clear_answer_history(slot) -> None:
-    """Drop prior answer cards so old page sources cannot linger under a new ask."""
-    slot.empty()
-    st.session_state["_answer_history_cleared"] = True
+def _fill_answer_cards() -> None:
+    """Paint finished cards, newest first, plus the sample end card when it is earned."""
+    turns = _paired_turns(st.session_state.messages)
+    indexed_stats = st.session_state.get("indexed_doc_stats") or {}
+    page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
+    any_blank_pages = int(indexed_stats.get("blank_pages") or 0) > 0
+    pdf_bytes = st.session_state.get("uploaded_pdf_bytes")
+    assistant_count = sum(
+        1 for message in st.session_state.messages if message.get("role") == "assistant"
+    )
+    end_card = walkthrough_tally(st.session_state.messages) is not None
+    st.session_state["_answer_history_cleared"] = False
+    ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
+    for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
+        question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+        _render_answer_card(
+            question=question,
+            answer=assistant_msg.get("content") or "",
+            sources=assistant_msg.get("sources") or [],
+            refusal=assistant_msg.get("refusal"),
+            expanded=turn_idx == 0,
+            timing=assistant_msg.get("timing"),
+            developer_mode=st.session_state.developer_mode,
+            page_count=page_count,
+            any_blank_pages=any_blank_pages,
+            pdf_bytes=pdf_bytes,
+            card_key=_card_paint_key(assistant_msg, len(turns) - turn_idx),
+        )
+        if turn_idx == 0 and assistant_count >= 3 and not end_card:
+            _render_booking_cta(booking_url())
+        if st.session_state.developer_mode and assistant_msg.get("sources"):
+            turn_label = f"turn {len(turns) - turn_idx}"
+            _render_source_checklist(
+                assistant_msg["sources"],
+                target_section=assistant_msg.get("target_section"),
+                title=_dev_panel_title(
+                    "Source checklist (eval)",
+                    assistant_msg.get("for_question"),
+                    fallback=turn_label,
+                ),
+            )
+            if assistant_msg.get("eval_context"):
+                _render_eval_context_panel(
+                    assistant_msg["eval_context"],
+                    target_section=assistant_msg.get("target_section"),
+                    chunk_count=assistant_msg.get("eval_chunk_count"),
+                    title=_dev_panel_title(
+                        "Exact context fed to LLM",
+                        assistant_msg.get("for_question"),
+                        fallback=turn_label,
+                    ),
+                    top_k=TOP_K,
+                )
+    if end_card:
+        _render_case_end(st.session_state.messages)
+    card_cap = MAX_CHAT_MESSAGES // 2
+    st.markdown(
+        (
+            f'<div id="app-ask-done" data-ask-id="{ask_paint_id}" '
+            f'data-ask-cap="{card_cap}" hidden aria-hidden="true"></div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _keep_earlier_answers(slot) -> None:
+    """Leave finished cards on screen while the next answer loads."""
+    with slot.container():
+        _fill_answer_cards()
 
 
 _ASK_SHELL_EMITTED_KEY = "_ask_shell_emitted"
@@ -599,10 +669,10 @@ def _render_starter_chips(
         return slot
     with slot.container():
         st.markdown(
-            '<p class="app-chips-label app-chip-mark">Try a starter question</p>',
+            '<p class="app-chips-label app-chip-mark">Tap a question</p>',
             unsafe_allow_html=True,
         )
-        for chip in STARTER_CHIPS:
+        for chip in remaining_starter_chips(st.session_state.messages):
             st.button(
                 chip["label"],
                 key=f"chip_{chip['label']}",
@@ -1042,12 +1112,26 @@ def _seed_capture_storyboard() -> None:
         (
             STARTER_CHIPS[0]["question"],
             f"3 years\n\n{term}",
-            [{"page": 2, "preview": f"Section 4 - Term {term}", "score": "N/A"}],
+            [
+                {
+                    "page": 2,
+                    "section": "4",
+                    "preview": f"Section 4 - Term {term}",
+                    "score": "N/A",
+                }
+            ],
         ),
         (
             STARTER_CHIPS[1]["question"],
             f"Spain / Madrid\n\n{law}",
-            [{"page": 3, "preview": f"Section 7 - Governing Law {law}", "score": "N/A"}],
+            [
+                {
+                    "page": 3,
+                    "section": "7",
+                    "preview": f"Section 7 - Governing Law {law}",
+                    "score": "N/A",
+                }
+            ],
         ),
         (
             STARTER_CHIPS[2]["question"],
@@ -1143,7 +1227,7 @@ if query and query.strip() and chat_ready:
             note_started(st.session_state, query)
             generation = open_generation(ask_key)
         chip_slot.empty()
-        _clear_answer_history(answers_slot)
+        _keep_earlier_answers(answers_slot)
         if not user_turn_open(st.session_state.messages, query):
             _append_chat_message("user", query)
         paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
@@ -1205,71 +1289,106 @@ if query and query.strip() and chat_ready:
                     dummy_mode = st.session_state.dummy_generator_only
                     use_page_separators = bool(st.session_state.use_page_separators)
                     timeout_seconds = _ask_timeout_seconds()
+                    saved_retrieval = peek_retrieval(ask_key) if resuming else None
                     if not resuming:
                         log_ask_stage("start", question=query)
 
-                    def _retrieve_only():
-                        return first_stage_retrieval(
+                    if saved_retrieval is not None:
+                        # This pass is finishing a look-up that already retrieved.
+                        # Do not retrieve again, and do not log retrieval_done again.
+                        raw_results = list(saved_retrieval["raw_results"])
+                        final_mode = str(saved_retrieval["mode"])
+                        retrieval_warning = saved_retrieval.get("warning")
+                        retrieval_diag = dict(saved_retrieval.get("diag") or {})
+                        retrieval_elapsed_ms = float(saved_retrieval.get("retrieval_ms") or 0.0)
+                        rerank_elapsed_ms = float(saved_retrieval.get("rerank_ms") or 0.0)
+                        retrieved_docs = list(saved_retrieval["retrieved_docs"])
+                        context = str(saved_retrieval.get("context") or "")
+                        st.session_state.last_retrieval_mode = final_mode
+                        st.session_state.last_raw_results = raw_results
+                        st.session_state.last_query = query
+                        st.session_state.last_retrieved_docs = retrieved_docs
+                        st.session_state.last_context = context
+                    else:
+
+                        def _retrieve_only():
+                            return first_stage_retrieval(
+                                query,
+                                strategy=strategy,
+                                vector_store=vector_store,
+                                chunks=chunks,
+                                bm25_index=bm25_index,
+                                bm25_warning=bm25_warning,
+                                config=RETRIEVAL_CONFIG,
+                                candidate_limit=candidate_limit,
+                            )
+
+                        candidate_pool, mode, first_stage_warning, retrieval_diag = (
+                            run_with_timeout(
+                                _retrieve_only,
+                                remaining_timeout(total_start, timeout_seconds),
+                            )
+                        )
+                        raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
+                            _finalize_retrieval_candidates(
+                                query,
+                                candidate_pool=candidate_pool,
+                                mode=mode,
+                            )
+                        )
+                        st.session_state.last_retrieval_mode = final_mode
+                        retrieval_warning = reranker_warning or first_stage_warning
+                        retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
+
+                        for doc, score in raw_results:
+                            doc.metadata["similarity"] = score
+                        st.session_state.last_raw_results = raw_results
+
+                        context_results, hard_filter_warning = apply_hard_section_context_filter(
                             query,
-                            strategy=strategy,
-                            vector_store=vector_store,
-                            chunks=chunks,
-                            bm25_index=bm25_index,
-                            bm25_warning=bm25_warning,
-                            config=RETRIEVAL_CONFIG,
-                            candidate_limit=candidate_limit,
+                            raw_results,
+                            all_chunks=st.session_state.chunks,
+                            top_k=TOP_K,
+                            enabled=SECTION_HARD_CONTEXT_FILTER,
+                            min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
                         )
+                        if hard_filter_warning:
+                            retrieval_warning = " · ".join(
+                                part for part in (retrieval_warning, hard_filter_warning) if part
+                            )
+                            st.session_state.last_retrieval_mode = (
+                                f"{st.session_state.last_retrieval_mode}_section_filtered"
+                            )
 
-                    candidate_pool, mode, first_stage_warning, retrieval_diag = run_with_timeout(
-                        _retrieve_only,
-                        remaining_timeout(total_start, timeout_seconds),
-                    )
-                    raw_results, final_mode, reranker_warning, rerank_elapsed_ms = (
-                        _finalize_retrieval_candidates(
-                            query,
-                            candidate_pool=candidate_pool,
-                            mode=mode,
+                        retrieved_docs = [doc for doc, _score in context_results]
+                        st.session_state.last_query = query
+                        st.session_state.last_retrieved_docs = retrieved_docs
+                        context = assemble_context(
+                            context_results,
+                            use_page_separators=use_page_separators,
                         )
-                    )
-                    st.session_state.last_retrieval_mode = final_mode
-                    retrieval_warning = reranker_warning or first_stage_warning
-                    retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
-                    log_ask_stage(
-                        "retrieval_done",
-                        question=query,
-                        elapsed_ms=retrieval_elapsed_ms,
-                        chunks=len(raw_results),
-                        mode=final_mode,
-                    )
-
-                    for doc, score in raw_results:
-                        doc.metadata["similarity"] = score
-                    st.session_state.last_raw_results = raw_results
-
-                    context_results, hard_filter_warning = apply_hard_section_context_filter(
-                        query,
-                        raw_results,
-                        all_chunks=st.session_state.chunks,
-                        top_k=TOP_K,
-                        enabled=SECTION_HARD_CONTEXT_FILTER,
-                        min_chunks=SECTION_CONTEXT_MIN_CHUNKS,
-                    )
-                    if hard_filter_warning:
-                        retrieval_warning = " · ".join(
-                            part for part in (retrieval_warning, hard_filter_warning) if part
+                        st.session_state.last_context = context
+                        remember_retrieval(
+                            ask_key,
+                            generation,
+                            {
+                                "raw_results": raw_results,
+                                "mode": st.session_state.last_retrieval_mode,
+                                "warning": retrieval_warning,
+                                "diag": retrieval_diag,
+                                "retrieval_ms": retrieval_elapsed_ms,
+                                "rerank_ms": rerank_elapsed_ms,
+                                "retrieved_docs": retrieved_docs,
+                                "context": context,
+                            },
                         )
-                        st.session_state.last_retrieval_mode = (
-                            f"{st.session_state.last_retrieval_mode}_section_filtered"
+                        log_ask_stage(
+                            "retrieval_done",
+                            question=query,
+                            elapsed_ms=retrieval_elapsed_ms,
+                            chunks=len(raw_results),
+                            mode=st.session_state.last_retrieval_mode,
                         )
-
-                    retrieved_docs = [doc for doc, _score in context_results]
-                    st.session_state.last_query = query
-                    st.session_state.last_retrieved_docs = retrieved_docs
-                    context = assemble_context(
-                        context_results,
-                        use_page_separators=use_page_separators,
-                    )
-                    st.session_state.last_context = context
 
                     context_ok, _context_gap = context_sufficient_for_query(query, context)
                     if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
@@ -1534,69 +1653,10 @@ elif query is not None:
     paint_status(status_slot, "error", "Please enter a non-empty question.")
 
 # Newest answer first so the last reply stays on screen without iframe scroll.
-# Skipped on the ask path (rerun after append); idle runs fill answers_slot.
-turns = _paired_turns(st.session_state.messages)
-indexed_stats = st.session_state.get("indexed_doc_stats") or {}
-page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
-any_blank_pages = int(indexed_stats.get("blank_pages") or 0) > 0
-pdf_bytes = st.session_state.get("uploaded_pdf_bytes")
-assistant_count = sum(
-    1 for message in st.session_state.messages if message.get("role") == "assistant"
-)
-
+# The ask path reruns before it reaches here. A resume paints earlier cards
+# up front, so this fill is the idle pass.
 with answers_slot.container():
-    st.session_state["_answer_history_cleared"] = False
-    ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
-    for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
-        question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-        _render_answer_card(
-            question=question,
-            answer=assistant_msg.get("content") or "",
-            sources=assistant_msg.get("sources") or [],
-            refusal=assistant_msg.get("refusal"),
-            expanded=turn_idx == 0,
-            timing=assistant_msg.get("timing"),
-            developer_mode=st.session_state.developer_mode,
-            page_count=page_count,
-            any_blank_pages=any_blank_pages,
-            pdf_bytes=pdf_bytes,
-            card_key=_card_paint_key(assistant_msg, len(turns) - turn_idx),
-        )
-        if turn_idx == 0 and assistant_count >= 3:
-            _render_booking_cta(booking_url())
-        if st.session_state.developer_mode and assistant_msg.get("sources"):
-            turn_label = f"turn {len(turns) - turn_idx}"
-            _render_source_checklist(
-                assistant_msg["sources"],
-                target_section=assistant_msg.get("target_section"),
-                title=_dev_panel_title(
-                    "Source checklist (eval)",
-                    assistant_msg.get("for_question"),
-                    fallback=turn_label,
-                ),
-            )
-            if assistant_msg.get("eval_context"):
-                _render_eval_context_panel(
-                    assistant_msg["eval_context"],
-                    target_section=assistant_msg.get("target_section"),
-                    chunk_count=assistant_msg.get("eval_chunk_count"),
-                    title=_dev_panel_title(
-                        "Exact context fed to LLM",
-                        assistant_msg.get("for_question"),
-                        fallback=turn_label,
-                    ),
-                    top_k=TOP_K,
-                )
-    # After the cards. The client clears the busy line only once this id changes
-    # and the new card is in the DOM. data-ask-cap is how many cards stay on screen.
-    card_cap = MAX_CHAT_MESSAGES // 2
-    st.markdown(
-        (
-            f'<div id="app-ask-done" data-ask-id="{ask_paint_id}" '
-            f'data-ask-cap="{card_cap}" hidden aria-hidden="true"></div>'
-        ),
-        unsafe_allow_html=True,
-    )
+    _fill_answer_cards()
 
 # Cards are on screen; only now drop the busy line back to the document ready line.
 if st.session_state.get("doc_status") == "answering" and not (query and str(query).strip()):

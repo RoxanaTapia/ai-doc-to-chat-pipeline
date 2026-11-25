@@ -14,7 +14,7 @@ from ai_doc.rag.citations import (
     is_insufficient_answer,
 )
 from page_copy import checked_all_pages_note
-from page_preview import render_highlighted_page
+from page_preview import highlight_top_ratio, render_highlighted_page
 
 _HEADING_RE = re.compile(r"^#{1,6}\s+")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -140,11 +140,30 @@ def _toggle_page_preview(preview_id: str) -> None:
     st.session_state.open_page_preview = None if current == preview_id else preview_id
 
 
+_SECTION_IN_PREVIEW_RE = re.compile(r"(?i)\bsection\s+(\d+)\b")
+_SKIP_SECTION_TITLES = frozenset({"preamble", "notes", "section"})
+
+
+def source_chip_label(source: dict) -> str:
+    """Visitor chip: page, and the section when the excerpt has one."""
+    page = source.get("page", "N/A")
+    section = str(source.get("section") or "").strip()
+    if not section.isdigit():
+        found = _SECTION_IN_PREVIEW_RE.search(source.get("preview") or "")
+        section = found.group(1) if found else ""
+    if section.isdigit():
+        return f"Page {page} · Section {section}"
+    title = str(source.get("section_title") or "").strip()
+    if title and title.lower() not in _SKIP_SECTION_TITLES and "." not in title:
+        return f"Page {page} · {title}"
+    return f"Page {page}"
+
+
 def _render_page_preview(pdf_bytes: bytes | None, source: dict, *, key: str) -> None:
-    """Show the page with the passage highlighted when the quote is opened."""
+    """Open the page from the source chip, with the passage highlighted and in view."""
     preview_id = f"{key}:{source.get('page')}:{source.get('preview', '')[:40]}"
     if st.button(
-        "Show page",
+        source_chip_label(source),
         key=f"preview_{key}",
         help="Open this page with the passage highlighted.",
         on_click=_toggle_page_preview,
@@ -153,13 +172,20 @@ def _render_page_preview(pdf_bytes: bytes | None, source: dict, *, key: str) -> 
         st.rerun()
     if st.session_state.get("open_page_preview") != preview_id:
         return
+    quote = source.get("preview") or ""
     png = render_highlighted_page(
         pdf_bytes or b"",
         source.get("page"),
-        source.get("preview") or "",
+        quote,
     )
     if png:
         st.image(png, use_container_width=True)
+        ratio = highlight_top_ratio(pdf_bytes or b"", source.get("page"), quote)
+        if ratio is not None:
+            st.markdown(
+                f'<div class="app-page-anchor" data-highlight-top="{ratio:.4f}" hidden></div>',
+                unsafe_allow_html=True,
+            )
     else:
         st.caption("Could not open that page from the current PDF.")
 
@@ -171,31 +197,27 @@ def _render_inline_sources(
     pdf_bytes: bytes | None = None,
     card_key: str = "0",
 ) -> None:
-    """Page badge and quote; Show page opens the highlighted page."""
+    """Source chip and quote. The chip opens the highlighted page."""
     if not sources:
         return
     visible = sources if expanded else sources[:1]
     for source_idx, source in enumerate(visible):
-        page = html.escape(str(source.get("page", "N/A")))
         preview = html.escape(source.get("preview") or "")
+        _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
         st.markdown(
-            f'<span class="app-page-badge">Page {page}</span>'
             f'<blockquote class="app-inline-quote">{preview}</blockquote>',
             unsafe_allow_html=True,
         )
-        _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
     extra = sources[len(visible) :]
     if extra and not expanded:
         with st.expander("More pages", expanded=False):
             for source_idx, source in enumerate(extra, start=len(visible)):
-                page = html.escape(str(source.get("page", "N/A")))
                 preview = html.escape(source.get("preview") or "")
+                _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
                 st.markdown(
-                    f'<span class="app-page-badge">Page {page}</span>'
                     f'<blockquote class="app-inline-quote">{preview}</blockquote>',
                     unsafe_allow_html=True,
                 )
-                _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
 
 
 def _render_answer_card(
@@ -231,6 +253,10 @@ def _render_answer_card(
                 f'<p class="app-no-sources">{html.escape(note)}</p>',
                 unsafe_allow_html=True,
             )
+            st.markdown(
+                _live_timing_html(question),
+                unsafe_allow_html=True,
+            )
         else:
             quote = (sources[0].get("preview") if sources else "") or ""
             headline, body = display_answer_parts(answer, quote)
@@ -245,10 +271,12 @@ def _render_answer_card(
             body_parts: list[str] = []
             if body:
                 body_parts.append(html.escape(body))
-            if timing_line:
-                body_parts.append(
-                    f'<p class="app-timing">{html.escape(timing_line)}</p>'
-                )
+            if timing_line and developer_mode:
+                body_parts.append(f'<p class="app-timing">{html.escape(timing_line)}</p>')
+            elif timing_line:
+                body_parts.append(_live_timing_html(question, timing_line))
+            else:
+                body_parts.append(_live_timing_html(question))
             if body_parts:
                 st.markdown("\n\n".join(body_parts), unsafe_allow_html=True)
             if sources:
@@ -352,6 +380,21 @@ def _render_eval_context_panel(
                 "if Section 3 duties are here but missing from the answer, "
                 "generation is likely at fault."
             )
+
+
+def _live_timing_html(question: str, text: str = "") -> str:
+    """Timing line the browser fills with the time from the tap to the card.
+
+    The server caption is the first text, so a run without the page script
+    still says how long the look-up took. The browser replaces it with the
+    time it measured.
+    """
+    safe_q = html.escape(question or "", quote=True)
+    body = html.escape(text) if text else ""
+    return (
+        f'<p class="app-timing" data-ask-timing="1" '
+        f'data-ask-question="{safe_q}">{body}</p>'
+    )
 
 
 def _format_elapsed_ms(elapsed_ms: float) -> str:

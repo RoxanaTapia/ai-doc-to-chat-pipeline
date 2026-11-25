@@ -401,13 +401,9 @@ section.main [data-testid="stSkeleton"],
 }
 
 /*
-  On Ask / chip click, hide prior answer cards immediately (before the server
-  round-trip clears the slot) so they never sit under the busy line.
+  Earlier answer cards stay on screen while the next one loads.
+  The busy line still replaces the status text, below.
 */
-body.app-ask-pending [class*="st-key-answer_card_"],
-body.app-ask-pending [class*="st-key-refusal_card_"] {
-  display: none !important;
-}
 
 /*
   Show the busy line in-place on Streamlit's status node (CSS only). Copy comes
@@ -457,6 +453,15 @@ body.app-ask-pending .stElementContainer:has(.app-status) {
   color: var(--app-accent) !important;
   background: var(--app-accent-soft) !important;
   background-color: var(--app-accent-soft) !important;
+}
+
+@media (max-width: 40rem) {
+  [class*="st-key-chip_"] button,
+  [class*="st-key-chip_"] [data-testid^="stBaseButton"] {
+    width: 100% !important;
+    text-align: left !important;
+    min-height: 2.75rem !important;
+  }
 }
 
 .app-typing {
@@ -539,18 +544,78 @@ body.app-ask-pending .stElementContainer:has(.app-status) {
   color: var(--app-warn) !important;
 }
 
-.app-page-badge {
+.app-page-badge,
+[class*="st-key-preview_"] button,
+[class*="st-key-preview_"] [data-testid^="stBaseButton"] {
   display: inline-flex;
   align-items: center;
   margin: 0.35rem 0 0.2rem 0;
-  padding: 2px 8px;
-  border-radius: 8px;
-  background: var(--app-accent-soft);
-  color: var(--app-accent);
-  font-size: 0.9rem;
-  font-weight: 700;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 999px !important;
+  background: var(--app-accent-soft) !important;
+  background-color: var(--app-accent-soft) !important;
+  color: var(--app-accent) !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-size: 0.9rem !important;
+  font-weight: 700 !important;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  width: auto !important;
+  min-height: 2.25rem !important;
+}
+
+[class*="st-key-preview_"] button:hover,
+[class*="st-key-preview_"] [data-testid^="stBaseButton"]:hover {
+  background: var(--app-accent) !important;
+  background-color: var(--app-accent) !important;
+  color: var(--app-accent-ink) !important;
+}
+
+.app-doc-card {
+  font-weight: 650;
+}
+
+.app-end {
+  margin: 0.2rem 0 1.4rem 0;
+  padding: 1rem 1.1rem 1.05rem 1.1rem;
+  border-radius: 16px;
+  background: var(--app-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--app-accent) 18%, var(--app-line));
+}
+
+.app-end__kicker {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+}
+
+.app-end__score {
+  margin: 0 0 0.7rem 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--app-ink);
+}
+
+.app-end__actions {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.app-end__link {
+  color: var(--app-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-end__link:hover {
+  text-decoration: underline;
 }
 
 .app-source-quote,

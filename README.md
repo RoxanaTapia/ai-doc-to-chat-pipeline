@@ -4,7 +4,7 @@
 
 My pilot shows the best-matching page next to each answer and says when the document doesn't cover the question.
 
-Upload a policy, SOP, report, or contract. Ask in plain language.
+The Beta Labs sample NDA is already loaded. Ask in plain language. Only a signed-in operator can upload a PDF.
 
 > **Takeaway:** This is a retrieval system, not a chatbot that guesses.
 
@@ -23,7 +23,7 @@ Upload a policy, SOP, report, or contract. Ask in plain language.
 
 ## How it fits together
 
-Each step keeps the answer inside the PDF you uploaded. The step-by-step picture is in the [docs map](docs/README.md).
+Each step keeps the answer inside the Beta Labs sample NDA, or inside a PDF a signed-in operator uploaded. The step-by-step picture is in the [docs map](docs/README.md).
 
 ## What's planned
 
@@ -37,11 +37,11 @@ A shared library, sign-in for your organization, and a separate space per projec
 
 ▶ **[Watch the pilot](https://youtu.be/DdIm7N0kFx0)**
 
-- Request an invite on the gate, then upload a PDF and ask a question
-- Start with the [sample NDA](docs/product/sample-nda.pdf) if you want a ready document
+- Request an invite on the gate, then ask a question about the Beta Labs sample NDA
+- The file itself is the [sample NDA](docs/product/sample-nda.pdf)
 - Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
-Only the few passages needed for an answer are sent to a hosted model. Claude is the default. OpenAI and Grok are the other choices. Your upload is cleared when you leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+Only the few passages needed for an answer are sent to a hosted model. Claude is the default. OpenAI and Grok are the other choices. A PDF a signed-in operator uploads is cleared when they leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
 
 ## Where things are
 

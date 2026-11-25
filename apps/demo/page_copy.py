@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import os
 from collections.abc import Mapping
+from pathlib import Path
 
 import streamlit as st
 
@@ -12,10 +13,10 @@ from ui_theme import inject_theme
 
 # Visitor-facing lines for the pilot. The page script looks them up by key.
 _CLIENT_COPY = {
-    "hero_title": "Ask your document",
+    "hero_title": "Read before you sign",
     "hero_lead": (
-        "Ask your contract anything. It shows the best-matching page next to each "
-        "answer and says when the document doesn't cover the question."
+        "Beta Labs has an NDA from Acme Corp the night before a kickoff. "
+        "Tap a question. Each answer shows the page it came from, and how long it took."
     ),
     "hero_kicker": "",
     "chat_ready": "Ask about this document…",
@@ -23,7 +24,7 @@ _CLIENT_COPY = {
     "chat_waiting": "The sample NDA is loading…",
     "doc_empty": "Loading the sample NDA…",
     "doc_reading": "Reading {name}: {step}",
-    "doc_ready": "Sample NDA · {pages} pages",
+    "doc_ready": "NDA · Acme Corp and Beta Labs · {pages} pages",
     "doc_ready_named": "{name} · {pages} pages",
     "doc_answering": "Looking through the document",
     "doc_timeout": "That took too long, so I stopped. Please ask again.",
@@ -65,19 +66,23 @@ _CLIENT_COPY = {
     ),
 }
 
-# Two questions the sample NDA answers; one it does not.
+# The sample NDA on disk. Visitors see SAMPLE_DOCUMENT_TITLE, never this filename.
+SAMPLE_FILE_NAME = "sample-nda.pdf"
+SAMPLE_DOCUMENT_TITLE = "NDA · Acme Corp and Beta Labs"
+
+# Two questions the sample NDA answers; one it does not. Short, so a phone can tap them.
 STARTER_CHIPS = (
     {
-        "label": "How long does this agreement last?",
-        "question": "How long does this agreement last?",
+        "label": "How long does this last?",
+        "question": "How long does this last?",
     },
     {
-        "label": "Which country's law applies, and where are disputes settled?",
-        "question": "Which country's law applies, and where are disputes settled?",
+        "label": "Which law applies?",
+        "question": "Which law applies?",
     },
     {
-        "label": "What is the penalty fee if Beta Labs breaks this agreement?",
-        "question": "What is the penalty fee if Beta Labs breaks this agreement?",
+        "label": "What's the penalty fee?",
+        "question": "What's the penalty fee?",
     },
 )
 
@@ -136,9 +141,120 @@ def request_is_operator(headers: Mapping[str, str] | None = None) -> bool:
     return any(str(key).lower() == "x-ops-ok" for key in headers)
 
 
+def human_document_name(file_name: str) -> str:
+    """A name a person can read. Sample files keep their story title, not the filename."""
+    raw = (file_name or "").strip()
+    if raw in {SAMPLE_FILE_NAME, "acme-beta-labs-nda.pdf"}:
+        return SAMPLE_DOCUMENT_TITLE
+    stem = Path(raw).stem.replace("_", " ").replace("-", " ")
+    words = [word for word in stem.split() if word and word.lower() != "pdf"]
+    if not words:
+        return "Document"
+    return " ".join(word[:1].upper() + word[1:] for word in words)
+
+
+def sample_document_line(pages: int) -> str:
+    """The loaded sample card. The page count is this sample PDF."""
+    if pages > 0:
+        return _CLIENT_COPY["doc_ready"].format(pages=pages)
+    return SAMPLE_DOCUMENT_TITLE
+
+
+def _walkthrough_pairs(messages: list[dict] | None) -> list[tuple[dict | None, dict]]:
+    pairs: list[tuple[dict | None, dict]] = []
+    pending: dict | None = None
+    for message in messages or []:
+        if message.get("role") == "user":
+            pending = message
+            continue
+        if message.get("role") == "assistant":
+            pairs.append((pending, message))
+            pending = None
+    return pairs
+
+
+def walkthrough_tally(messages: list[dict] | None) -> dict[str, int] | None:
+    """Counts for the sample end card, or None until all three starter questions have answers."""
+    from ai_doc.rag.citations import is_insufficient_answer
+
+    wanted = [chip["question"] for chip in STARTER_CHIPS]
+    found: dict[str, dict] = {}
+    for user, assistant in _walkthrough_pairs(messages):
+        question = ((user or {}).get("content") or "").strip()
+        if question in wanted:
+            found[question] = assistant
+    if any(question not in found for question in wanted):
+        return None
+    honest = 0
+    sources = 0
+    for question in wanted:
+        assistant = found[question]
+        answer = assistant.get("content") or ""
+        refusal = bool(assistant.get("refusal")) or is_insufficient_answer(answer, question)
+        if refusal:
+            honest += 1
+        if refusal or assistant.get("sources"):
+            sources += 1
+    return {"questions": len(wanted), "sources": sources, "honest": honest}
+
+
+def walkthrough_score(messages: list[dict] | None) -> str | None:
+    """End-card line. Numbers are this sample walkthrough, not a general claim."""
+    tally = walkthrough_tally(messages)
+    if tally is None:
+        return None
+    return (
+        f"{tally['questions']} questions · {tally['sources']} sources · "
+        f"{tally['honest']} honest no"
+    )
+
+
+def _render_case_end(messages: list[dict] | None) -> None:
+    """Close the sample story: the tally, a call, and a way out."""
+    score = walkthrough_score(messages)
+    if not score:
+        return
+    safe_score = html.escape(score)
+    st.markdown(
+        (
+            '<section class="app-end">'
+            '<p class="app-end__kicker">Sample walkthrough</p>'
+            f'<p class="app-end__score">{safe_score}</p>'
+            '<p class="app-end__actions">'
+            f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
+            "Book a call</a>"
+            '<a class="app-end__link" href="/invite/exit">Exit demo</a>'
+            "</p>"
+            "</section>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 def should_show_booking(url: str | None = None) -> bool:
     """Hide the booking line when DEMO_BOOKING_URL is blank."""
     return bool(booking_url(url))
+
+
+def answered_questions(messages: list[dict] | None) -> set[str]:
+    """Questions that already have an assistant reply in this session."""
+    answered: set[str] = set()
+    pending = ""
+    for message in messages or []:
+        role = (message or {}).get("role")
+        content = ((message or {}).get("content") or "").strip()
+        if role == "user":
+            pending = content
+        elif role == "assistant" and pending:
+            answered.add(pending)
+            pending = ""
+    return answered
+
+
+def remaining_starter_chips(messages: list[dict] | None) -> list[dict[str, str]]:
+    """Starter questions the visitor has not asked yet."""
+    done = answered_questions(messages)
+    return [chip for chip in STARTER_CHIPS if chip["question"] not in done]
 
 
 def should_show_starter_chips(
@@ -147,7 +263,7 @@ def should_show_starter_chips(
     *,
     chat_ready: bool = True,
 ) -> bool:
-    """Starter chips wait until the index is ready, then hide after the first ask.
+    """Starter chips wait until the index is ready, then drop each one as it is used.
 
     They stay off while the document is still loading, and again while a
     question is in flight, so Streamlit cannot leave greyed chip buttons
@@ -157,7 +273,7 @@ def should_show_starter_chips(
         return False
     if (query or "").strip():
         return False
-    return not any((message or {}).get("role") == "assistant" for message in (messages or []))
+    return bool(remaining_starter_chips(messages))
 
 
 def sample_preload_error_copy() -> dict[str, str]:

@@ -44,13 +44,105 @@ def _search_needles(quote: str) -> list[str]:
     return ordered
 
 
+def _quote_words(quote: str) -> list[str]:
+    return [word.lower() for word in _WORD_RE.findall(quote or "")]
+
+
+def _page_words(page: pymupdf.Page) -> list[tuple]:
+    """Word boxes as (x0, y0, x1, y1, word, block, line)."""
+    rows = []
+    for item in page.get_text("words") or []:
+        tokens = _WORD_RE.findall(str(item[4]))
+        if not tokens:
+            continue
+        rows.append(
+            (
+                float(item[0]),
+                float(item[1]),
+                float(item[2]),
+                float(item[3]),
+                tokens[0].lower(),
+                int(item[5]),
+                int(item[6]),
+            )
+        )
+    return rows
+
+
+def _matching_word_run(page_words: list[tuple], quote_words: list[str]) -> list[tuple]:
+    """Earliest page run that contains the quote words in order."""
+    if len(quote_words) < 4 or not page_words:
+        return []
+    limit = len(page_words)
+    for start, row in enumerate(page_words):
+        if row[4] != quote_words[0]:
+            continue
+        if start + len(quote_words) > limit:
+            break
+        if all(page_words[start + offset][4] == word for offset, word in enumerate(quote_words)):
+            return page_words[start : start + len(quote_words)]
+    return []
+
+
+def _line_rects(matches: list[tuple]) -> list[pymupdf.Rect]:
+    """One rectangle per line so the highlight covers the whole passage."""
+    lines: dict[tuple[int, int], list[float]] = {}
+    for x0, y0, x1, y1, _word, block, line in matches:
+        box = lines.get((block, line))
+        if box is None:
+            lines[(block, line)] = [x0, y0, x1, y1]
+            continue
+        box[0] = min(box[0], x0)
+        box[1] = min(box[1], y0)
+        box[2] = max(box[2], x1)
+        box[3] = max(box[3], y1)
+    return [pymupdf.Rect(box) for box in lines.values()]
+
+
 def highlight_rects(page: pymupdf.Page, quote: str) -> list[pymupdf.Rect]:
-    """Find quote rectangles on a page; empty when the passage is not visible."""
-    for needle in _search_needles(quote):
+    """Find quote rectangles on a page; empty when the passage is not visible.
+
+    A full-string hit wins. When the excerpt does not match as one string
+    (a heading glued on, or a dash the page does not use), the word run
+    still highlights every line of the passage instead of the first few words.
+    """
+    cleaned = " ".join((quote or "").split())
+    if not cleaned:
+        return []
+    full = page.search_for(cleaned, quads=False)
+    if full:
+        return list(full)
+    words = _quote_words(cleaned)
+    run = _matching_word_run(_page_words(page), words)
+    if run:
+        return _line_rects(run)
+    for needle in _search_needles(cleaned)[1:]:
         hits = page.search_for(needle, quads=False)
         if hits:
             return list(hits)
     return []
+
+
+def highlight_top_ratio(pdf_bytes: bytes, page_number: object, quote: str) -> float | None:
+    """Fraction down the page where the highlight starts, for scrolling it into view."""
+    if not pdf_bytes:
+        return None
+    index = page_index(page_number)
+    if index is None:
+        return None
+    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        if index >= doc.page_count:
+            return None
+        page = doc[index]
+        rects = highlight_rects(page, quote)
+        if not rects:
+            return None
+        height = float(page.rect.height) or 1.0
+        top = min(float(rect.y0) for rect in rects)
+        return max(0.0, min(0.95, top / height))
+    finally:
+        doc.close()
 
 
 def render_highlighted_page(

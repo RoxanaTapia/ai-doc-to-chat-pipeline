@@ -52,7 +52,7 @@ jobs:
       - name: Check the vendored demo kit
         run: |
           sh vendor/demo-kit/check-hash.sh
-          test "$(cat vendor/demo-kit/VERSION)" = "1"
+          test "$(cat vendor/demo-kit/VERSION)" = "2"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
