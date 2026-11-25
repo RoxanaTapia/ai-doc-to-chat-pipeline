@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import os
+from collections.abc import Mapping
 
 import streamlit as st
 
@@ -21,7 +22,7 @@ _CLIENT_COPY = {
     "chat_indexing": "Reading the document…",
     "chat_waiting": "The sample NDA is loading…",
     "doc_empty": "Loading the sample NDA…",
-    "doc_reading": "Reading {name} — {step}",
+    "doc_reading": "Reading {name}: {step}",
     "doc_ready": "Sample NDA · {pages} pages",
     "doc_ready_named": "{name} · {pages} pages",
     "doc_answering": "Looking through the document",
@@ -122,6 +123,17 @@ def booking_cta(url: str | None = None) -> dict[str, str | None]:
         "action": _CLIENT_COPY["booking_action"],
         "href": href,
     }
+
+
+def request_is_operator(headers: Mapping[str, str] | None = None) -> bool:
+    """True when the edge sent X-Ops-Ok on this session.
+
+    Presence is enough, including an empty value. The same header turns
+    Exit demo into Log out on the document.
+    """
+    if headers is None:
+        headers = st.context.headers
+    return any(str(key).lower() == "x-ops-ok" for key in headers)
 
 
 def should_show_booking(url: str | None = None) -> bool:

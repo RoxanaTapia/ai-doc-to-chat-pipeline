@@ -108,16 +108,16 @@ def _dev_panel_title(base: str, question_preview: str | None, *, fallback: str) 
     """Give each developer expander its own label, since Streamlit has no expander key."""
     preview = (question_preview or "").strip()
     if preview:
-        return f"{base} — {_question_preview(preview, 40)}"
-    return f"{base} — {fallback}"
+        return f"{base}: {_question_preview(preview, 40)}"
+    return f"{base}: {fallback}"
 
 
 def _sources_panel_title(message: dict) -> str:
     """Name the Sources expander after the question it answers."""
     preview = message.get("for_question")
     if preview:
-        return f"Sources — {preview}"
-    return "Sources — this answer"
+        return f"Sources: {preview}"
+    return "Sources: this answer"
 
 
 def _paired_turns(messages: list[dict]) -> list[tuple[dict | None, dict]]:
@@ -271,7 +271,7 @@ def _render_sources_panel(
     if not sources:
         return
     with st.expander(title, expanded=expanded):
-        st.caption("Page and short excerpt from the document — verify against the answer.")
+        st.caption("Page and short excerpt from the document. Check it against the answer.")
         blocks: list[str] = []
         for source in sources:
             page = source.get("page", "N/A")
@@ -312,11 +312,11 @@ def _render_source_checklist(
     with st.expander(title, expanded=False):
         if target_section:
             st.caption(
-                f"Target section: **{target_section}** · auto-tag is heuristic — "
-                "confirm manually when scoring."
+                f"Target section: **{target_section}**. The auto-tag is a heuristic. "
+                "Confirm it when you score."
             )
         else:
-            st.caption("No section in question — on-section column shows N/A.")
+            st.caption("No section in the question. The on-section column shows N/A.")
         for source_idx, source in enumerate(sources, start=1):
             preview = source.get("checklist_preview") or source.get("preview", "")
             st.markdown(

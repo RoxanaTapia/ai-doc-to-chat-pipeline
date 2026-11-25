@@ -26,6 +26,7 @@ from page_copy import (  # noqa: E402
     client_footer_html,
     privacy_badge_for_provider,
     privacy_line_for_provider,
+    request_is_operator,
     sample_preload_error_copy,
     should_preload_sample,
     should_show_booking,
@@ -397,7 +398,11 @@ def test_streamlit_boot_patch_covers_first_paint() -> None:
     assert "background: #f8f4f9" in boot_css
     assert "#14061f" in boot_css
     assert 'html[data-theme="dark"]' in boot_css
-    assert "Plus Jakarta Sans" in boot_css
+    assert (
+        'font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif !important;'
+        in boot_css
+    )
+    assert "IBM Plex" not in boot_css
     assert "fonts.googleapis.com" not in boot_css
     # Gate must ship in index.html — theme CSS arrives too late to prevent a flash.
     assert "visibility: hidden" in boot_css
@@ -554,6 +559,27 @@ def test_followup_keeps_answering_until_cards_paint() -> None:
     cards_at = text.find("with answers_slot.container()")
     release_at = text.find('doc_status") == "answering"')
     assert cards_at != -1 and release_at != -1 and cards_at < release_at
+
+
+def test_upload_is_operator_only_and_copy_has_no_em_dash() -> None:
+    """Visitors have no upload header. Operators do. Client sentences use a colon."""
+    assert request_is_operator({}) is False
+    assert request_is_operator({"Host": "local"}) is False
+    assert request_is_operator({"X-Ops-Ok": "1"}) is True
+    assert request_is_operator({"x-ops-ok": ""}) is True
+    assert _CLIENT_COPY["doc_reading"] == "Reading {name}: {step}"
+    for value in _CLIENT_COPY.values():
+        if isinstance(value, str):
+            assert "\u2014" not in value
+    panel = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
+    assert "\u2014" not in panel
+    app = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
+    assert "operator = request_is_operator()" in app
+    assert "if operator:" in app
+    assert 'key="own_pdf_toggle"' in app
+    assert "if operator and" in app
+    assert app.find("if operator:") < app.find('key="own_pdf_toggle"')
+    assert app.find("if operator and") < app.find("st.file_uploader(")
 
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:

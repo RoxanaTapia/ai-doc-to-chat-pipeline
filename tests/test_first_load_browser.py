@@ -380,6 +380,9 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             expect(page.locator("footer.dk-footer")).to_be_visible()
             expect(page.get_by_role("link", name="Built by Roxana Tapia")).to_be_visible()
             expect(page.get_by_role("link", name="Book a call")).to_be_visible()
+            expect(page.get_by_role("button", name="Try your own PDF")).to_have_count(0)
+            expect(page.locator('[data-testid="stFileUploader"]')).to_have_count(0)
+            expect(page.get_by_text("Sample NDA", exact=False).first).to_be_visible()
             browser.close()
 
 
@@ -461,4 +464,8 @@ def test_operator_header_loads_logout_and_heartbeat() -> None:
             expect(page.locator(".dk-exit-ops")).to_be_visible()
             expect(page.locator(".dk-exit-visitor")).to_be_hidden()
             expect(page.locator('script[src="/app/demo-kit/ops-heartbeat.js"]')).to_have_count(1)
+            expect(page.get_by_role("button", name="Try your own PDF")).to_be_visible()
+            expect(page.locator('[data-testid="stFileUploader"]')).to_have_count(0)
+            page.get_by_role("button", name="Try your own PDF").click()
+            expect(page.locator('[data-testid="stFileUploader"]')).to_be_visible(timeout=30000)
             browser.close()
