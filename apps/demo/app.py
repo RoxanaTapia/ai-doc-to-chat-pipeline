@@ -57,9 +57,11 @@ from ask_runtime import (
     call_with_stage_timeout,
     current_generation,
     drop_answer,
+    generation_pending,
     invalidate_answer,
     log_ask_stage,
     open_generation,
+    peek_answer,
     peek_retrieval,
     remaining_timeout,
     remember_answer,
@@ -101,6 +103,7 @@ from session_upload import (
     _set_dev_index_logs,
     _set_indexed_doc_stats,
     _set_processed_document,
+    enforce_sample_only,
     mark_sample_preload_failed,
     mark_upload_unreadable,
     page_text_counts,
@@ -117,6 +120,13 @@ from sources_panel import (
     _render_answer_card,
     _render_eval_context_panel,
     _render_source_checklist,
+)
+from usage_caps import (
+    begin_model_call,
+    upload_controls_open,
+    upload_exceeds_cap,
+    upload_limit_label,
+    visitor_key,
 )
 
 _FAVICON = Path(__file__).resolve().parents[2] / "vendor" / "demo-kit" / "favicon-32.png"
@@ -512,6 +522,19 @@ def _ask_key(question: str) -> tuple[str, str]:
     return session_id, (question or "").strip()
 
 
+def _current_visitor_key() -> str:
+    """Address from X-Forwarded-For, or this browser session when it is absent."""
+    ctx = get_script_run_ctx()
+    session_id = str(getattr(ctx, "session_id", "") or "")
+    return visitor_key(st.context.headers, session_id)
+
+
+def _model_attempt_id(ask_key: tuple[str, str], generation: int) -> str:
+    """One id per look-up attempt, so a rerun does not take a second slot."""
+    session_id, question = ask_key
+    return f"{session_id}:{generation}:{question}"
+
+
 def _finish_ask(question: str) -> None:
     """The reply is stored. A late second Enter or Ask of this text stays quiet."""
     drop_answer(_ask_key(question))
@@ -840,6 +863,10 @@ if _show_sidebar:
         github_url=_github,
     )
 
+operator = request_is_operator()
+upload_open = upload_controls_open(operator=operator)
+enforce_sample_only(upload_open=upload_open)
+
 if preload_sample_nda():
     try:
         cached = get_sample_nda_index(
@@ -869,8 +896,7 @@ if preload_sample_nda():
 _render_client_hero(hide_sidebar=not _show_sidebar)
 
 st.markdown('<div class="app-toolbar-mark" aria-hidden="true"></div>', unsafe_allow_html=True)
-operator = request_is_operator()
-if operator:
+if upload_open:
     privacy_col, status_col, own_col = st.columns([1.1, 2.2, 1.4])
 else:
     privacy_col, status_col = st.columns([1.1, 2.2])
@@ -895,7 +921,7 @@ if own_col is not None:
 
 uploader_key = f"pdf_uploader_{st.session_state.uploader_key_version}"
 uploaded_file = None
-if operator and (st.session_state.get("show_own_pdf") or st.session_state.get("own_pdf_mode")):
+if upload_open and (st.session_state.get("show_own_pdf") or st.session_state.get("own_pdf_mode")):
     uploaded_file = st.file_uploader(
         "PDF",
         type=["pdf"],
@@ -903,6 +929,18 @@ if operator and (st.session_state.get("show_own_pdf") or st.session_state.get("o
         label_visibility="collapsed",
         help=_CLIENT_COPY["own_pdf_help"],
     )
+    st.caption(_CLIENT_COPY["upload_limit_hint"].format(limit=upload_limit_label()))
+    if uploaded_file is not None and upload_exceeds_cap(len(uploaded_file.getvalue())):
+        st.session_state.upload_limit_message = _CLIENT_COPY["upload_too_large"].format(
+            limit=upload_limit_label()
+        )
+        st.session_state.uploader_key_version += 1
+        st.session_state._uploader_widget_had_file = False
+        st.rerun()
+
+upload_limit_message = st.session_state.pop("upload_limit_message", None)
+if upload_limit_message:
+    st.error(upload_limit_message)
 
 prev_uploader_had_file = st.session_state.get("_uploader_widget_had_file", False)
 curr_uploader_has_file = uploaded_file is not None
@@ -1152,11 +1190,7 @@ if st.session_state.pop("_clear_ask_box", False):
 # the script and stops the pass that is inside the model call. The next pass
 # still has the question, so it can finish that look-up once.
 queued_question = (st.session_state.get("queued_question") or "").strip() or None
-if (
-    queued_question
-    and chat_ready
-    and reply_is_stored(st.session_state.messages, queued_question)
-):
+if queued_question and chat_ready and reply_is_stored(st.session_state.messages, queued_question):
     _finish_ask(queued_question)
     queued_question = None
 
@@ -1234,6 +1268,7 @@ if query and query.strip() and chat_ready:
 
         retrieval_error = None
         generation_error = None
+        usage_blocked = False
         raw_results: list[tuple[Document, float]] = []
         retrieved_docs: list[Document] = []
         context = ""
@@ -1391,7 +1426,15 @@ if query and query.strip() and chat_ready:
                         )
 
                     context_ok, _context_gap = context_sufficient_for_query(query, context)
-                    if CONTEXT_SUFFICIENCY_GUARD and not context_ok:
+                    guard_skipped = CONTEXT_SUFFICIENCY_GUARD and not context_ok
+                    if guard_skipped:
+                        # The model is not called, so this question does not use a cap slot.
+                        begin_model_call(
+                            visitor_key=_current_visitor_key(),
+                            attempt_id=_model_attempt_id(ask_key, generation),
+                            guard_skipped=True,
+                            already_started=False,
+                        )
                         remember_answer(ask_key, generation, INSUFFICIENT_CONTEXT_ANSWER)
                         st.session_state.last_answer = INSUFFICIENT_CONTEXT_ANSWER
                         st.session_state.last_generation_error = None
@@ -1400,45 +1443,79 @@ if query and query.strip() and chat_ready:
                         )
                         generation_elapsed_ms = 0.0
                     else:
-                        generation_start = time.perf_counter()
-                        model_timeout = remaining_timeout(total_start, timeout_seconds)
-                        try:
-                            streamed = run_model_once(
-                                ask_key,
-                                lambda: _collect_generated_answer(
-                                    context,
-                                    query,
-                                    dummy_mode,
-                                    stash_key=ask_key,
-                                    generation=generation,
-                                    timeout_seconds=model_timeout,
-                                ),
-                                model_timeout,
-                                question=query,
-                                resuming=resuming,
-                                retrieval_ms=retrieval_elapsed_ms,
-                            )
-                            # End is logged inside run_model_once, before this write.
-                            # The write is a yield point: a pending Ask rerun raises
-                            # here and does not store the value.
+                        cap_text = _CLIENT_COPY["usage_cap"]
+                        stashed_answer = peek_answer(ask_key)
+                        already_started = stashed_answer is not None or generation_pending(ask_key)
+                        if stashed_answer == cap_text:
+                            permit = None
+                        else:
+                            try:
+                                permit = begin_model_call(
+                                    visitor_key=_current_visitor_key(),
+                                    attempt_id=_model_attempt_id(ask_key, generation),
+                                    guard_skipped=False,
+                                    already_started=already_started,
+                                )
+                            except Exception:
+                                logger.exception("Could not check the demo question cap")
+                                permit = None
+                        if stashed_answer == cap_text or permit is None or not permit.call_model:
+                            usage_blocked = True
+                            remember_answer(ask_key, generation, cap_text)
+                            st.session_state.last_answer = cap_text
                             st.session_state.last_generation_error = None
-                            st.session_state.last_answer = streamed
-                        except AskTimeoutError as e:
-                            generation_error = e
-                            invalidate_answer(ask_key)
-                            st.session_state.last_answer = None
-                        except Exception as e:
-                            generation_error = e
-                            invalidate_answer(ask_key)
-                            st.session_state.last_answer = None
-                        generation_elapsed_ms = (time.perf_counter() - generation_start) * 1000.0
-                        if generation_error is not None:
+                            generation_elapsed_ms = 0.0
                             log_ask_stage(
-                                "error",
+                                "usage_cap",
                                 question=query,
-                                elapsed_ms=generation_elapsed_ms,
-                                reason=type(generation_error).__name__,
+                                reason=(
+                                    permit.blocked_reason
+                                    if permit is not None and permit.blocked_reason
+                                    else "cap"
+                                ),
                             )
+                        else:
+                            generation_start = time.perf_counter()
+                            model_timeout = remaining_timeout(total_start, timeout_seconds)
+                            try:
+                                streamed = run_model_once(
+                                    ask_key,
+                                    lambda: _collect_generated_answer(
+                                        context,
+                                        query,
+                                        dummy_mode,
+                                        stash_key=ask_key,
+                                        generation=generation,
+                                        timeout_seconds=model_timeout,
+                                    ),
+                                    model_timeout,
+                                    question=query,
+                                    resuming=resuming,
+                                    retrieval_ms=retrieval_elapsed_ms,
+                                )
+                                # End is logged inside run_model_once, before this write.
+                                # The write is a yield point: a pending Ask rerun raises
+                                # here and does not store the value.
+                                st.session_state.last_generation_error = None
+                                st.session_state.last_answer = streamed
+                            except AskTimeoutError as e:
+                                generation_error = e
+                                invalidate_answer(ask_key)
+                                st.session_state.last_answer = None
+                            except Exception as e:
+                                generation_error = e
+                                invalidate_answer(ask_key)
+                                st.session_state.last_answer = None
+                            generation_elapsed_ms = (
+                                time.perf_counter() - generation_start
+                            ) * 1000.0
+                            if generation_error is not None:
+                                log_ask_stage(
+                                    "error",
+                                    question=query,
+                                    elapsed_ms=generation_elapsed_ms,
+                                    reason=type(generation_error).__name__,
+                                )
                 except AskTimeoutError as e:
                     retrieval_error = e
                     retrieval_elapsed_ms = (time.perf_counter() - retrieval_start) * 1000.0
@@ -1557,9 +1634,7 @@ if query and query.strip() and chat_ready:
                     for i, (doc, _raw_score) in enumerate(raw_results, start=1):
                         similarity = doc.metadata.get("similarity")
                         score = (
-                            round(similarity, 3)
-                            if isinstance(similarity, (float, int))
-                            else "N/A"
+                            round(similarity, 3) if isinstance(similarity, (float, int)) else "N/A"
                         )
                         st.markdown(
                             f"**Chunk {i}** (similarity score: {score})  \n"
@@ -1617,29 +1692,38 @@ if query and query.strip() and chat_ready:
             paint_status(status_slot, "error", reason)
             st.rerun()
         else:
-            assistant_message = visitor_refusal_answer(
-                st.session_state.last_answer
-                or "I could not generate an answer at this time. Please try again.",
-                query,
-            )
-            target_section = extract_target_section(query)
-            source_payload = _build_sources_payload(
-                retrieved_docs,
-                query=query,
-                answer=assistant_message,
-                display_max=SOURCES_DISPLAY_MAX,
-                preview_chars=SOURCE_PREVIEW_CHARS,
-            )
-            _remember_response_timing(timing_payload if total_elapsed_ms > 0 else None)
+            if usage_blocked:
+                assistant_message = _CLIENT_COPY["usage_cap"]
+                source_payload = []
+                stored_timing = None
+                target_section = None
+                eval_context = None
+            else:
+                assistant_message = visitor_refusal_answer(
+                    st.session_state.last_answer
+                    or "I could not generate an answer at this time. Please try again.",
+                    query,
+                )
+                target_section = extract_target_section(query)
+                source_payload = _build_sources_payload(
+                    retrieved_docs,
+                    query=query,
+                    answer=assistant_message,
+                    display_max=SOURCES_DISPLAY_MAX,
+                    preview_chars=SOURCE_PREVIEW_CHARS,
+                )
+                stored_timing = timing_payload if total_elapsed_ms > 0 else None
+                eval_context = context if st.session_state.developer_mode else None
+            _remember_response_timing(stored_timing)
             _append_chat_message(
                 "assistant",
                 assistant_message,
                 sources=source_payload,
-                timing=timing_payload if total_elapsed_ms > 0 else None,
+                timing=stored_timing,
                 for_question=query,
-                eval_context=context if st.session_state.developer_mode else None,
+                eval_context=eval_context,
                 target_section=target_section,
-                eval_chunk_count=len(raw_results),
+                eval_chunk_count=None if usage_blocked else len(raw_results),
             )
             _finish_ask(query)
             typing_slot.empty()

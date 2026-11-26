@@ -45,6 +45,12 @@ _CLIENT_COPY = {
     "checked_one_page": "Searched the whole page",
     "sample_preload_error": "Could not load the sample NDA.",
     "pdf_unreadable": "We couldn't read this PDF. Try another file.",
+    "upload_limit_hint": "PDFs up to {limit}.",
+    "upload_too_large": "That PDF is larger than {limit}. Please choose a smaller file.",
+    "usage_cap": (
+        "This demo has reached its limit for now. "
+        "Please try again later, or book a short call and I'll walk you through it."
+    ),
     "booking_prompt": "Want this on your documents?",
     "booking_action": "Message me on Upwork.",
     "progress_prepare": "preparing",
@@ -204,8 +210,7 @@ def walkthrough_score(messages: list[dict] | None) -> str | None:
     if tally is None:
         return None
     return (
-        f"{tally['questions']} questions · {tally['sources']} sources · "
-        f"{tally['honest']} honest no"
+        f"{tally['questions']} questions · {tally['sources']} sources · {tally['honest']} honest no"
     )
 
 
