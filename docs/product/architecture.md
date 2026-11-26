@@ -47,7 +47,7 @@ sequenceDiagram
   A-->>U: Answer + page excerpts
 ```
 
-Nothing is written to a document library. Restart the app and you upload again. The answer is written by a hosted model, so this app does not keep model weights on disk.
+Nothing is written to a document library. The public demo does keep a small count of model calls, so the daily pause survives a refresh. Restart the app and a visitor PDF is gone. The answer is written by a hosted model, so this app does not keep model weights on disk.
 
 ---
 

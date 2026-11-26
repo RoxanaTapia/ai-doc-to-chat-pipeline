@@ -41,7 +41,7 @@ A shared library, sign-in for your organization, and a separate space per projec
 - The file itself is the [sample NDA](docs/product/sample-nda.pdf)
 - Optional: [ask for a walkthrough on Upwork](https://www.upwork.com/freelancers/roxanadev)
 
-Only the few passages needed for an answer are sent to a hosted model. Claude is the default. OpenAI and Grok are the other choices. A PDF a signed-in operator uploads is cleared when they leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
+Only the few passages needed for an answer are sent to a hosted model. Claude is the default. OpenAI and Grok are the other choices. Visitors on the shared pilot stay on the sample NDA. When the pilot has answered enough questions for the hour or the day, it asks you to try again later or book a short call. A PDF a signed-in operator uploads can be no larger than the size shown on the page, and is cleared when they leave or reset. Each session starts fresh. Use only sample or non-confidential documents on the shared pilot.
 
 ## Where things are
 

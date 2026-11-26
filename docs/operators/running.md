@@ -88,6 +88,26 @@ Keep `COMPOSE_PROJECT_NAME=ai-doc-to-chat-pipeline` so Compose project names sta
 
 ---
 
+## Demo limits
+
+The public demo answers from the sample NDA. Visitors cannot upload a PDF unless you turn that on. A signed-in operator can upload either way. The page states the largest size it will accept, and refuses a bigger file.
+
+Model calls pause when one visitor has asked enough for the hour, or when the whole demo has asked enough for the day. A question the document cannot answer does not count, because the model is not called. The page then says: "This demo has reached its limit for now. Please try again later, or book a short call and I'll walk you through it."
+
+The counts are kept in a small file so a refresh does not reset them. Compose stores that file in the `demo-usage` volume, which stays when you recreate the app container.
+
+| Setting | Empty means | What it does |
+|---------|-------------|--------------|
+| `DEMO_ALLOW_UPLOAD` | off | `true` lets a visitor upload a PDF |
+| `DEMO_UPLOAD_MAX_MB` | 10 | Largest PDF, in megabytes. The page states this size |
+| `DEMO_VISITOR_HOURLY_CAP` | 20 | Model calls one visitor may make in an hour |
+| `DEMO_DAILY_CAP` | 200 | Model calls the whole demo may make in one day, from midnight UTC |
+| `DEMO_USAGE_STORE` | `data/usage.sqlite` | File that remembers those counts |
+
+The visitor is the address in `X-Forwarded-For`, the one the reverse proxy added. If that header is missing, the hour follows this browser session. Leave a value empty in `.env` to keep the default. Do not commit a filled `.env`.
+
+---
+
 ## Pin a version
 
 The core package is `ai-doc` **1.0.0** ([`pyproject.toml`](../../pyproject.toml), and `ai_doc.__version__`). The demo is not its own package. Streamlit is the `demo` extra.
