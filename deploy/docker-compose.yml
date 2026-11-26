@@ -25,6 +25,12 @@ services:
       # Client-facing host: APP_ALLOW_DEV_TOGGLE=false APP_PRESENTATION_MODE=client
       APP_ALLOW_DEV_TOGGLE: ${APP_ALLOW_DEV_TOGGLE:-false}
       APP_PRESENTATION_MODE: ${APP_PRESENTATION_MODE:-client}
+      # Question counts survive a new container. Empty keeps data/usage.sqlite.
+      DEMO_USAGE_STORE: ${DEMO_USAGE_STORE:-/app/data/usage.sqlite}
+      # Same megabyte cap the page states. Empty keeps 10.
+      STREAMLIT_SERVER_MAX_UPLOAD_SIZE: ${DEMO_UPLOAD_MAX_MB:-10}
+    volumes:
+      - demo-usage:/app/data
     restart: unless-stopped
 
   # Thin API (optional). Same image as app; OpenAPI at http://localhost:8000/docs
@@ -52,3 +58,6 @@ services:
     restart: unless-stopped
     profiles:
       - api
+
+volumes:
+  demo-usage:

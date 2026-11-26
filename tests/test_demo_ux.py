@@ -82,7 +82,7 @@ def test_client_footer_is_the_kit_footer() -> None:
     assert "visibility: visible !important" in theme
     assert "text-decoration: none !important" in theme
     app = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
-    assert 'page_icon=str(_FAVICON)' in app
+    assert "page_icon=str(_FAVICON)" in app
     assert 'vendor" / "demo-kit" / "favicon-32.png"' in app or "favicon-32.png" in app
 
 
@@ -567,7 +567,7 @@ def test_ask_path_queues_then_generates_without_write_stream() -> None:
 def test_followup_keeps_answering_until_cards_paint() -> None:
     """Success path must not paint ready before the post-ask rerun (busy gap)."""
     text = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
-    success_marker = "eval_chunk_count=len(raw_results),"
+    success_marker = "eval_chunk_count=None if usage_blocked else len(raw_results),"
     success_at = text.find(success_marker)
     assert success_at != -1
     after_append = text[success_at : success_at + 500]
@@ -582,24 +582,30 @@ def test_followup_keeps_answering_until_cards_paint() -> None:
 
 
 def test_upload_is_operator_only_and_copy_has_no_em_dash() -> None:
-    """Visitors have no upload header. Operators do. Client sentences use a colon."""
+    """Visitors have no upload header unless the demo allows it. Operators do."""
+    from usage_caps import upload_controls_open
+
     assert request_is_operator({}) is False
     assert request_is_operator({"Host": "local"}) is False
     assert request_is_operator({"X-Ops-Ok": "1"}) is True
     assert request_is_operator({"x-ops-ok": ""}) is True
+    assert upload_controls_open(operator=False) is False
+    assert upload_controls_open(operator=True) is True
     assert _CLIENT_COPY["doc_reading"] == "Reading {name}: {step}"
     for value in _CLIENT_COPY.values():
         if isinstance(value, str):
             assert "\u2014" not in value
+        elif isinstance(value, tuple):
+            assert "\u2014" not in "".join(value)
     panel = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert "\u2014" not in panel
     app = (DEMO_DIR / "app.py").read_text(encoding="utf-8")
     assert "operator = request_is_operator()" in app
-    assert "if operator:" in app
+    assert "upload_open = upload_controls_open(operator=operator)" in app
     assert 'key="own_pdf_toggle"' in app
-    assert "if operator and" in app
-    assert app.find("if operator:") < app.find('key="own_pdf_toggle"')
-    assert app.find("if operator and") < app.find("st.file_uploader(")
+    assert "if upload_open and" in app
+    assert app.find("operator = request_is_operator()") < app.find('key="own_pdf_toggle"')
+    assert app.find("if upload_open and") < app.find("st.file_uploader(")
 
 
 def test_header_row_keeps_privacy_status_and_own_pdf() -> None:

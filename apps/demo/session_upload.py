@@ -165,6 +165,17 @@ def render_sample_preload_error() -> None:
             st.rerun()
 
 
+def enforce_sample_only(*, upload_open: bool) -> None:
+    """Drop a visitor PDF when uploads are off, so the sample NDA can load."""
+    if upload_open:
+        return
+    st.session_state.own_pdf_mode = False
+    st.session_state.show_own_pdf = False
+    name = st.session_state.get("uploaded_pdf_name") or st.session_state.get("current_file")
+    if name and name != SAMPLE_NDA_NAME:
+        _reset_document_state(bump_uploader_key=True)
+
+
 def preload_sample_nda() -> bool:
     """Load the walkthrough NDA on first paint when the visitor has not uploaded."""
     if st.session_state.get("sample_preload_failed"):

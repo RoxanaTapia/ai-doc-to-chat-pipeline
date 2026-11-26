@@ -26,6 +26,7 @@ _DEMO_MODULES = frozenset(
         "session_upload",
         "sources_panel",
         "ui_theme",
+        "usage_caps",
     }
 )
 
@@ -88,6 +89,7 @@ demo = {
     "session_upload",
     "sources_panel",
     "ui_theme",
+    "usage_caps",
 }
 loaded = [
     name
