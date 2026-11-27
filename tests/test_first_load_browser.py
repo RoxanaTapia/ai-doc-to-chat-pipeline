@@ -376,13 +376,9 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             assert not result.get("sawUnstyledDeploy"), result
             assert not result.get("timedOut"), result
             page.get_by_placeholder(READY_HINT).wait_for(state="visible", timeout=30000)
-            expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(
-                timeout=30000
-            )
+            expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(timeout=30000)
             expect(page.locator(".dk-product")).to_have_text("Ask your document")
-            expect(page.locator("#demo-exit")).to_have_attribute(
-                "href", "https://roxanatapia.dev/"
-            )
+            expect(page.locator("#demo-exit")).to_have_attribute("href", "https://roxanatapia.dev/")
             expect(page.locator("#demo-exit")).not_to_have_attribute("target", "_blank")
             expect(page.locator(".dk-exit-visitor")).to_have_text("Back to portfolio")
             expect(page.locator(".dk-exit-visitor")).to_be_visible()
@@ -419,9 +415,7 @@ def test_first_load_chips_at_390px_do_not_jump() -> None:
             assert not paint.get("sawVisibleSkeleton"), paint
 
             page.get_by_placeholder(READY_HINT).wait_for(state="visible", timeout=30000)
-            expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(
-                timeout=30000
-            )
+            expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(timeout=30000)
             chip = page.get_by_role("button", name=TERM_CHIP, exact=True)
             expect(chip).to_be_visible(timeout=30000)
             header = page.evaluate(
@@ -495,9 +489,7 @@ def test_operator_header_loads_logout_and_heartbeat() -> None:
             page.set_extra_http_headers({"X-Ops-Ok": "1"})
             page.goto(url, wait_until="commit")
             page.get_by_placeholder(READY_HINT).wait_for(state="visible", timeout=30000)
-            assert page.evaluate(
-                "document.documentElement.getAttribute('data-operator')"
-            ) == "true"
+            assert page.evaluate("document.documentElement.getAttribute('data-operator')") == "true"
             expect(page.locator("#demo-exit")).to_have_attribute("href", "/ops/logout")
             expect(page.locator(".dk-exit-ops")).to_be_visible()
             expect(page.locator(".dk-exit-visitor")).to_be_hidden()

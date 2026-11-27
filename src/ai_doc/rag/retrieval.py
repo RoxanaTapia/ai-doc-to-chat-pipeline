@@ -108,10 +108,7 @@ def semantic_search(
         mode = "semantic_global_fallback"
 
     return (
-        [
-            (doc, distance_to_ui_similarity(float(distance)))
-            for doc, distance in selected
-        ],
+        [(doc, distance_to_ui_similarity(float(distance))) for doc, distance in selected],
         mode,
         {
             "dense_candidates": len(candidate_results),
@@ -197,13 +194,18 @@ def hybrid_rrf_search(
         (doc, normalized_score)
         for (doc, _original_score), normalized_score in zip(top_candidates, normalized_scores)
     ]
-    return normalized_candidates[:effective_limit], "hybrid_rrf", None, {
-        "dense_candidates": len(dense_results),
-        "sparse_candidates": len(top_sparse_indices),
-        "fused_candidates": len(ranked_keys),
-        "selected_before_rerank": len(top_candidates),
-        "used_global_fallback": False,
-    }
+    return (
+        normalized_candidates[:effective_limit],
+        "hybrid_rrf",
+        None,
+        {
+            "dense_candidates": len(dense_results),
+            "sparse_candidates": len(top_sparse_indices),
+            "fused_candidates": len(ranked_keys),
+            "selected_before_rerank": len(top_candidates),
+            "used_global_fallback": False,
+        },
+    )
 
 
 def first_stage_retrieval(
@@ -332,7 +334,7 @@ def finalize_retrieval(
         )
         mode = f"{mode}_deduped"
 
-    combined_warning = " · ".join(
-        part for part in (reranker_warning, section_warning) if part
-    ) or None
+    combined_warning = (
+        " · ".join(part for part in (reranker_warning, section_warning) if part) or None
+    )
     return pool[: config.top_k], mode, combined_warning

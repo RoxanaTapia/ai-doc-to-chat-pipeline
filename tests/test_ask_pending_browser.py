@@ -515,9 +515,12 @@ def test_html_in_answer_is_escaped() -> None:
                 expect_text="payload about Spain",
                 min_cards=1,
             )
-            assert page.locator(
-                ".app-answer-headline script, [class*='st-key-answer_card_'] script"
-            ).count() == 0
+            assert (
+                page.locator(
+                    ".app-answer-headline script, [class*='st-key-answer_card_'] script"
+                ).count()
+                == 0
+            )
             assert page.locator("[class*='st-key-answer_card_'] img[src='x']").count() == 0
             body = page.locator("body").inner_text()
             assert "<script>" in body or "alert(1)" in body

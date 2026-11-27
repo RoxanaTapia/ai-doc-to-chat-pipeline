@@ -46,22 +46,26 @@ def _retrieval_config():
     section = retrieval.get("section_aware") or {}
     top_k = int(rag.get("top_k", 4))
     fetch_k = int(rag.get("fetch_k", 50))
-    return RetrievalConfig(
-        top_k=top_k,
-        fetch_k=fetch_k,
-        early_page_max=int(rag.get("early_page_max", 20)),
-        bm25_fetch_k=int(retrieval.get("bm25_fetch_k", fetch_k)),
-        rrf_k=int(retrieval.get("rrf_k", 60)),
-        dense_weight=float(retrieval.get("dense_weight", 1.0)),
-        bm25_weight=float(retrieval.get("bm25_weight", 1.0)),
-        reranker_top_n=int((retrieval.get("reranker") or {}).get("top_n", 50)),
-        section_aware_enabled=bool(section.get("enabled", True)),
-        section_aware_boost=float(section.get("boost", 1.5)),
-        section_aware_min_chunks=int(section.get("min_chunks", 2)),
-        max_chunks_per_page=int(retrieval.get("max_chunks_per_page", 2)),
-        dedupe_similar_chunks=bool(retrieval.get("dedupe_similar_chunks", True)),
-        dedupe_prefix_chars=int(retrieval.get("dedupe_prefix_chars", 180)),
-    ), bool(section.get("hard_context_filter", True)), int(section.get("context_min_chunks", 2))
+    return (
+        RetrievalConfig(
+            top_k=top_k,
+            fetch_k=fetch_k,
+            early_page_max=int(rag.get("early_page_max", 20)),
+            bm25_fetch_k=int(retrieval.get("bm25_fetch_k", fetch_k)),
+            rrf_k=int(retrieval.get("rrf_k", 60)),
+            dense_weight=float(retrieval.get("dense_weight", 1.0)),
+            bm25_weight=float(retrieval.get("bm25_weight", 1.0)),
+            reranker_top_n=int((retrieval.get("reranker") or {}).get("top_n", 50)),
+            section_aware_enabled=bool(section.get("enabled", True)),
+            section_aware_boost=float(section.get("boost", 1.5)),
+            section_aware_min_chunks=int(section.get("min_chunks", 2)),
+            max_chunks_per_page=int(retrieval.get("max_chunks_per_page", 2)),
+            dedupe_similar_chunks=bool(retrieval.get("dedupe_similar_chunks", True)),
+            dedupe_prefix_chars=int(retrieval.get("dedupe_prefix_chars", 180)),
+        ),
+        bool(section.get("hard_context_filter", True)),
+        int(section.get("context_min_chunks", 2)),
+    )
 
 
 def answer_question() -> str:

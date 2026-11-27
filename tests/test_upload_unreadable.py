@@ -162,11 +162,7 @@ def test_refusal_timing_is_skipped() -> None:
             page_count=3,
             card_key="t2",
         )
-        timing_blocks = [
-            (block, kwargs)
-            for block, kwargs in markdowns
-            if "Answered in" in block
-        ]
+        timing_blocks = [(block, kwargs) for block, kwargs in markdowns if "Answered in" in block]
         assert len(timing_blocks) == 1
         timing_html, timing_kwargs = timing_blocks[0]
         assert 'class="app-timing"' in timing_html

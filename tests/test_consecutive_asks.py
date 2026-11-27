@@ -667,9 +667,7 @@ def test_followup_refusal_has_no_busy_gap(stub_env, monkeypatch: pytest.MonkeyPa
     assert FEE_QUESTION in _card_questions(at)
 
 
-def test_cards_never_paint_alongside_busy_line(
-    stub_env, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cards_never_paint_alongside_busy_line(stub_env, monkeypatch: pytest.MonkeyPatch) -> None:
     """Earlier cards stay visible for the whole busy window."""
     from streamlit.testing.v1 import AppTest
 

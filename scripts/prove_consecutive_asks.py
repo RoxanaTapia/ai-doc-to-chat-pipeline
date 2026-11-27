@@ -195,9 +195,7 @@ def _wait_ready(page, timeout_ms: int) -> None:
 
     box = page.get_by_placeholder(READY_HINT)
     box.wait_for(state="visible", timeout=timeout_ms)
-    expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(
-        timeout=timeout_ms
-    )
+    expect(page.get_by_role("button", name="Ask", exact=True)).to_be_enabled(timeout=timeout_ms)
 
 
 def _ask(

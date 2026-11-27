@@ -1,0 +1,12 @@
+---
+description: Automated tests run on every change, before review
+alwaysApply: true
+---
+
+# Tests
+
+- Run the commands in [Tests](../../AGENTS.md#tests) before a pull request is ready.
+- CI runs `ruff check .`, `ruff format --check .`, `sh vendor/demo-kit/check-hash.sh`, and `PYTHONPATH=src:apps/demo pytest tests/ -q`.
+- `vendor/demo-kit/VERSION` must read `2`. CI installs Playwright and Chromium before pytest.
+- When a test fails, fix the project. Do not weaken the test to make it pass.
+- A change to what the app does needs a test that fails if that behaviour is missing.

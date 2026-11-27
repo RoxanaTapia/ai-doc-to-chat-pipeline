@@ -394,9 +394,7 @@ def test_openai_and_xai_builders_use_fakes_and_their_own_keys(monkeypatch) -> No
     openai_answer = rag._generate_with_openai(
         "Context text", "Question text", settings=_SAMPLE_SETTINGS
     )
-    xai_answer = rag._generate_with_xai(
-        "Context text", "Question text", settings=_SAMPLE_SETTINGS
-    )
+    xai_answer = rag._generate_with_xai("Context text", "Question text", settings=_SAMPLE_SETTINGS)
 
     assert openai_answer == "Hosted answer."
     assert xai_answer == "Hosted answer."

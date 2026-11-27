@@ -24,7 +24,7 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     assert patch(index, css, js) is True
     text = index.read_text(encoding="utf-8")
     assert MARKER in text
-    assert "id=\"app-boot\"" in text
+    assert 'id="app-boot"' in text
     assert "Reading the contract" in text
     assert "app-boot__dots" in text
     assert css in text
@@ -48,7 +48,7 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     assert "/invite/exit" not in text
     assert "Exit demo" not in text
     before, after = text.split('id="demo-exit"', 1)
-    exit_tag = before[before.rfind("<a"):] + 'id="demo-exit"' + after[: after.find(">") + 1]
+    exit_tag = before[before.rfind("<a") :] + 'id="demo-exit"' + after[: after.find(">") + 1]
     assert 'href="https://roxanatapia.dev/"' in exit_tag
     assert "target=" not in exit_tag
     assert "btn-primary" not in exit_tag
@@ -118,7 +118,7 @@ def test_boot_js_dismiss_gate_waits_for_theme_fonts_and_frame() -> None:
 def test_operator_header_adds_flag_and_heartbeat() -> None:
     from ai_doc_ops import transform_index
 
-    raw = b"<!DOCTYPE html><html lang=\"en\"><body><p>Hi</p></body></html>"
+    raw = b'<!DOCTYPE html><html lang="en"><body><p>Hi</p></body></html>'
     visitor = transform_index(raw, operator=False)
     assert visitor == raw
     operator = transform_index(raw, operator=True).decode("utf-8")

@@ -109,13 +109,9 @@ def test_extract_target_section_parses_common_patterns() -> None:
 def test_extract_target_section_infers_definition_walkthrough() -> None:
     assert extract_target_section("What's confidential information?") == "1"
     assert extract_target_section("What is confidential information?") == "1"
-    assert extract_target_section(
-        "How is Confidential Information defined?"
-    ) == "1"
+    assert extract_target_section("How is Confidential Information defined?") == "1"
     assert extract_target_section("Who are the parties to this agreement?") is None
-    assert extract_target_section(
-        "What obligations apply to confidentiality?"
-    ) is None
+    assert extract_target_section("What obligations apply to confidentiality?") is None
 
 
 def test_find_section_headers_on_numbered_clauses() -> None:
@@ -376,13 +372,9 @@ def test_split_documents_keeps_toc_out_of_section_bodies() -> None:
         [Document(page_content=TOC_BLEED_PAGE, metadata={"page": 1})]
     )
     by_section = {
-        doc.metadata.get("section"): doc
-        for doc in sections
-        if doc.metadata.get("section")
+        doc.metadata.get("section"): doc for doc in sections if doc.metadata.get("section")
     }
-    preamble = next(
-        doc for doc in sections if doc.metadata.get("section_title") == "preamble"
-    )
+    preamble = next(doc for doc in sections if doc.metadata.get("section_title") == "preamble")
     notes = next(
         (doc for doc in sections if doc.metadata.get("section_title") == "notes"),
         None,
@@ -416,12 +408,9 @@ Parties agree as follows.
 1. Definition of Confidential Information
 Confidential Information means trade secrets.
 """
-    sections = split_documents_by_legal_headers(
-        [Document(page_content=page, metadata={"page": 1})]
-    )
+    sections = split_documents_by_legal_headers([Document(page_content=page, metadata={"page": 1})])
     assert sections[0].metadata.get("section_title") == "preamble"
     assert "Parties agree" in sections[0].page_content
     assert sections[1].metadata.get("section") == "1"
     assert sections[1].page_content.startswith("1. Definition")
     assert "Parties agree" not in sections[1].page_content
-

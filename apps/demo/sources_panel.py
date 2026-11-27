@@ -391,10 +391,7 @@ def _live_timing_html(question: str, text: str = "") -> str:
     """
     safe_q = html.escape(question or "", quote=True)
     body = html.escape(text) if text else ""
-    return (
-        f'<p class="app-timing" data-ask-timing="1" '
-        f'data-ask-question="{safe_q}">{body}</p>'
-    )
+    return f'<p class="app-timing" data-ask-timing="1" data-ask-question="{safe_q}">{body}</p>'
 
 
 def _format_elapsed_ms(elapsed_ms: float) -> str:
