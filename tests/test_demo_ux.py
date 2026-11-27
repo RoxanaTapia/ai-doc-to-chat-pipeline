@@ -947,6 +947,27 @@ def test_storyboard_stills_keep_page_grey_and_ink_headlines() -> None:
     )
 
 
+def test_visitor_header_is_a_quiet_portfolio_link() -> None:
+    """Invite visitors get Back to portfolio. Operators still get Log out."""
+    header = (PROJECT_ROOT / "deploy" / "brand_header.html").read_text(encoding="utf-8")
+    css = (PROJECT_ROOT / "vendor" / "demo-kit" / "demo-kit.css").read_text(encoding="utf-8")
+    theme = (PROJECT_ROOT / "vendor" / "demo-kit" / "theme.js").read_text(encoding="utf-8")
+    start = header.find('id="demo-exit"')
+    assert start != -1
+    open_at = header.rfind("<a", 0, start)
+    tag = header[open_at:header.find(">", start) + 1]
+    assert 'href="https://roxanatapia.dev/"' in tag
+    assert "target=" not in tag
+    assert "btn-primary" not in tag
+    assert "Back to portfolio" in header
+    assert "Log out" in header
+    assert "Exit demo" not in header
+    assert "/invite/exit" not in header
+    assert ".dk-exit-ops" in css and "display: none" in css
+    assert 'html[data-operator="true"] .dk-exit' in css
+    assert 'link.setAttribute("href", "/ops/logout")' in theme
+
+
 def _headline_ink_height(
     image,
     *,

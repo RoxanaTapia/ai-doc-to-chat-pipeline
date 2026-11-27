@@ -482,9 +482,41 @@ main {
 }
 
 .dk-exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 40px;
-  padding: 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font);
   font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dk-exit:hover {
+  color: #9d174d;
+}
+
+:root[data-theme="dark"] .dk-exit:hover {
+  color: #f7a8c6;
+}
+
+html[data-operator="true"] .dk-exit {
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+html[data-operator="true"] .dk-exit:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
 }
 
 .dk-exit-ops {
@@ -703,14 +735,19 @@ html[data-operator="true"] .dk-exit-ops {
   }
 
   .dk-exit {
-    padding: 0 12px;
+    padding: 0;
     font-size: 0.88rem;
+  }
+
+  html[data-operator="true"] .dk-exit {
+    padding: 0 12px;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .btn,
   .dk-wordmark,
+  .dk-exit,
   .theme-toggle,
   .theme-option,
   .dk-footer-slot a {
