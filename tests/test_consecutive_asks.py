@@ -120,6 +120,9 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     assert TERM_QUESTION in questions
     assert FEE_QUESTION in questions
     assert LAW_QUESTION in questions
+    order = _session_get(at, "_answer_order") or []
+    assert order == [LAW_QUESTION, FEE_QUESTION, TERM_QUESTION]
+    assert order[0] == questions[-1]
 
     contents = [msg.get("content") or "" for msg in assistants]
     assert any("3 years" in text for text in contents)
@@ -467,8 +470,17 @@ def _show_page_buttons(at) -> list[str]:
     return found
 
 
-def _inline_quote_visible(at) -> bool:
-    return any('class="app-inline-quote"' in (block.value or "") for block in at.markdown)
+def _term_quote_repeats(at) -> bool:
+    """The faint block repeats the term sentence already shown as the answer."""
+    for block in at.markdown:
+        value = block.value or ""
+        if (
+            'class="app-inline-quote"' in value
+            and "Section 4" in value
+            and "three (3) years" in value
+        ):
+            return True
+    return False
 
 
 def test_second_ask_clears_prior_sources_while_loading(
@@ -495,7 +507,7 @@ def test_second_ask_clears_prior_sources_while_loading(
     _ask(at, TERM_QUESTION)
     assert not at.exception
     assert _page_badge_visible(at)
-    assert _inline_quote_visible(at)
+    assert not _term_quote_repeats(at)
     assert _show_page_buttons(at)
     assert TERM_QUESTION in _card_questions(at)
     assert _session_get(at, "_answer_history_cleared") is False
@@ -516,11 +528,14 @@ def test_second_ask_clears_prior_sources_while_loading(
 
     def _delayed_stream(*args, **kwargs):
         time.sleep(0.35)
+        stats = _session_get(at, "indexed_doc_stats") or {}
         loading_snapshots.append(
             {
                 "cleared": _session_get(at, "_answer_history_cleared"),
                 "status": _session_get(at, "doc_status"),
                 "status_detail": _session_get(at, "doc_status_detail"),
+                "file": _session_get(at, "current_file"),
+                "pages": stats.get("pages"),
                 "source_paints_before_answer": list(source_paint_events),
             }
         )
@@ -539,6 +554,11 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert mid["cleared"] is False
     assert mid["status"] == "answering"
     assert mid["status_detail"] == "Looking through the document"
+    assert mid["file"] == "sample-nda.pdf"
+    assert int(mid["pages"] or 0) == 3
+    labels = [str(getattr(btn, "label", "") or "") for btn in at.button]
+    assert any(label.startswith("NDA · Acme Corp and Beta Labs") for label in labels)
+    assert not any(label.startswith("Looking through") for label in labels)
     assert len(mid["source_paints_before_answer"]) > len(paints_after_first)
 
     messages = _session_get(at, "messages") or []
@@ -548,7 +568,7 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert TERM_QUESTION in questions
     assert LAW_QUESTION in questions
     assert _page_badge_visible(at)
-    assert _inline_quote_visible(at)
+    assert not _term_quote_repeats(at)
     assert _show_page_buttons(at)
     assert _session_get(at, "_answer_history_cleared") is False
     assert source_paint_events != paints_after_first

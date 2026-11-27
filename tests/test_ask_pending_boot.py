@@ -55,7 +55,7 @@ def test_theme_busy_uses_css_var_not_literal_copy() -> None:
     from ui_theme import _THEME_CSS, inject_theme
 
     assert "app-ask-pending" in _THEME_CSS
-    assert "app-status::before" in _THEME_CSS
+    assert "app-ask-live::before" in _THEME_CSS
     assert "var(--app-doc-answering)" in _THEME_CSS
     assert 'content: "Looking through the document"' not in _THEME_CSS
     assert "stElementContainer:has(.app-status)" in _THEME_CSS

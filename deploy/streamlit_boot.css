@@ -25,6 +25,13 @@ body {
   left: 0;
   right: 0;
   z-index: 1000000;
+  background: #f8f4f9 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="dark"] .dk-header {
+  background: #14061f !important;
 }
 
 #app-boot {
@@ -96,6 +103,10 @@ section.main .block-container {
 }
 
 @media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .dk-header {
+    background: #14061f !important;
+  }
+
   html, body {
     background: #14061f !important;
   }

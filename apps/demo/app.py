@@ -86,6 +86,7 @@ from page_copy import (
     should_show_starter_chips,
     walkthrough_tally,
 )
+from page_preview import render_highlighted_page
 from sample_warm import embeddings_for, sample_index_for
 from session_upload import (
     SAMPLE_NDA_NAME,
@@ -110,6 +111,7 @@ from session_upload import (
     paint_status,
     preload_sample_nda,
     render_sample_preload_error,
+    sample_page_preview_open,
 )
 from sources_panel import (
     _build_sources_payload,
@@ -588,7 +590,10 @@ def _continue_queued_ask(already_taken: str | None) -> None:
 
 
 def _fill_answer_cards() -> None:
-    """Paint finished cards, newest first, plus the sample end card when it is earned."""
+    """Paint every finished card. DOM order is oldest first so keys stay put.
+
+    CSS column-reverse shows that list newest first without moving earlier cards.
+    """
     turns = _paired_turns(st.session_state.messages)
     indexed_stats = st.session_state.get("indexed_doc_stats") or {}
     page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
@@ -600,46 +605,53 @@ def _fill_answer_cards() -> None:
     end_card = walkthrough_tally(st.session_state.messages) is not None
     st.session_state["_answer_history_cleared"] = False
     ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
-    for turn_idx, (user_msg, assistant_msg) in enumerate(reversed(turns)):
-        question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-        _render_answer_card(
-            question=question,
-            answer=assistant_msg.get("content") or "",
-            sources=assistant_msg.get("sources") or [],
-            refusal=assistant_msg.get("refusal"),
-            expanded=turn_idx == 0,
-            timing=assistant_msg.get("timing"),
-            developer_mode=st.session_state.developer_mode,
-            page_count=page_count,
-            any_blank_pages=any_blank_pages,
-            pdf_bytes=pdf_bytes,
-            card_key=_card_paint_key(assistant_msg, len(turns) - turn_idx),
-        )
-        if turn_idx == 0 and assistant_count >= 3 and not end_card:
-            _render_booking_cta(booking_url())
-        if st.session_state.developer_mode and assistant_msg.get("sources"):
-            turn_label = f"turn {len(turns) - turn_idx}"
-            _render_source_checklist(
-                assistant_msg["sources"],
-                target_section=assistant_msg.get("target_section"),
-                title=_dev_panel_title(
-                    "Source checklist (eval)",
-                    assistant_msg.get("for_question"),
-                    fallback=turn_label,
-                ),
+    st.session_state["_answer_order"] = [
+        (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+        for user_msg, assistant_msg in reversed(turns)
+    ]
+    with st.container(key="answer_stack"):
+        st.markdown('<div class="app-answer-stack" hidden></div>', unsafe_allow_html=True)
+        for turn_idx, (user_msg, assistant_msg) in enumerate(turns):
+            question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+            newest = turn_idx == len(turns) - 1
+            if newest and assistant_count >= 3 and not end_card:
+                _render_booking_cta(booking_url())
+            _render_answer_card(
+                question=question,
+                answer=assistant_msg.get("content") or "",
+                sources=assistant_msg.get("sources") or [],
+                refusal=assistant_msg.get("refusal"),
+                expanded=turn_idx == len(turns) - 1,
+                timing=assistant_msg.get("timing"),
+                developer_mode=st.session_state.developer_mode,
+                page_count=page_count,
+                any_blank_pages=any_blank_pages,
+                pdf_bytes=pdf_bytes,
+                card_key=_card_paint_key(assistant_msg, turn_idx + 1),
             )
-            if assistant_msg.get("eval_context"):
-                _render_eval_context_panel(
-                    assistant_msg["eval_context"],
+            if st.session_state.developer_mode and assistant_msg.get("sources"):
+                turn_label = f"turn {turn_idx + 1}"
+                _render_source_checklist(
+                    assistant_msg["sources"],
                     target_section=assistant_msg.get("target_section"),
-                    chunk_count=assistant_msg.get("eval_chunk_count"),
                     title=_dev_panel_title(
-                        "Exact context fed to LLM",
+                        "Source checklist (eval)",
                         assistant_msg.get("for_question"),
                         fallback=turn_label,
                     ),
-                    top_k=TOP_K,
                 )
+                if assistant_msg.get("eval_context"):
+                    _render_eval_context_panel(
+                        assistant_msg["eval_context"],
+                        target_section=assistant_msg.get("target_section"),
+                        chunk_count=assistant_msg.get("eval_chunk_count"),
+                        title=_dev_panel_title(
+                            "Exact context fed to LLM",
+                            assistant_msg.get("for_question"),
+                            fallback=turn_label,
+                        ),
+                        top_k=TOP_K,
+                    )
     if end_card:
         _render_case_end(st.session_state.messages)
     card_cap = MAX_CHAT_MESSAGES // 2
@@ -775,6 +787,7 @@ def _render_ocr_status(
         st.caption(ocr_warning)
 
 
+st.session_state["_status_chip_drawn"] = False
 _init_session_state(
     developer_mode=_presentation_mode() == "developer",
     dummy_generator_only=_env_bool("USE_DUMMY_GENERATOR", False),
@@ -960,6 +973,10 @@ _render_document_status(
     resolved_upload=resolved_upload,
     slot=status_slot,
 )
+if sample_page_preview_open() and _document_is_indexed():
+    page_png = render_highlighted_page(st.session_state.get("uploaded_pdf_bytes") or b"", 1, "")
+    if page_png:
+        st.image(page_png, use_container_width=True)
 render_sample_preload_error()
 
 if resolved_upload is not None:
@@ -1195,6 +1212,7 @@ if queued_question and chat_ready and reply_is_stored(st.session_state.messages,
     queued_question = None
 
 st.markdown('<p class="app-ask-mark">Ask</p>', unsafe_allow_html=True)
+st.markdown('<p class="app-ask-live" aria-live="polite"></p>', unsafe_allow_html=True)
 # No st.form: Streamlit 1.54 flashes "Missing Submit Button" while the form
 # hydrates on first load (form delta arrives before the lazy submit button).
 st.text_input(
@@ -1233,11 +1251,11 @@ chip_slot = _render_starter_chips(
     query=query,
     shell_ready=shell_was_ready,
 )
-# Answer cards live in a replaceable slot so a second ask can clear the
-# previous page badge, quote, and Show page before slow work starts.
-# Without this, Streamlit keeps last-run sources at full contrast under
-# "Looking through the document…".
+# One stable list, newest first. Filled once per run so a later ask does not
+# clear the slot and let earlier cards vanish or trade places.
+pending_slot = st.empty()
 answers_slot = st.empty()
+_keep_earlier_answers(answers_slot)
 if (
     chat_ready
     and not shell_was_ready
@@ -1261,7 +1279,6 @@ if query and query.strip() and chat_ready:
             note_started(st.session_state, query)
             generation = open_generation(ask_key)
         chip_slot.empty()
-        _keep_earlier_answers(answers_slot)
         if not user_turn_open(st.session_state.messages, query):
             _append_chat_message("user", query)
         paint_status(status_slot, "answering", _CLIENT_COPY["doc_answering"])
@@ -1279,11 +1296,18 @@ if query and query.strip() and chat_ready:
         generation_elapsed_ms = 0.0
         total_elapsed_ms = 0.0
 
-        with st.container():
+        with pending_slot.container():
             st.markdown(
                 f'<p class="app-answer-q">{html.escape(query)}</p>',
                 unsafe_allow_html=True,
             )
+            typing_slot = st.empty()
+            typing_slot.markdown(
+                f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
+                '<span class="app-typing-dots"></span></p>',
+                unsafe_allow_html=True,
+            )
+        with st.container():
             timer_placeholder = st.empty()
             stop_timer = threading.Event()
             script_ctx = get_script_run_ctx()
@@ -1296,13 +1320,6 @@ if query and query.strip() and chat_ready:
                 while not stop_timer.wait(0.12):
                     elapsed = time.perf_counter() - t0
                     timer_placeholder.caption(f"Working… {elapsed:.1f}s")
-
-            typing_slot = st.empty()
-            typing_slot.markdown(
-                f'<p class="app-typing">{html.escape(_CLIENT_COPY["doc_answering"])}'
-                '<span class="app-typing-dots"></span></p>',
-                unsafe_allow_html=True,
-            )
             timer_thread = None
             if script_ctx is not None and st.session_state.developer_mode:
                 timer_thread = threading.Thread(
@@ -1736,12 +1753,7 @@ elif query is not None and not chat_ready:
 elif query is not None:
     paint_status(status_slot, "error", "Please enter a non-empty question.")
 
-# Newest answer first so the last reply stays on screen without iframe scroll.
-# The ask path reruns before it reaches here. A resume paints earlier cards
-# up front, so this fill is the idle pass.
-with answers_slot.container():
-    _fill_answer_cards()
-
+# Cards were painted above, before this ask. Drop the busy flag only after that.
 # Cards are on screen; only now drop the busy line back to the document ready line.
 if st.session_state.get("doc_status") == "answering" and not (query and str(query).strip()):
     paint_status(

@@ -402,35 +402,60 @@ section.main [data-testid="stSkeleton"],
 
 /*
   Earlier answer cards stay on screen while the next one loads.
-  The busy line still replaces the status text, below.
+  The document chip keeps its name. The busy line is .app-ask-live.
 */
 
-/*
-  Show the busy line in-place on Streamlit's status node (CSS only). Copy comes
-  from --app-doc-answering (set from page_copy at inject time).
-*/
-body.app-ask-pending .app-status {
-  font-size: 0 !important;
-  line-height: 0 !important;
-  color: transparent !important;
+.app-ask-live {
+  display: none;
+  margin: 0.35rem 0 0.8rem 0;
   min-height: 1.5rem;
-}
-
-body.app-ask-pending .app-status::before {
-  content: var(--app-doc-answering);
-  display: block;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.35;
   font-weight: 600;
   color: var(--app-accent);
-  min-height: 1.5rem;
+}
+
+body.app-ask-pending .app-ask-live {
+  display: block;
+}
+
+body.app-ask-pending .app-ask-live::before {
+  content: var(--app-doc-answering) ".";
+}
+
+body.app-ask-pending:has(.app-typing) .app-ask-live {
+  display: none;
 }
 
 /* Streamlit marks element containers stale on rerun (opacity 1s ease-in, 0.5s delay).
-   Keep the status row solid so that fade cannot hide the busy line. */
-body.app-ask-pending .stElementContainer:has(.app-status) {
+   Keep the document chip solid so that fade cannot hide its name. */
+body.app-ask-pending .stElementContainer:has(.app-status),
+body.app-ask-pending .stElementContainer:has([class*="st-key-doc_chip"]) {
   opacity: 1 !important;
   transition: none !important;
+}
+
+[class*="st-key-doc_chip"] button,
+[class*="st-key-doc_chip"] [data-testid^="stBaseButton"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--app-ink) !important;
+  font-weight: 650 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  padding: 0.1rem 0 !important;
+  min-height: 1.5rem !important;
+  white-space: normal !important;
+  line-height: 1.35 !important;
+  width: 100% !important;
+}
+
+[class*="st-key-doc_chip"] button:hover,
+[class*="st-key-doc_chip"] [data-testid^="stBaseButton"]:hover {
+  color: var(--app-accent) !important;
+  background: transparent !important;
 }
 
 [class*="st-key-chip_"] button,
@@ -464,10 +489,13 @@ body.app-ask-pending .stElementContainer:has(.app-status) {
   }
 }
 
+[class*="st-key-answer_stack"] {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
 .app-typing {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.15rem;
+  display: inline;
   margin: 0.35rem 0 1rem 0;
   color: var(--app-slate);
   font-size: 1rem;
@@ -528,6 +556,16 @@ body.app-ask-pending .stElementContainer:has(.app-status) {
   color: var(--app-ink) !important;
 }
 
+/* List headlines stay about two lines on a desktop column. */
+.app-answer-headline--list,
+[class*="st-key-answer_card_"] .app-answer-headline--list,
+[class*="st-key-answer_card_"] [data-testid="stMarkdownContainer"] .app-answer-headline--list {
+  font-size: 1.25rem !important;
+  line-height: 1.3 !important;
+  letter-spacing: -0.02em;
+  font-weight: 650 !important;
+}
+
 .app-answer-body {
   margin: 0 0 0.65rem 0;
   font-size: 1rem;
@@ -558,9 +596,8 @@ body.app-ask-pending .stElementContainer:has(.app-status) {
   border: none !important;
   box-shadow: none !important;
   font-size: 0.9rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 650 !important;
+  letter-spacing: 0.01em;
   width: auto !important;
   min-height: 2.25rem !important;
 }
@@ -788,6 +825,17 @@ html[data-theme="dark"] footer.dk-footer .dk-footer-slot a:hover {
   text-decoration: none;
   padding: 0.35rem;
   border-radius: 0.35rem;
+}
+
+.dk-header {
+  background: #f8f4f9 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="dark"] .dk-header,
+:root[data-theme="dark"] .dk-header {
+  background: #14061f !important;
 }
 
 .stAppDeployButton,

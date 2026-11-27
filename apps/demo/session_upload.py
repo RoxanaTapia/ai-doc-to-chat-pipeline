@@ -308,21 +308,66 @@ def _derive_document_status(
     return "empty", _CLIENT_COPY["doc_empty"]
 
 
-def paint_status(slot, kind: str, message: str) -> None:
-    """Draw the one status pill and remember it.
+SAMPLE_PAGE_PREVIEW_ID = "doc-page-1"
 
-    The sample document uses a card with its human title, never the filename.
-    """
-    _set_doc_status(kind, message)
+
+def toggle_sample_page_preview() -> None:
+    """Open or close page 1 of the loaded sample."""
+    current = st.session_state.get("open_page_preview")
+    st.session_state.open_page_preview = (
+        None if current == SAMPLE_PAGE_PREVIEW_ID else SAMPLE_PAGE_PREVIEW_ID
+    )
+
+
+def sample_page_preview_open() -> bool:
+    return st.session_state.get("open_page_preview") == SAMPLE_PAGE_PREVIEW_ID
+
+
+def _status_view(kind: str, message: str) -> tuple[str, str]:
+    """Document chip stays the document name while an answer is loading."""
+    if kind == "answering" and _document_is_indexed():
+        name = st.session_state.current_file or "Document"
+        return "ready", _ready_message(name)
+    return kind, message
+
+
+def _paint_status_view(slot, kind: str, message: str) -> None:
+    """Draw the status line once per run when it is the sample chip."""
     safe = html.escape(message)
     card = kind == "ready" and SAMPLE_DOCUMENT_TITLE in (message or "")
-    classes = f"app-status app-status--{kind}"
     if card:
-        classes += " app-doc-card"
+        if st.session_state.get("_status_chip_drawn"):
+            return
+        st.session_state["_status_chip_drawn"] = True
+        with slot.container():
+            st.markdown(
+                f'<div class="app-status app-status--ready app-doc-card" hidden>{safe}</div>',
+                unsafe_allow_html=True,
+            )
+            st.button(
+                message,
+                key="doc_chip",
+                help="Open page 1 of this document.",
+                on_click=toggle_sample_page_preview,
+            )
+        return
+    st.session_state["_status_chip_drawn"] = False
+    classes = f"app-status app-status--{kind}"
     slot.markdown(
         f'<div class="{classes}" role="status">{safe}</div>',
         unsafe_allow_html=True,
     )
+
+
+def paint_status(slot, kind: str, message: str) -> None:
+    """Draw the one status line and remember it.
+
+    The sample document is a chip with its human title, never the filename.
+    While an answer loads, that chip stays. The loading line is separate.
+    """
+    _set_doc_status(kind, message)
+    view_kind, view_message = _status_view(kind, message)
+    _paint_status_view(slot, view_kind, view_message)
 
 
 def _render_document_status(

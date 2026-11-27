@@ -200,6 +200,14 @@ def test_booking_cta_hides_when_blank(monkeypatch) -> None:
     monkeypatch.setenv(BOOKING_URL_ENV, "https://www.upwork.com/freelancers/roxanadev")
     assert booking_url() == "https://www.upwork.com/freelancers/roxanadev"
 
+    monkeypatch.delenv(BOOKING_URL_ENV, raising=False)
+    website = booking_cta()
+    assert website["action"] == "Book a call"
+    assert website["href"]
+    assert "calendar.google.com" in website["href"]
+    assert "gv=true" in website["href"]
+    assert should_show_booking(website["href"])
+
 
 def test_split_answer_headline_prefers_short_first_line() -> None:
     headline, body = split_answer_headline("3 years\n\nThe term runs from the signing date.")
@@ -443,9 +451,13 @@ def test_ask_pending_ships_via_theme_and_st_html() -> None:
 
 def test_booking_env_is_documented() -> None:
     example = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
-    assert "DEMO_BOOKING_URL=https://www.upwork.com/freelancers/roxanadev" in example
+    assert (
+        "DEMO_BOOKING_URL=https://calendar.google.com/calendar/appointments/schedules/"
+        in example
+    )
+    assert "gv=true" in example
+    assert "Message me on Upwork." in example
     assert "cal.com" not in example.lower()
-    assert "calendar" not in example.lower()
 
 
 def test_starter_chips_hide_after_each_is_answered() -> None:
@@ -576,7 +588,7 @@ def test_followup_keeps_answering_until_cards_paint() -> None:
     rerun_at = after_append.find("st.rerun()")
     assert ready_before_rerun == -1 or ready_before_rerun > rerun_at
     # Idle run releases answering only after answer cards are painted.
-    cards_at = text.find("with answers_slot.container()")
+    cards_at = text.find("_keep_earlier_answers(answers_slot)")
     release_at = text.find('doc_status") == "answering"')
     assert cards_at != -1 and release_at != -1 and cards_at < release_at
 
@@ -655,19 +667,19 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "chip_slot = _render_starter_chips(" in text
     assert "chip_slot.empty()" in text
     assert "answers_slot = st.empty()" in text
+    assert "pending_slot = st.empty()" in text
     assert "def _keep_earlier_answers" in text
     assert "_keep_earlier_answers(answers_slot)" in text
     assert "_clear_answer_history" not in text
-    assert "with answers_slot.container()" in text
+    assert "with answers_slot.container()" not in text
+    assert "column-reverse" in _THEME_CSS
     assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
     assert text.find("answers_slot = st.empty()") < text.find("_keep_earlier_answers(answers_slot)")
     assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')
     assert text.find("_keep_earlier_answers(answers_slot)") < text.find(
         'paint_status(status_slot, "answering"'
     )
-    assert text.find("_keep_earlier_answers(answers_slot)") < text.find(
-        "with answers_slot.container()"
-    )
+    assert text.count("_keep_earlier_answers(answers_slot)") == 1
     assert "Press Enter to apply" not in text
     assert "on_change=_on_ask_box_commit if chat_ready else None" in text
     assert "_continue_queued_ask(queued_question)" in text
@@ -679,7 +691,7 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
 def test_show_page_button_label_is_in_the_sources_panel() -> None:
     text = (DEMO_DIR / "sources_panel.py").read_text(encoding="utf-8")
     assert "def source_chip_label" in text
-    assert 'return f"Page {page} · Section {section}"' in text
+    assert 'return f"Page {page} · Section {section} {_EN_DASH} {title}"' in text
     assert "click the quote" not in text.lower()
     # The toggle runs in on_click, before an ask rerun can skip the button body.
     assert "on_click=_toggle_page_preview" in text
