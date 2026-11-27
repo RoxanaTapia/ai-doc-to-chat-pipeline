@@ -21,6 +21,8 @@ _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 _SKIP_HEADINGS = frozenset({"summary", "details"})
 _EMPHASIS_RE = re.compile(r"(\*\*|__)(.*?)\1|([*_])(.*?)\3")
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+_LIST_MARK_RE = re.compile(r"^(?:[-*•]|\d+[.)])\s+")
+_LIST_HEADLINE_MAX = 72
 
 EVAL_CHECKLIST_PREVIEW_CHARS = 80
 
@@ -68,13 +70,49 @@ def headline_number_in_quote(headline: str, quote: str) -> bool:
     return all(number in haystack for number in numbers)
 
 
+def answer_is_list(answer: str) -> bool:
+    """True when the answer is a bullet or numbered list."""
+    lines = [line.strip() for line in (answer or "").splitlines() if line.strip()]
+    marks = [line for line in lines if _LIST_MARK_RE.match(line)]
+    return len(marks) >= 2
+
+
+def cap_list_headline(answer: str, headline: str, body: str) -> tuple[str, str, bool]:
+    """Keep a list headline to about two desktop lines. Short leads stay large."""
+    if not answer_is_list(answer):
+        return headline, body, False
+    marked = bool(_LIST_MARK_RE.match(headline or ""))
+    text = _LIST_MARK_RE.sub("", headline or "").strip()
+    if text and len(text) <= 48 and not marked:
+        return headline, body, False
+    short = text or headline
+    overflow = ""
+    if len(short) > _LIST_HEADLINE_MAX:
+        cut = short[:_LIST_HEADLINE_MAX].rsplit(" ", 1)[0].rstrip(" ,;:")
+        overflow = short[len(cut) :].strip()
+        short = cut or short[:_LIST_HEADLINE_MAX].rstrip(" ,;:")
+    parts = [part for part in (overflow, body) if part]
+    return short, "\n".join(parts), True
+
+
 def display_answer_parts(answer: str, quote: str = "") -> tuple[str, str]:
     """Headline plus body, with markup stripped and a quote-number safety net."""
     headline, body = split_answer_headline(answer)
     headline = strip_headline_markup(headline)
     if quote and headline and not headline_number_in_quote(headline, quote):
         return "", strip_headline_markup(answer)
+    headline, body, _compact = cap_list_headline(answer, headline, body)
     return headline, body
+
+
+def headline_is_compact(answer: str, quote: str = "") -> bool:
+    """True when a list headline should use the smaller type."""
+    headline, body = split_answer_headline(answer)
+    headline = strip_headline_markup(headline)
+    if quote and headline and not headline_number_in_quote(headline, quote):
+        return False
+    _headline, _body, compact = cap_list_headline(answer, headline, body)
+    return compact
 
 
 def _build_sources_payload(
@@ -141,22 +179,94 @@ def _toggle_page_preview(preview_id: str) -> None:
 
 
 _SECTION_IN_PREVIEW_RE = re.compile(r"(?i)\bsection\s+(\d+)\b")
+_SECTION_TITLE_RE = re.compile(r"(?i)\bsection\s+(\d+)\s*[-–]\s*(.+)")
 _SKIP_SECTION_TITLES = frozenset({"preamble", "notes", "section"})
+_TITLE_SMALL = frozenset({"of", "the", "and", "or", "a", "an"})
+_TITLE_STOP = frozenset({"this", "any", "if", "when", "where", "each", "all", "not"})
+_EN_DASH = "\u2013"
+
+
+def _clip_section_title(rest: str) -> str:
+    """Title words after the dash, stopping when the sentence starts."""
+    kept: list[str] = []
+    for word in (rest or "").split():
+        if any(mark in word for mark in "\"'“”"):
+            break
+        bare = word.strip(",.;:")
+        if not bare:
+            continue
+        low = bare.lower()
+        if low in _TITLE_STOP and kept:
+            break
+        if low in _TITLE_SMALL:
+            if bare[:1].isupper() and kept:
+                break
+            kept.append(bare)
+            continue
+        if bare[:1].isupper():
+            kept.append(bare)
+            continue
+        break
+    while kept and kept[-1].lower() in _TITLE_SMALL:
+        kept.pop()
+    return " ".join(kept)
+
+
+def _section_bits(source: dict) -> tuple[str, str]:
+    """Section number and short title, such as 4 and Term."""
+    section = str(source.get("section") or "").strip()
+    preview = source.get("preview") or ""
+    if not section.isdigit():
+        found = _SECTION_IN_PREVIEW_RE.search(preview)
+        section = found.group(1) if found else ""
+    raw_title = str(source.get("section_title") or "").strip()
+    if (
+        raw_title
+        and raw_title.lower() not in _SKIP_SECTION_TITLES
+        and not raw_title.lower().startswith("section")
+        and "." not in raw_title
+    ):
+        return section, raw_title
+    match = _SECTION_TITLE_RE.search(preview)
+    if not match:
+        return section, ""
+    if not section.isdigit():
+        section = match.group(1)
+    return section, _clip_section_title(match.group(2))
 
 
 def source_chip_label(source: dict) -> str:
-    """Visitor chip: page, and the section when the excerpt has one."""
+    """Visitor chip: page, and Section 4 – Term when the excerpt has one."""
     page = source.get("page", "N/A")
-    section = str(source.get("section") or "").strip()
-    if not section.isdigit():
-        found = _SECTION_IN_PREVIEW_RE.search(source.get("preview") or "")
-        section = found.group(1) if found else ""
+    section, title = _section_bits(source)
+    if section.isdigit() and title:
+        return f"Page {page} · Section {section} {_EN_DASH} {title}"
     if section.isdigit():
         return f"Page {page} · Section {section}"
-    title = str(source.get("section_title") or "").strip()
-    if title and title.lower() not in _SKIP_SECTION_TITLES and "." not in title:
+    if title and title.lower() not in _SKIP_SECTION_TITLES:
         return f"Page {page} · {title}"
     return f"Page {page}"
+
+
+def quote_repeats_answer(quote: str, answer: str) -> bool:
+    """True when the faint excerpt only repeats words already in the answer."""
+
+    def _norm(value: str) -> str:
+        text = (value or "").replace("…", " ").replace("...", " ")
+        return " ".join(text.lower().split())
+
+    excerpt = _norm(quote)
+    lines = [line.strip() for line in (answer or "").splitlines() if line.strip()]
+    if len(lines) >= 2 and len(lines[0]) <= 48:
+        written = _norm(" ".join(lines[1:]))
+    else:
+        written = _norm(answer)
+    if len(written) >= 24 and (written in excerpt or excerpt in written):
+        return True
+    if len(excerpt) >= 48 and written:
+        window = excerpt[24:72] if len(excerpt) > 72 else excerpt[:48]
+        return len(window) >= 24 and window in written
+    return False
 
 
 def _render_page_preview(pdf_bytes: bytes | None, source: dict, *, key: str) -> None:
@@ -196,6 +306,7 @@ def _render_inline_sources(
     expanded: bool,
     pdf_bytes: bytes | None = None,
     card_key: str = "0",
+    answer: str = "",
 ) -> None:
     """Source chip and quote. The chip opens the highlighted page."""
     if not sources:
@@ -204,6 +315,8 @@ def _render_inline_sources(
     for source_idx, source in enumerate(visible):
         preview = html.escape(source.get("preview") or "")
         _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
+        if quote_repeats_answer(source.get("preview") or "", answer):
+            continue
         st.markdown(
             f'<blockquote class="app-inline-quote">{preview}</blockquote>',
             unsafe_allow_html=True,
@@ -214,6 +327,8 @@ def _render_inline_sources(
             for source_idx, source in enumerate(extra, start=len(visible)):
                 preview = html.escape(source.get("preview") or "")
                 _render_page_preview(pdf_bytes, source, key=f"{card_key}_{source_idx}")
+                if quote_repeats_answer(source.get("preview") or "", answer):
+                    continue
                 st.markdown(
                     f'<blockquote class="app-inline-quote">{preview}</blockquote>',
                     unsafe_allow_html=True,
@@ -260,12 +375,15 @@ def _render_answer_card(
         else:
             quote = (sources[0].get("preview") if sources else "") or ""
             headline, body = display_answer_parts(answer, quote)
+            headline_class = "app-answer-headline"
+            if headline_is_compact(answer, quote):
+                headline_class += " app-answer-headline--list"
             # Escape body + timing in one markdown call so the timing line cannot
             # paint a frame after the body. Markup from the model/PDF cannot inject.
             timing_line = _answer_timing_line(timing, developer_mode=developer_mode)
             if headline:
                 st.markdown(
-                    f'<p class="app-answer-headline">{html.escape(headline)}</p>',
+                    f'<p class="{headline_class}">{html.escape(headline)}</p>',
                     unsafe_allow_html=True,
                 )
             body_parts: list[str] = []
@@ -285,6 +403,7 @@ def _render_answer_card(
                     expanded=expanded,
                     pdf_bytes=pdf_bytes,
                     card_key=card_key,
+                    answer=answer,
                 )
 
 
