@@ -375,8 +375,14 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
                 timeout=30000
             )
             expect(page.locator(".dk-product")).to_have_text("Ask your document")
-            expect(page.locator("#demo-exit")).to_have_attribute("href", "/invite/exit")
+            expect(page.locator("#demo-exit")).to_have_attribute(
+                "href", "https://roxanatapia.dev/"
+            )
+            expect(page.locator("#demo-exit")).not_to_have_attribute("target", "_blank")
+            expect(page.locator(".dk-exit-visitor")).to_have_text("Back to portfolio")
             expect(page.locator(".dk-exit-visitor")).to_be_visible()
+            expect(page.locator(".dk-exit-ops")).to_be_hidden()
+            expect(page.get_by_role("link", name="Log out")).to_have_count(0)
             expect(page.locator("footer.dk-footer")).to_be_visible()
             expect(page.get_by_role("link", name="Built by Roxana Tapia")).to_be_visible()
             expect(page.get_by_role("link", name="Book a call")).to_be_visible()

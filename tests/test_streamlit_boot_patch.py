@@ -41,8 +41,17 @@ def test_patch_injects_boot_once(tmp_path: Path) -> None:
     assert 'class="dk-header"' in text
     assert "Ask your document" in text
     assert "Portfolio demo · fictional business · sample data" in text
-    assert "Exit demo" in text
+    assert "Back to portfolio" in text
     assert "Log out" in text
+    assert 'id="demo-exit"' in text
+    assert 'href="https://roxanatapia.dev/"' in text
+    assert "/invite/exit" not in text
+    assert "Exit demo" not in text
+    before, after = text.split('id="demo-exit"', 1)
+    exit_tag = before[before.rfind("<a"):] + 'id="demo-exit"' + after[: after.find(">") + 1]
+    assert 'href="https://roxanatapia.dev/"' in exit_tag
+    assert "target=" not in exit_tag
+    assert "btn-primary" not in exit_tag
     assert 'src="/app/demo-kit/theme.js"' in text
     assert 'src="/app/demo-kit/motion.js"' in text
     assert "ops-heartbeat.js" not in text

@@ -87,7 +87,10 @@ def test_case_study_chips_cite_page_section_and_an_honest_miss(stub_env) -> None
     assert "Sample walkthrough" in blob
     assert "3 questions · 3 sources · 1 honest no" in blob
     assert "Book a call" in blob
-    assert "Exit demo" in blob
+    assert "Back to portfolio" in blob
+    assert "https://roxanatapia.dev/" in blob
+    assert "Exit demo" not in blob
+    assert "/invite/exit" not in blob
     assert "sample-nda.pdf" not in blob
     assert blob.count("data-ask-timing") >= 3
 
