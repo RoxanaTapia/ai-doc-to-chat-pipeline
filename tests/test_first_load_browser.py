@@ -25,6 +25,11 @@ SRC_DIR = PROJECT_ROOT / "src"
 DEMO_DIR = PROJECT_ROOT / "apps" / "demo"
 DEPLOY_DIR = PROJECT_ROOT / "deploy"
 APP_PATH = DEMO_DIR / "app.py"
+if str(DEMO_DIR) not in sys.path:
+    sys.path.insert(0, str(DEMO_DIR))
+
+from page_copy import _BOOKING_PAGE_URL  # noqa: E402
+
 READY_HINT = "Ask about this document"
 TERM_CHIP = "How long does this last?"
 
@@ -385,7 +390,12 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             expect(page.get_by_role("link", name="Log out")).to_have_count(0)
             expect(page.locator("footer.dk-footer")).to_be_visible()
             expect(page.get_by_role("link", name="Built by Roxana Tapia")).to_be_visible()
-            expect(page.get_by_role("link", name="Book a call")).to_be_visible()
+            expect(page.get_by_role("link", name="Book a call")).to_have_attribute(
+                "href", _BOOKING_PAGE_URL
+            )
+            expect(page.get_by_role("link", name="Book a call")).to_have_attribute(
+                "target", "_blank"
+            )
             expect(page.get_by_role("button", name="Try your own PDF")).to_have_count(0)
             expect(page.locator('[data-testid="stFileUploader"]')).to_have_count(0)
             expect(

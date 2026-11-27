@@ -17,7 +17,7 @@ for _folder in (DEMO_DIR, SRC_DIR):
         sys.path.insert(0, str(_folder))
 
 from ai_doc.rag.citations import INSUFFICIENT_CONTEXT_ANSWER  # noqa: E402
-from page_copy import STARTER_CHIPS  # noqa: E402
+from page_copy import _BOOKING_PAGE_URL, STARTER_CHIPS  # noqa: E402
 
 TERM_QUESTION = STARTER_CHIPS[0]["question"]
 LAW_QUESTION = STARTER_CHIPS[1]["question"]
@@ -89,6 +89,18 @@ def test_case_study_chips_cite_page_section_and_an_honest_miss(stub_env) -> None
     assert "Book a call" in blob
     assert "Back to portfolio" in blob
     assert "https://roxanatapia.dev/" in blob
+    end = blob.split('<section class="app-end">', 1)[1].split("</section>", 1)[0]
+    book = _anchor_open(end, "Book a call")
+    back = _anchor_open(end, "Back to portfolio")
+    assert f'href="{_BOOKING_PAGE_URL}"' in book
+    assert 'target="_blank"' in book
+    assert "roxanatapia.dev" not in book
+    assert 'href="https://roxanatapia.dev/"' in back
+    assert "target=" not in back
+    footer = blob.split("<footer", 1)[1].split("</footer>", 1)[0]
+    footer_book = _anchor_open(footer, "Book a call")
+    assert f'href="{_BOOKING_PAGE_URL}"' in footer_book
+    assert "roxanatapia.dev" not in footer_book
     assert "Exit demo" not in blob
     assert "/invite/exit" not in blob
     assert "sample-nda.pdf" not in blob
@@ -201,6 +213,15 @@ def _chip_button_keys(at) -> set[str]:
 
 def _markdown_blob(at) -> str:
     return "\n".join(block.value or "" for block in at.markdown)
+
+
+def _anchor_open(markup: str, label: str) -> str:
+    """The opening tag of the link whose visible text is ``label``."""
+    start = markup.find(f">{label}</a>")
+    assert start != -1, label
+    open_at = markup.rfind("<a", 0, start)
+    assert open_at != -1, label
+    return markup[open_at:start]
 
 
 def _header_parts_present(at) -> dict[str, bool]:

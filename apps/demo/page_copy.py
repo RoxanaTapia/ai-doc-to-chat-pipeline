@@ -226,7 +226,8 @@ def _render_case_end(messages: list[dict] | None) -> None:
             '<p class="app-end__kicker">Sample walkthrough</p>'
             f'<p class="app-end__score">{safe_score}</p>'
             '<p class="app-end__actions">'
-            f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
+            f'<a class="app-end__link" href="{html.escape(_BOOKING_PAGE_URL, quote=True)}" '
+            'target="_blank" rel="noopener noreferrer">'
             "Book a call</a>"
             f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
             "Back to portfolio</a>"
