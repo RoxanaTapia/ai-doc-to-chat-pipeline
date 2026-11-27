@@ -20,7 +20,7 @@ flowchart LR
 1. **Gate.** Request an invite, then open the app. The sample NDA is already loaded, under the name NDA, Acme Corp and Beta Labs. Visitors do not see an upload.
 2. **Tap.** Tap a starter question. There are three: how long this lasts, which law applies, and the penalty fee. Each answer shows a page and section. Tap that chip to open the page with the passage highlighted.
 3. **Honest miss.** The penalty fee is not in the PDF. The app says so, and that it searched the pages that produced text.
-4. **End.** The sample walkthrough closes with a tally, Book a call, and Exit demo. The time on each answer is measured in the browser.
+4. **End.** The sample walkthrough closes with a tally, Book a call, and Back to portfolio. The time on each answer is measured in the browser.
 
 The PDF is kept only for this browser session, and cleared when you leave or reset. Each visit starts fresh.
 

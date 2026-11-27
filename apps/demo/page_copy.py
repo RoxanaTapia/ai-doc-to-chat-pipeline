@@ -140,7 +140,7 @@ def request_is_operator(headers: Mapping[str, str] | None = None) -> bool:
     """True when the edge sent X-Ops-Ok on this session.
 
     Presence is enough, including an empty value. The same header turns
-    Exit demo into Log out on the document.
+    Back to portfolio into Log out on the document.
     """
     if headers is None:
         headers = st.context.headers
@@ -228,7 +228,8 @@ def _render_case_end(messages: list[dict] | None) -> None:
             '<p class="app-end__actions">'
             f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
             "Book a call</a>"
-            '<a class="app-end__link" href="/invite/exit">Exit demo</a>'
+            f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
+            "Back to portfolio</a>"
             "</p>"
             "</section>"
         ),
