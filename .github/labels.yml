@@ -1,0 +1,35 @@
+# Board labels for this repository.
+# Names and colours match Rewelle and Dracarys.
+# This file does not remove labels already on the repository.
+
+- name: Now
+  color: "1D76DB"
+  description: "Current work. Filter with is:open label:Now."
+
+- name: Next
+  color: "FBCA04"
+  description: "Next stage: comes after the Now work."
+
+- name: Later
+  color: "C5DEF5"
+  description: "Later stage: parked until Now and Next are done."
+
+- name: "🔥 p1"
+  color: "B60205"
+  description: "Do first in this stage."
+
+- name: "⬆️ p2"
+  color: "E4A427"
+  description: "Do after p1 in this stage."
+
+- name: "➖ p3"
+  color: "0E8A16"
+  description: "Do last in this stage."
+
+- name: "⬇️ p4"
+  color: "C2E0C6"
+  description: "Do after p3 in this stage."
+
+- name: Epic
+  color: "5319E7"
+  description: "Goal epic that groups smaller issues."

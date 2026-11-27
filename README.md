@@ -51,7 +51,7 @@ Only the few passages needed for an answer are sent to a hosted model. Claude is
 | [`apps/demo`](apps/demo/) | What you open for the pilot |
 | [`configs/`](configs/) | Chunk size, search, and prompts |
 | [`deploy/`](deploy/) | The files that package the pilot |
-| [`docs/`](docs/README.md) | Product and operator pages |
+| [`docs/`](docs/README.md) | Product and operator pages, including the [board](docs/board.md) and the [goal](docs/goal.md) |
 | [`.env.example`](.env.example) | Product knobs. Copy to `.env`. Never commit a filled file |
 
 The core uses semantic versions. Fixes go to the latest minor version of `ai-doc`. Pin an older commit when that exact tree should stay put. Details are in [support](SUPPORT.md). Install commands are in [running the stack](docs/operators/running.md).

@@ -154,6 +154,8 @@ Contributor pages:
 | [Running the stack](operators/running.md) | Local Compose, and the app behind a reverse proxy |
 | [Repo structure](operators/REPO-STRUCTURE.md) | Layout rules that are easy to break |
 | [OCR testing](operators/testing-ocr.md) | How to verify scanned PDFs |
+| [Board](board.md) | How Now, Next, Later, and p1 to p4 are used |
+| [Goal](goal.md) | The walkthrough a reviewer can follow |
 | [Archive](archive/) | Early evaluation rounds. Historical only. |
 
 Live pilot: [ai-doc-pilot.roxanatapia.dev](https://ai-doc-pilot.roxanatapia.dev/).
