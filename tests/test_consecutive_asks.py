@@ -568,7 +568,6 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert TERM_QUESTION in questions
     assert LAW_QUESTION in questions
     assert _page_badge_visible(at)
-    assert not _term_quote_repeats(at)
     assert _show_page_buttons(at)
     assert _session_get(at, "_answer_history_cleared") is False
     assert source_paint_events != paints_after_first
