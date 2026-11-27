@@ -693,27 +693,10 @@ html[data-theme="dark"] footer.dk-footer .dk-footer-slot a:hover {
   color: #f7a8c6 !important;
 }
 
-.dk-footer-slot .app-how {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.dk-footer-slot .app-how summary {
-  list-style: none;
-  cursor: pointer;
-  color: var(--color-text, var(--app-ink));
-  font-weight: 650;
-}
-
-.dk-footer-slot .app-how summary::-webkit-details-marker {
-  display: none;
-}
-
 .dk-footer-slot .app-how__line {
-  margin: 0.35rem 0 0 0;
-  max-width: 22rem;
-  font-size: 0.9rem;
+  flex-basis: 100%;
+  margin: 0.15rem 0 0 0;
+  font-size: 0.8rem;
   font-weight: 400;
   line-height: 1.4;
   text-align: center;

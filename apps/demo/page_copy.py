@@ -410,23 +410,28 @@ def _render_sidebar_footer(*, generator_label: str, github_url: str) -> None:
 
 
 _PORTFOLIO_URL = "https://roxanatapia.dev/"
+_CASE_URL = "https://roxanatapia.dev/cases/pdf-chat"
+_BOOKING_PAGE_URL = (
+    "https://calendar.google.com/calendar/appointments/schedules/"
+    "AcZssZ3r5LJ7bPLsMMNRH2fcH9DkzDNTf8oA8XIg0NX9aNpoKezPGMN2Z2OTD-baqG9XoB5vfehzJnzt?gv=true"
+)
 
 
 def client_footer_html(generator_label: str) -> str:
-    """Kit footer. The model line sits in the How it's built drawer."""
+    """Kit footer. How it's built opens the case page. The model line stays quiet."""
     label = html.escape(generator_label)
-    href = html.escape(_PORTFOLIO_URL, quote=True)
+    portfolio = html.escape(_PORTFOLIO_URL, quote=True)
+    case = html.escape(_CASE_URL, quote=True)
+    booking = html.escape(_BOOKING_PAGE_URL, quote=True)
     return f"""
 <footer class="dk-footer">
   <div class="dk-footer-slot">
-    <a href="{href}">Built by Roxana Tapia</a>
+    <a href="{portfolio}">Built by Roxana Tapia</a>
     <span aria-hidden="true">·</span>
-    <details class="app-how">
-      <summary>How it's built</summary>
-      <p class="app-how__line">{label}</p>
-    </details>
+    <a href="{case}">How it's built</a>
     <span aria-hidden="true">·</span>
-    <a href="{href}">Book a call</a>
+    <a href="{booking}" target="_blank" rel="noopener noreferrer">Book a call</a>
+    <p class="app-how__line">{label}</p>
   </div>
 </footer>
 """

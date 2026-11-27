@@ -68,12 +68,35 @@ def test_hero_is_one_subtitle() -> None:
     assert not _CLIENT_COPY["hero_kicker"]
 
 
+_CASE_PAGE = "https://roxanatapia.dev/cases/pdf-chat"
+_BOOKING_PAGE = (
+    "https://calendar.google.com/calendar/appointments/schedules/"
+    "AcZssZ3r5LJ7bPLsMMNRH2fcH9DkzDNTf8oA8XIg0NX9aNpoKezPGMN2Z2OTD-baqG9XoB5vfehzJnzt?gv=true"
+)
+
+
+def _footer_anchor(markup: str, label: str) -> str:
+    """The opening tag of the footer link whose text is ``label``."""
+    start = markup.find(f">{label}</a>")
+    assert start != -1, label
+    open_at = markup.rfind("<a", 0, start)
+    assert open_at != -1, label
+    return markup[open_at:start]
+
+
 def test_client_footer_is_the_kit_footer() -> None:
     html = client_footer_html("Claude · Claude Haiku 4.5")
-    assert "Built by Roxana Tapia" in html
-    assert "How it's built" in html
-    assert "Book a call" in html
-    assert html.count("https://roxanatapia.dev/") == 2
+    built = _footer_anchor(html, "Built by Roxana Tapia")
+    how = _footer_anchor(html, "How it's built")
+    book = _footer_anchor(html, "Book a call")
+    assert 'href="https://roxanatapia.dev/"' in built
+    assert f'href="{_CASE_PAGE}"' in how
+    assert "/cases/pdf-chat" in how
+    assert "target=" not in how
+    assert f'href="{_BOOKING_PAGE}"' in book
+    assert 'target="_blank"' in book
+    assert 'rel="noopener noreferrer"' in book
+    assert "<details" not in html
     assert "Claude · Claude Haiku 4.5" in html
     assert "Exit demo" not in html
     assert "fonts.googleapis.com" not in html
