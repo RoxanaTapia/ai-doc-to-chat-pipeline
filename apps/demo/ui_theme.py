@@ -801,11 +801,7 @@ section[data-testid="stSidebar"] {
 
 def _css_string_literal(value: str) -> str:
     """Quote a CSS string for use in ``content: var(...)`` / custom properties."""
-    escaped = (
-        value.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\A ")
-    )
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\A ")
     return f'"{escaped}"'
 
 
@@ -817,9 +813,7 @@ def inject_ask_pending_client() -> None:
     """
     js = _ASK_PENDING_JS.read_text(encoding="utf-8")
     if "<" in js:
-        raise ValueError(
-            "ask_pending.js must not contain '<' (breaks st.html script tags)"
-        )
+        raise ValueError("ask_pending.js must not contain '<' (breaks st.html script tags)")
     # Avoid f-string braces in the JS body; concatenate instead.
     st.html("<script>\n" + js + "\n</script>", unsafe_allow_javascript=True)
 

@@ -173,9 +173,7 @@ def test_call_once_runs_the_model_once_when_a_second_pass_joins() -> None:
 
     first: dict[str, str] = {}
     second: dict[str, str] = {}
-    opener = threading.Thread(
-        target=lambda: first.setdefault("answer", call_once(key, _slow, 2))
-    )
+    opener = threading.Thread(target=lambda: first.setdefault("answer", call_once(key, _slow, 2)))
     joiner = threading.Thread(
         target=lambda: second.setdefault("answer", call_once(key, lambda: "second", 2))
     )

@@ -3,6 +3,7 @@
 Kept as a standalone module so it can be unit-tested without importing
 the full Streamlit app. Only standard-library + optional OCR deps required.
 """
+
 import io
 
 
@@ -25,8 +26,7 @@ def ocr_page_text(page) -> tuple[str, str | None]:
         from PIL import Image
     except ImportError:
         return "", (
-            "OCR dependencies not installed "
-            "(requires pytesseract + pillow + system tesseract)."
+            "OCR dependencies not installed (requires pytesseract + pillow + system tesseract)."
         )
 
     try:

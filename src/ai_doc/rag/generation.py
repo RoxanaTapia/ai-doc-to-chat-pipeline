@@ -33,8 +33,7 @@ def stub_demo_answer(query: str) -> str | None:
     # Test-only HTML escape probe (set DEMO_STUB_HTML_ANSWER=1 in browser tests).
     if _env_flag("DEMO_STUB_HTML_ANSWER"):
         return (
-            "<img src=x onerror=alert(1)>\n\n"
-            "<script>alert(1)</script> payload about Spain / Madrid"
+            "<img src=x onerror=alert(1)>\n\n<script>alert(1)</script> payload about Spain / Madrid"
         )
     if "penalty" in lowered or "fee" in lowered:
         return INSUFFICIENT_CONTEXT_ANSWER

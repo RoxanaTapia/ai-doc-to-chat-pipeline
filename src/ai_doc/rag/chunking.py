@@ -7,9 +7,7 @@ import re
 from langchain_core.documents import Document
 
 NUMBERED_CLAUSE_RE = re.compile(r"(?m)^\s*(\d+)\.\s+(.+)$")
-TITLE_LINE_HEADER_RE = re.compile(
-    r"(?m)^\s*([A-Z][A-Za-z][A-Za-z0-9 /&'-]{0,48})\.\s*(?:\n|$)"
-)
+TITLE_LINE_HEADER_RE = re.compile(r"(?m)^\s*([A-Z][A-Za-z][A-Za-z0-9 /&'-]{0,48})\.\s*(?:\n|$)")
 # Line-anchored: mid-sentence "defined in Section 1" must not become a header.
 SECTION_LABEL_RE = re.compile(r"(?im)^\s*section\s+(\d+)\b")
 
@@ -380,9 +378,7 @@ def chunk_pages(
         add_start_index=True,
     )
     docs_to_split = (
-        split_documents_by_legal_headers(page_docs)
-        if split_on_legal_headers
-        else page_docs
+        split_documents_by_legal_headers(page_docs) if split_on_legal_headers else page_docs
     )
     chunks = splitter.split_documents(docs_to_split)
     page_texts = {

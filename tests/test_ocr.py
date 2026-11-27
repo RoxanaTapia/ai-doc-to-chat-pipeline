@@ -6,6 +6,7 @@ All external OCR dependencies are mocked via sys.modules patching.
 Run:
     pytest tests/test_ocr.py -v
 """
+
 import io
 import sys
 import types
@@ -23,6 +24,7 @@ from ai_doc.ocr import is_likely_scanned_page, ocr_page_text  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_pytesseract_stub(return_value: str = "extracted text") -> types.ModuleType:
     mod = types.ModuleType("pytesseract")
     mod.image_to_string = lambda *a, **kw: return_value  # type: ignore[attr-defined]
@@ -34,6 +36,7 @@ class _FakePixmap:
 
     def tobytes(self, fmt: str) -> bytes:
         from PIL import Image as PILImage
+
         buf = io.BytesIO()
         PILImage.new("L", (10, 10), 255).save(buf, format="PNG")
         return buf.getvalue()
@@ -47,6 +50,7 @@ class _FakePage:
 # ---------------------------------------------------------------------------
 # is_likely_scanned_page
 # ---------------------------------------------------------------------------
+
 
 class TestIsLikelyScannedPage:
     def test_empty_string_is_scanned(self) -> None:
@@ -76,6 +80,7 @@ class TestIsLikelyScannedPage:
 # ---------------------------------------------------------------------------
 # ocr_page_text
 # ---------------------------------------------------------------------------
+
 
 class TestOcrPageText:
     def test_returns_stripped_text_and_no_error_on_success(self) -> None:

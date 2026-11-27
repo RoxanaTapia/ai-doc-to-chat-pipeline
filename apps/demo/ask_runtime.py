@@ -80,18 +80,14 @@ def run_question_stages(
     started = time.perf_counter()
     log_ask_stage("start", question=question)
     try:
-        retrieved = run_with_timeout(
-            retrieve_fn, remaining_timeout(started, timeout_seconds)
-        )
+        retrieved = run_with_timeout(retrieve_fn, remaining_timeout(started, timeout_seconds))
         retrieval_ms = (time.perf_counter() - started) * 1000.0
         log_ask_stage("retrieval_done", question=question, elapsed_ms=retrieval_ms)
         if generate_fn is None:
             return retrieved, None, retrieval_ms, 0.0
         log_ask_stage("model_call_start", question=question, elapsed_ms=retrieval_ms)
         gen_started = time.perf_counter()
-        answer = run_with_timeout(
-            generate_fn, remaining_timeout(started, timeout_seconds)
-        )
+        answer = run_with_timeout(generate_fn, remaining_timeout(started, timeout_seconds))
         generation_ms = (time.perf_counter() - gen_started) * 1000.0
         log_ask_stage("model_call_end", question=question, elapsed_ms=generation_ms)
         return retrieved, answer, retrieval_ms, generation_ms

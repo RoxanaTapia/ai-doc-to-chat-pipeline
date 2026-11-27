@@ -22,7 +22,6 @@ _OBLIGATION_HINT_RE = re.compile(
 )
 
 
-
 def extract_target_section(query: str) -> str | None:
     """Parse target section from 'Section 3', '§3', or a definition-style Q1."""
     text = query or ""
@@ -262,9 +261,7 @@ def _text_looks_on_section(chunk_text: str, target_section: str) -> bool:
 
 # Questions that should open on a specific kind of clause, even when the
 # first-stage ranking prefers a later boilerplate sentence.
-_DURATION_QUERY_RE = re.compile(
-    r"(?i)\b(how long|how many years|does this last|agreement last)\b"
-)
+_DURATION_QUERY_RE = re.compile(r"(?i)\b(how long|how many years|does this last|agreement last)\b")
 _DURATION_CHUNK_RE = re.compile(r"(?i)(section\s+4\b|remain in effect|three \(3\) years)")
 _LAW_QUERY_RE = re.compile(
     r"(?i)\b(which law|what law|law applies|governing law|country'?s law|disputes settled)\b"

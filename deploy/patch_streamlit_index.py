@@ -45,11 +45,7 @@ def _copy_kit(index: Path) -> None:
 
 def _brand_early(prefix: str) -> str:
     # Blocking script: data-theme is set before the rest of <head> is fetched.
-    return (
-        f"{MARKER}\n"
-        f'<script src="{prefix}/theme-init.js"></script>\n'
-        f"{END_MARKER}\n"
-    )
+    return f'{MARKER}\n<script src="{prefix}/theme-init.js"></script>\n{END_MARKER}\n'
 
 
 def _brand_head(prefix: str, css: str) -> str:

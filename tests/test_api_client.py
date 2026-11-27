@@ -64,9 +64,9 @@ def test_chat_via_api_stream_yields_one_chunk(monkeypatch: pytest.MonkeyPatch) -
         "chat_via_api",
         lambda **kwargs: "full answer",
     )
-    assert list(
-        api_client.chat_via_api_stream(context="ctx", query="q", dummy_mode=True)
-    ) == ["full answer"]
+    assert list(api_client.chat_via_api_stream(context="ctx", query="q", dummy_mode=True)) == [
+        "full answer"
+    ]
 
 
 def test_chat_via_api_requires_base_url() -> None:

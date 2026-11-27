@@ -45,9 +45,7 @@ def extract_pdf(path: Path, *, enable_ocr: bool) -> ExtractedPdf:
                     final_page_text = ocr_text
                     ocr_pages_used += 1
             preview_parts.append(f"\n--- Page {page_num} ---\n{final_page_text}\n")
-            page_docs.append(
-                Document(page_content=final_page_text, metadata={"page": page_num})
-            )
+            page_docs.append(Document(page_content=final_page_text, metadata={"page": page_num}))
     finally:
         doc.close()
 

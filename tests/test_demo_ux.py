@@ -955,7 +955,7 @@ def test_visitor_header_is_a_quiet_portfolio_link() -> None:
     start = header.find('id="demo-exit"')
     assert start != -1
     open_at = header.rfind("<a", 0, start)
-    tag = header[open_at:header.find(">", start) + 1]
+    tag = header[open_at : header.find(">", start) + 1]
     assert 'href="https://roxanatapia.dev/"' in tag
     assert "target=" not in tag
     assert "btn-primary" not in tag
