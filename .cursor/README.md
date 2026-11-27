@@ -1,9 +1,7 @@
 # Cursor workspace helpers
 
-Public coding conventions used in this repo. How to run tests and find files: [`AGENTS.md`](../AGENTS.md).
+How to work in this repo: [AGENTS.md](../AGENTS.md).
 
 | Folder | Role |
 |--------|------|
-| **`rules/`** | Language, config, and deploy conventions applied in Cursor chats. |
-
-PRs and reviews follow the standard in [`AGENTS.md`](../AGENTS.md).
+| `rules/` | Short rules for working here, tests, Python style, and documentation. |

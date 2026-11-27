@@ -20,7 +20,9 @@ jobs:
           pip install "ruff==0.17.2"
       - name: Check Python style
         id: style
-        run: ruff check .
+        run: |
+          ruff check .
+          ruff format --check .
       - name: Post a short summary
         if: always()
         run: |
@@ -29,12 +31,12 @@ jobs:
             echo
             case "${{ steps.style.outcome }}" in
               success)
-                echo "Python in this repository was checked for style problems."
+                echo "Python in this repository was checked with ruff check and ruff format --check."
                 echo
                 echo "**Passed.** Nothing to fix."
                 ;;
               failure)
-                echo "Python in this repository was checked for style problems."
+                echo "Python in this repository was checked with ruff check and ruff format --check."
                 echo
                 echo "**Failed.** Some style problems need a fix. The log lists the file and line."
                 ;;

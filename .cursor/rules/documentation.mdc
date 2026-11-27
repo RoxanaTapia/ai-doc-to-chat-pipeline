@@ -1,0 +1,15 @@
+---
+description: How to write docs, issues, and pull requests in this repo
+globs: docs/**,README.md,AGENTS.md,.github/**
+alwaysApply: false
+---
+
+# Documentation
+
+- Plain words. No em dashes. Short sections, and relative links to files that exist.
+- The README is written to "you" and calls the live version the pilot. Operator commands stay in `docs/operators/running.md`.
+- Product pages live in `docs/product/`. Operator pages live in `docs/operators/`. Start at `docs/README.md`.
+- Issues and pull requests use the short forms in `.github/`.
+- Public writing leaves out prices, the hosting provider, server size, and private-repo links. The pilot address already in the README can stay.
+- Do not invent a number. A limit you state is the one in the code, the config, or `.env.example`.
+- No secrets, and no filled `.env`, in committed docs.

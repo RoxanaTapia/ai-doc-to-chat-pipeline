@@ -1,17 +1,13 @@
-## 🎯 What
-One or two lines on the user-visible change. Closes #184
+Closes #
 
-## 🧱 Commit story
-- fix(ui): pin header height before fonts load
-- test(ui): add header position test at 390px and 1440px
+## What changes
 
-## 🧪 Test
-- [ ] CI green
-- [ ] up to 3 checks that prove the fix
+- One change, in a plain sentence.
 
-## 🚀 Deploy
-`docker compose -f deploy/docker-compose.yml up --build -d` · rebuilds `app` · no env or config changes · rollback: revert plus redeploy
+## How to try it
 
-<details><summary>Details</summary>screenshots, numbers, longer notes</details>
+What to open or run, and what you should see.
 
-[How I work with AI](../docs/how-we-work.md)
+## Automated tests
+
+Which automated tests passed, in a sentence.

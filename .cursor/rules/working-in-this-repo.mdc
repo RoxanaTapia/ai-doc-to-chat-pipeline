@@ -1,0 +1,14 @@
+---
+description: How a change is made in this repo
+alwaysApply: true
+---
+
+# Working in this repo
+
+- Read [AGENTS.md](../../AGENTS.md) before you edit.
+- Follow [How a change happens](../../AGENTS.md#how-a-change-happens). One issue, one branch, one pull request.
+- Issue titles start with one emoji code, such as 🛠️ or 📄. Pull request titles are a plain sentence.
+- Use the forms in `.github/ISSUE_TEMPLATE.md` and `.github/pull_request_template.md`.
+- Stay inside the current issue. Do not change what the app does unless the issue asks for that.
+- Roxana reviews and merges. Do not merge, force-push, or rebase a shared branch.
+- Never commit a filled `.env` or an API key.

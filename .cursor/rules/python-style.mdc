@@ -1,0 +1,16 @@
+---
+description: Python style for this repo. Ruff is the only linter and formatter.
+alwaysApply: true
+---
+
+# Python style
+
+- Ruff is configured once, in `pyproject.toml`: line length 100, rules E, F, and I. Do not add a second Ruff config.
+- Run `ruff check .` and `ruff format --check .`. Formatting may change layout only.
+- Prefer `pathlib.Path`, f-strings, and short functions. Add a type hint where it makes a signature clearer. Keep docstrings short.
+- Search stays local. Embeddings use `HuggingFaceEmbeddings` and the model named in `configs/config.yaml`. The index is FAISS, with BM25 beside it. Chunking lives in `src/ai_doc/rag/`.
+- Answer from the document. Prompts live in `configs/prompts.yaml`.
+- The API in `src/ai_doc/api/` stays thin: `GET /health` and `POST /chat`, OpenAPI at `/docs`, and no Streamlit imports.
+- The demo is Streamlit in `apps/demo/`. Keep chat and upload state in `st.session_state`. A bad PDF shows an error and does not crash the page.
+- Secrets stay in `.env`. A new product setting goes in `.env.example` with an empty value and a short comment.
+- Do not bake keys into the image. Compose publishes the demo on port 8501. Public HTTPS stays with the reverse proxy in front (`deploy/docker-compose.shared-edge.yml`).
