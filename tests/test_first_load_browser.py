@@ -383,7 +383,7 @@ def test_first_load_shows_boot_loader_without_unstyled_frames() -> None:
             expect(page.get_by_role("button", name="Try your own PDF")).to_have_count(0)
             expect(page.locator('[data-testid="stFileUploader"]')).to_have_count(0)
             expect(
-                page.get_by_text("NDA · Acme Corp and Beta Labs", exact=False).first
+                page.get_by_role("button", name="NDA · Acme Corp and Beta Labs")
             ).to_be_visible()
             expect(page.get_by_text("sample-nda.pdf")).to_have_count(0)
             browser.close()

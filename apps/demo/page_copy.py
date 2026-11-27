@@ -6,6 +6,7 @@ import html
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from urllib.parse import urlparse
 
 import streamlit as st
 
@@ -53,6 +54,7 @@ _CLIENT_COPY = {
     ),
     "booking_prompt": "Want this on your documents?",
     "booking_action": "Message me on Upwork.",
+    "booking_action_website": "Book a call",
     "progress_prepare": "preparing",
     "progress_extract": "extracting text",
     "progress_chunk": "preparing the index",
@@ -93,6 +95,12 @@ STARTER_CHIPS = (
 )
 
 BOOKING_URL_ENV = "DEMO_BOOKING_URL"
+# Website path. An Upwork profile URL still uses the Upwork sentence.
+WEBSITE_BOOKING_URL = (
+    "https://calendar.google.com/calendar/appointments/schedules/"
+    "AcZssZ3r5LJ7bPLsMMNRH2fcH9DkzDNTf8oA8XIg0NX9aNpoKezPGMN2Z2OTD-baqG9XoB5vfehzJnzt"
+    "?gv=true"
+)
 
 
 # Buyer-facing vendor names. The setting values stay anthropic / openai / xai.
@@ -117,21 +125,36 @@ def privacy_badge_for_provider(provider: str) -> str:
     return _CLIENT_COPY["privacy_badge_hosted"]
 
 
+def _is_upwork_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return host == "upwork.com" or host.endswith(".upwork.com")
+
+
 def booking_url(raw: str | None = None) -> str:
-    """Upwork profile from env, or empty. Blank hides the whole line."""
+    """Booking link from env. A blank env uses the website calendar link.
+
+    Pass "" to hide the line. An Upwork profile URL stays an Upwork link.
+    """
     if raw is None:
         raw = os.getenv(BOOKING_URL_ENV)
+        if not (raw or "").strip():
+            return WEBSITE_BOOKING_URL
     return (raw or "").strip()
 
 
 def booking_cta(url: str | None = None) -> dict[str, str | None]:
-    """Copy for the post-third-answer line. ``href`` is None when the env is blank."""
+    """Copy for the post-third-answer line. ``href`` is None when passed blank.
+
+    The website path says Book a call and opens the calendar link in a new tab.
+    An Upwork profile URL keeps "Message me on Upwork."
+    """
     href = booking_url(url)
     if not href:
         return {"prompt": "", "action": "", "href": None}
+    action_key = "booking_action" if _is_upwork_url(href) else "booking_action_website"
     return {
         "prompt": _CLIENT_COPY["booking_prompt"],
-        "action": _CLIENT_COPY["booking_action"],
+        "action": _CLIENT_COPY[action_key],
         "href": href,
     }
 

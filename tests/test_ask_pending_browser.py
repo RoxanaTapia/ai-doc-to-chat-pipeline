@@ -184,26 +184,34 @@ def _finished_cards(page) -> int:
 
 
 def _busy_in_status_row(page) -> dict:
-    """Whether the CSS busy line is visible inside the status row and on top."""
+    """Whether the CSS busy line is visible, and the document chip kept its name."""
     return page.evaluate(
         """() => {
-          const status = document.querySelector('.app-status');
-          if (!status) return {ok: false, reason: 'no-status'};
+          const live = document.querySelector('.app-ask-live');
+          if (!live) return {ok: false, reason: 'no-live'};
           if (!document.body.classList.contains('app-ask-pending')) {
             return {ok: false, reason: 'not-pending'};
           }
-          const r = status.getBoundingClientRect();
+          const chip = document.body.innerText || '';
+          if (!chip.includes('NDA')) return {ok: false, reason: 'chip-missing'};
+          if (chip.includes('Looking through the document .')) {
+            return {ok: false, reason: 'spaced-dot'};
+          }
+          const r = live.getBoundingClientRect();
           if (r.width <= 0 || r.height <= 0) {
             return {ok: false, reason: 'zero-size', rect: [r.x, r.y, r.width, r.height]};
           }
-          const before = getComputedStyle(status, '::before').content || '';
+          const before = getComputedStyle(live, '::before').content || '';
           if (!before.includes('Looking through the document')) {
             return {ok: false, reason: 'no-before', before};
+          }
+          if (before.includes('Looking through the document .')) {
+            return {ok: false, reason: 'spaced-dot', before};
           }
           const cx = r.left + Math.min(r.width / 2, 40);
           const cy = r.top + r.height / 2;
           const top = document.elementFromPoint(cx, cy);
-          const onTop = !!top && (top === status || status.contains(top));
+          const onTop = !!top && (top === live || live.contains(top));
           if (!onTop) {
             return {
               ok: false,
@@ -298,16 +306,16 @@ def test_busy_line_visible_in_status_row_within_100ms() -> None:
             page.wait_for_function(
                 """() => {
                   if (!document.body.classList.contains('app-ask-pending')) return false;
-                  const status = document.querySelector('.app-status');
-                  if (!status) return false;
-                  const r = status.getBoundingClientRect();
+                  const live = document.querySelector('.app-ask-live');
+                  if (!live) return false;
+                  const r = live.getBoundingClientRect();
                   if (r.width <= 0 || r.height <= 0) return false;
-                  const before = getComputedStyle(status, '::before').content || '';
+                  const before = getComputedStyle(live, '::before').content || '';
                   if (!before.includes('Looking through the document')) return false;
                   const cx = r.left + Math.min(r.width / 2, 40);
                   const cy = r.top + r.height / 2;
                   const top = document.elementFromPoint(cx, cy);
-                  return !!top && (top === status || status.contains(top));
+                  return !!top && (top === live || live.contains(top));
                 }""",
                 timeout=100,
             )
@@ -396,9 +404,9 @@ def test_chip_click_marks_pending_and_answers() -> None:
             page.wait_for_function(
                 """() => {
                   if (!document.body.classList.contains('app-ask-pending')) return false;
-                  const status = document.querySelector('.app-status');
-                  if (!status) return false;
-                  const before = getComputedStyle(status, '::before').content || '';
+                  const live = document.querySelector('.app-ask-live');
+                  if (!live) return false;
+                  const before = getComputedStyle(live, '::before').content || '';
                   return before.includes('Looking through the document');
                 }""",
                 timeout=100,
@@ -493,7 +501,9 @@ def test_failsafe_timer_restores_page_via_real_submit() -> None:
             # for the in-flight ask, so do not require prior cards to still exist.
             assert not _busy_in_status_row(page).get("ok")
             before_css = page.evaluate(
-                "() => getComputedStyle(document.querySelector('.app-status'), '::before').content"
+                """() => getComputedStyle(
+                  document.querySelector('.app-ask-live'), '::before'
+                ).content"""
             )
             assert "Looking through the document" not in (before_css or "")
             assert cards_before >= 1

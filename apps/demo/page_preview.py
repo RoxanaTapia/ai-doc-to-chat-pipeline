@@ -7,6 +7,8 @@ import re
 import pymupdf
 
 _WORD_RE = re.compile(r"[A-Za-z0-9']+")
+_ELLIPSIS_RE = re.compile(r"(?:…|\.\.\.)\s*$")
+_SENTENCE_END_RE = re.compile(r"[.!?]$")
 
 
 def page_index(page_number: object) -> int | None:
@@ -20,9 +22,15 @@ def page_index(page_number: object) -> int | None:
     return number - 1
 
 
+def _clean_quote(quote: str) -> str:
+    """Collapse whitespace and drop a trailing ellipsis from a cut excerpt."""
+    cleaned = " ".join((quote or "").split())
+    return _ELLIPSIS_RE.sub("", cleaned).strip()
+
+
 def _search_needles(quote: str) -> list[str]:
     """Longest-first snippets that PyMuPDF can look up on a page."""
-    cleaned = " ".join((quote or "").split())
+    cleaned = _clean_quote(quote)
     if not cleaned:
         return []
     needles = [cleaned]
@@ -49,10 +57,11 @@ def _quote_words(quote: str) -> list[str]:
 
 
 def _page_words(page: pymupdf.Page) -> list[tuple]:
-    """Word boxes as (x0, y0, x1, y1, word, block, line)."""
+    """Word boxes as (x0, y0, x1, y1, word, block, line, raw)."""
     rows = []
     for item in page.get_text("words") or []:
-        tokens = _WORD_RE.findall(str(item[4]))
+        raw = str(item[4])
+        tokens = _WORD_RE.findall(raw)
         if not tokens:
             continue
         rows.append(
@@ -64,6 +73,7 @@ def _page_words(page: pymupdf.Page) -> list[tuple]:
                 tokens[0].lower(),
                 int(item[5]),
                 int(item[6]),
+                raw,
             )
         )
     return rows
@@ -84,10 +94,32 @@ def _matching_word_run(page_words: list[tuple], quote_words: list[str]) -> list[
     return []
 
 
+def _extend_to_sentence_end(page_words: list[tuple], run: list[tuple]) -> list[tuple]:
+    """Continue a matched run through the period, when the excerpt stopped early."""
+    if not run or not page_words:
+        return run
+    start = next((index for index, row in enumerate(page_words) if row[:7] == run[0][:7]), None)
+    if start is None:
+        return run
+    end = min(start + len(run) - 1, len(page_words) - 1)
+    if _SENTENCE_END_RE.search(str(page_words[end][7])):
+        return page_words[start : end + 1]
+    block = page_words[end][5]
+    cursor = end
+    while cursor + 1 < len(page_words):
+        nxt = page_words[cursor + 1]
+        if nxt[5] != block:
+            break
+        cursor += 1
+        if _SENTENCE_END_RE.search(str(nxt[7])):
+            break
+    return page_words[start : cursor + 1]
+
+
 def _line_rects(matches: list[tuple]) -> list[pymupdf.Rect]:
     """One rectangle per line so the highlight covers the whole passage."""
     lines: dict[tuple[int, int], list[float]] = {}
-    for x0, y0, x1, y1, _word, block, line in matches:
+    for x0, y0, x1, y1, _word, block, line, *_rest in matches:
         box = lines.get((block, line))
         if box is None:
             lines[(block, line)] = [x0, y0, x1, y1]
@@ -102,20 +134,26 @@ def _line_rects(matches: list[tuple]) -> list[pymupdf.Rect]:
 def highlight_rects(page: pymupdf.Page, quote: str) -> list[pymupdf.Rect]:
     """Find quote rectangles on a page; empty when the passage is not visible.
 
-    A full-string hit wins. When the excerpt does not match as one string
-    (a heading glued on, or a dash the page does not use), the word run
-    still highlights every line of the passage instead of the first few words.
+    A word run wins, then grows through the sentence period so a preview cut
+    at a comma (for example "customer lists,") still covers the whole sentence.
+    A heading glued on with a different dash still highlights every line.
     """
-    cleaned = " ".join((quote or "").split())
+    cleaned = _clean_quote(quote)
     if not cleaned:
         return []
+    page_words = _page_words(page)
+    quote_words = _quote_words(cleaned)
+    run = _matching_word_run(page_words, quote_words)
+    if not run and len(quote_words) >= 4:
+        for size in range(len(quote_words) - 1, 3, -1):
+            run = _matching_word_run(page_words, quote_words[:size])
+            if run:
+                break
+    if run:
+        return _line_rects(_extend_to_sentence_end(page_words, run))
     full = page.search_for(cleaned, quads=False)
     if full:
         return list(full)
-    words = _quote_words(cleaned)
-    run = _matching_word_run(_page_words(page), words)
-    if run:
-        return _line_rects(run)
     for needle in _search_needles(cleaned)[1:]:
         hits = page.search_for(needle, quads=False)
         if hits:

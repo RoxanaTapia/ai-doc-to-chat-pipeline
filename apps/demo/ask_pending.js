@@ -97,7 +97,7 @@
   const formatAskSeconds = (ms) => {
     const seconds = Math.max(0, ms) / 1000;
     const shown = seconds >= 0.1 ? seconds.toFixed(1) : seconds.toFixed(2);
-    return "answered in " + shown + " s";
+    return "Answered in " + shown + " s";
   };
 
   const paintBrowserTimes = () => {
