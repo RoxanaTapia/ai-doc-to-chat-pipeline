@@ -489,11 +489,6 @@ body.app-ask-pending .stElementContainer:has([class*="st-key-doc_chip"]) {
   }
 }
 
-[class*="st-key-answer_stack"] {
-  display: flex;
-  flex-direction: column-reverse;
-}
-
 .app-typing {
   display: inline;
   margin: 0.35rem 0 1rem 0;

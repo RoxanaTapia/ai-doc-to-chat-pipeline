@@ -672,7 +672,7 @@ def test_ask_ui_has_no_form_that_can_flash_missing_submit() -> None:
     assert "_keep_earlier_answers(answers_slot)" in text
     assert "_clear_answer_history" not in text
     assert "with answers_slot.container()" not in text
-    assert "column-reverse" in _THEME_CSS
+    assert "list(reversed(turns))" in text
     assert text.find("chip_slot = _render_starter_chips") < text.find("chip_slot.empty()")
     assert text.find("answers_slot = st.empty()") < text.find("_keep_earlier_answers(answers_slot)")
     assert text.find("chip_slot.empty()") < text.find('paint_status(status_slot, "answering"')

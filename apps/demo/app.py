@@ -590,10 +590,7 @@ def _continue_queued_ask(already_taken: str | None) -> None:
 
 
 def _fill_answer_cards() -> None:
-    """Paint every finished card. DOM order is oldest first so keys stay put.
-
-    CSS column-reverse shows that list newest first without moving earlier cards.
-    """
+    """Paint every finished card, newest first, with stable paint ids."""
     turns = _paired_turns(st.session_state.messages)
     indexed_stats = st.session_state.get("indexed_doc_stats") or {}
     page_count = int(indexed_stats.get("text_pages") or indexed_stats.get("pages") or 0)
@@ -605,53 +602,51 @@ def _fill_answer_cards() -> None:
     end_card = walkthrough_tally(st.session_state.messages) is not None
     st.session_state["_answer_history_cleared"] = False
     ask_paint_id = int(st.session_state.get("ask_paint_id") or 0)
+    ordered = list(reversed(turns))
     st.session_state["_answer_order"] = [
         (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-        for user_msg, assistant_msg in reversed(turns)
+        for user_msg, assistant_msg in ordered
     ]
-    with st.container(key="answer_stack"):
-        st.markdown('<div class="app-answer-stack" hidden></div>', unsafe_allow_html=True)
-        for turn_idx, (user_msg, assistant_msg) in enumerate(turns):
-            question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
-            newest = turn_idx == len(turns) - 1
-            if newest and assistant_count >= 3 and not end_card:
-                _render_booking_cta(booking_url())
-            _render_answer_card(
-                question=question,
-                answer=assistant_msg.get("content") or "",
-                sources=assistant_msg.get("sources") or [],
-                refusal=assistant_msg.get("refusal"),
-                expanded=turn_idx == len(turns) - 1,
-                timing=assistant_msg.get("timing"),
-                developer_mode=st.session_state.developer_mode,
-                page_count=page_count,
-                any_blank_pages=any_blank_pages,
-                pdf_bytes=pdf_bytes,
-                card_key=_card_paint_key(assistant_msg, turn_idx + 1),
+    for turn_idx, (user_msg, assistant_msg) in enumerate(ordered):
+        question = (user_msg or {}).get("content") or assistant_msg.get("for_question") or ""
+        _render_answer_card(
+            question=question,
+            answer=assistant_msg.get("content") or "",
+            sources=assistant_msg.get("sources") or [],
+            refusal=assistant_msg.get("refusal"),
+            expanded=turn_idx == 0,
+            timing=assistant_msg.get("timing"),
+            developer_mode=st.session_state.developer_mode,
+            page_count=page_count,
+            any_blank_pages=any_blank_pages,
+            pdf_bytes=pdf_bytes,
+            card_key=_card_paint_key(assistant_msg, len(turns) - turn_idx),
+        )
+        if turn_idx == 0 and assistant_count >= 3 and not end_card:
+            _render_booking_cta(booking_url())
+        if st.session_state.developer_mode and assistant_msg.get("sources"):
+            turn_label = f"turn {len(turns) - turn_idx}"
+            _render_source_checklist(
+                assistant_msg["sources"],
+                target_section=assistant_msg.get("target_section"),
+                title=_dev_panel_title(
+                    "Source checklist (eval)",
+                    assistant_msg.get("for_question"),
+                    fallback=turn_label,
+                ),
             )
-            if st.session_state.developer_mode and assistant_msg.get("sources"):
-                turn_label = f"turn {turn_idx + 1}"
-                _render_source_checklist(
-                    assistant_msg["sources"],
+            if assistant_msg.get("eval_context"):
+                _render_eval_context_panel(
+                    assistant_msg["eval_context"],
                     target_section=assistant_msg.get("target_section"),
+                    chunk_count=assistant_msg.get("eval_chunk_count"),
                     title=_dev_panel_title(
-                        "Source checklist (eval)",
+                        "Exact context fed to LLM",
                         assistant_msg.get("for_question"),
                         fallback=turn_label,
                     ),
+                    top_k=TOP_K,
                 )
-                if assistant_msg.get("eval_context"):
-                    _render_eval_context_panel(
-                        assistant_msg["eval_context"],
-                        target_section=assistant_msg.get("target_section"),
-                        chunk_count=assistant_msg.get("eval_chunk_count"),
-                        title=_dev_panel_title(
-                            "Exact context fed to LLM",
-                            assistant_msg.get("for_question"),
-                            fallback=turn_label,
-                        ),
-                        top_k=TOP_K,
-                    )
     if end_card:
         _render_case_end(st.session_state.messages)
     card_cap = MAX_CHAT_MESSAGES // 2

@@ -122,7 +122,7 @@ def test_three_questions_in_one_session_each_render_a_card(stub_env) -> None:
     assert LAW_QUESTION in questions
     order = _session_get(at, "_answer_order") or []
     assert order == [LAW_QUESTION, FEE_QUESTION, TERM_QUESTION]
-    assert order[0] == questions[-1]
+    assert order[0] == questions[0]
 
     contents = [msg.get("content") or "" for msg in assistants]
     assert any("3 years" in text for text in contents)

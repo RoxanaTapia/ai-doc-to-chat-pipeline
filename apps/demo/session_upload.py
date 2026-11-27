@@ -340,15 +340,15 @@ def _paint_status_view(slot, kind: str, message: str) -> None:
             return
         st.session_state["_status_chip_drawn"] = True
         with slot.container():
-            st.markdown(
-                f'<div class="app-status app-status--ready app-doc-card" hidden>{safe}</div>',
-                unsafe_allow_html=True,
-            )
             st.button(
                 message,
                 key="doc_chip",
                 help="Open page 1 of this document.",
                 on_click=toggle_sample_page_preview,
+            )
+            st.markdown(
+                f'<div class="app-status app-status--ready app-doc-card" hidden>{safe}</div>',
+                unsafe_allow_html=True,
             )
         return
     st.session_state["_status_chip_drawn"] = False
