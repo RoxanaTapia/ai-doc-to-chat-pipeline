@@ -186,7 +186,7 @@ def test_filter_docs_overlapping_answer_keeps_matching_chunks() -> None:
     assert filtered == [matching]
 
 
-def test_filter_docs_overlapping_answer_empty_filter_keeps_top_retrieved() -> None:
+def test_filter_docs_overlapping_answer_empty_filter_drops_unrelated() -> None:
     answer = "Liquidated damages equal ten thousand euros upon breach."
     ranked = [
         Document(
@@ -198,8 +198,46 @@ def test_filter_docs_overlapping_answer_empty_filter_keeps_top_retrieved() -> No
             metadata={"page": 3, "similarity": 0.7},
         ),
     ]
-    filtered = filter_docs_overlapping_answer(ranked, answer)
-    assert filtered == ranked[:1]
+    assert filter_docs_overlapping_answer(ranked, answer) == []
+
+
+def test_law_answer_ranks_governing_law_above_a_weak_term_overlap() -> None:
+    """'agreement' alone must not pin Section 4 under the governing-law answer."""
+    answer = (
+        "Spain / Madrid\n\n"
+        "This Agreement shall be governed by the laws of Spain. "
+        "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+    )
+    term = Document(
+        page_content=(
+            "Section 4 - Term\n"
+            "This Agreement shall remain in effect for a period of three (3) years "
+            "from the date of signing."
+        ),
+        metadata={"page": 2, "similarity": 0.9},
+    )
+    law = Document(
+        page_content=(
+            "Section 7 - Governing Law\n"
+            "This Agreement shall be governed by the laws of Spain. "
+            "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+        ),
+        metadata={"page": 3, "similarity": 0.2},
+    )
+    filtered = filter_docs_overlapping_answer([term, law], answer)
+    assert filtered == [law]
+    assert filter_docs_overlapping_answer([term], answer) == []
+    payload = build_sources_payload(
+        [term, law],
+        query="Which law applies?",
+        answer=answer,
+        display_max=3,
+        preview_chars=280,
+    )
+    assert len(payload) == 1
+    assert payload[0]["page"] == 3
+    assert "three (3) years" not in payload[0]["preview"]
+    assert "Spain" in payload[0]["preview"]
 
 
 def test_filter_docs_overlapping_answer_empty_answer_returns_original() -> None:

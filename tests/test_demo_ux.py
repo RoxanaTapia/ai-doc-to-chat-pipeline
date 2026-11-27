@@ -73,7 +73,9 @@ def test_client_footer_is_the_kit_footer() -> None:
     assert "Built by Roxana Tapia" in html
     assert "How it's built" in html
     assert "Book a call" in html
-    assert html.count("https://roxanatapia.dev/") == 2
+    assert html.count("https://roxanatapia.dev/") == 1
+    assert "calendar.google.com/calendar/appointments/schedules/" in html
+    assert 'target="_blank"' in html
     assert "Claude · Claude Haiku 4.5" in html
     assert "Exit demo" not in html
     assert "fonts.googleapis.com" not in html

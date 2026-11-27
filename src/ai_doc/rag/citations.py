@@ -34,11 +34,15 @@ _UNSPECIFIED_RE = re.compile(
 )
 
 # Light English stopwords for answer↔chunk overlap (keep the set tiny).
+# "agreement", "shall", and "this" sit in almost every clause, so they cannot
+# make a chunk look like support.
 _OVERLAP_STOPWORDS = frozenset(
     {
         "a",
+        "agreement",
         "an",
         "and",
+        "any",
         "are",
         "as",
         "at",
@@ -52,8 +56,10 @@ _OVERLAP_STOPWORDS = frozenset(
         "of",
         "on",
         "or",
+        "shall",
         "that",
         "the",
+        "this",
         "to",
         "was",
         "were",
@@ -272,7 +278,11 @@ def _chunk_contains_answer_digits(chunk_text: str, digits: set[str]) -> bool:
 
 
 def _chunk_supports_answer_tokens(chunk_text: str, answer: str) -> bool:
-    """True when the chunk carries the answer's numbers and at least one other token."""
+    """True when the chunk carries the answer's numbers and distinctive words.
+
+    A long answer needs two overlapping words. One shared word such as "date"
+    is not support. A short answer such as "3 years" still matches on its word.
+    """
     answer_tokens = _content_tokens(answer)
     if not answer_tokens:
         return False
@@ -281,9 +291,36 @@ def _chunk_supports_answer_tokens(chunk_text: str, answer: str) -> bool:
     words = answer_tokens - digits
     if digits and not _chunk_contains_answer_digits(chunk_text, digits):
         return False
-    if words:
-        return bool(words & chunk_tokens)
-    return bool(digits) and digits <= chunk_tokens
+    overlap = words & chunk_tokens
+    if len(words) <= 4:
+        return bool(overlap) or (bool(digits) and digits <= chunk_tokens)
+    return len(overlap) >= 2
+
+
+def _answer_coverage(answer: str, chunk_text: str) -> tuple[float, float]:
+    """How much of the answer the chunk covers, then Jaccard as a tie break.
+
+    A short fragment that shares two words can outscore the passage that
+    names every party if rank uses Jaccard alone.
+    """
+    answer_tokens = _content_tokens(answer)
+    chunk_tokens = _content_tokens(chunk_text)
+    if not answer_tokens or not chunk_tokens:
+        return (0.0, 0.0)
+    intersection = answer_tokens & chunk_tokens
+    coverage = len(intersection) / len(answer_tokens)
+    jaccard = len(intersection) / len(answer_tokens | chunk_tokens)
+    return (coverage, jaccard)
+
+
+def _rank_by_answer_overlap(docs: list[Document], answer: str) -> list[Document]:
+    """Best support first. Equal scores keep the incoming order."""
+    scored = [
+        (*_answer_coverage(answer, doc.page_content or ""), index, doc)
+        for index, doc in enumerate(docs)
+    ]
+    scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    return [doc for _coverage, _jaccard, _index, doc in scored]
 
 
 def filter_docs_overlapping_answer(
@@ -293,12 +330,12 @@ def filter_docs_overlapping_answer(
     min_score: float = DEFAULT_ANSWER_OVERLAP_MIN_SCORE,
 ) -> list[Document]:
     """
-    Keep Sources chunks that support ``answer``, in the given retrieval order.
+    Keep Sources chunks that support ``answer``, best overlap first.
 
     Prefer Jaccard overlap at ``min_score``. Short answers like "3 years" often
-    miss that floor, so fall back to chunks that contain the answer's numbers
-    and at least one other content token. If nothing supports the answer, keep
-    only the first retrieved chunk, not the whole unfiltered list.
+    miss that floor, so also keep chunks that contain the answer's numbers and
+    distinctive words. If nothing supports the answer, return no chunks. A
+    wrong excerpt is worse than no quote.
     """
     if not docs or not (answer or "").strip():
         return docs
@@ -315,14 +352,14 @@ def filter_docs_overlapping_answer(
         ]
         scored_hits = numbered
     if scored_hits:
-        return scored_hits
+        return _rank_by_answer_overlap(scored_hits, answer)
 
     token_hits = [
         doc for doc in docs if _chunk_supports_answer_tokens(doc.page_content or "", answer)
     ]
     if token_hits:
-        return token_hits
-    return docs[:1]
+        return _rank_by_answer_overlap(token_hits, answer)
+    return []
 
 
 def readable_excerpt(text: str, max_chars: int) -> str:
@@ -369,7 +406,7 @@ def build_sources_payload(
         return []
 
     target_section = extract_target_section(query) if query else None
-    # Keep retrieval/ranked order. Do not re-sort by page or raw similarity.
+    # Overlap order, not page order or raw similarity.
     ordered = list(retrieved_docs)
     if answer:
         ordered = filter_docs_overlapping_answer(ordered, answer)

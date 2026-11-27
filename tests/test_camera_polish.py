@@ -54,11 +54,20 @@ def test_repeating_quote_is_dropped_and_a_different_excerpt_stays() -> None:
         "3 years\n\nThis Agreement shall remain in effect for a period of three (3) years "
         "from the date of signing."
     )
-    quote = (
+    padded = (
         "Section 4 - Term This Agreement shall remain in effect for a period of three (3) years "
-        "from the date of signing."
+        "from the date of signing. The obligations of confidentiality shall survive termination."
     )
-    assert quote_repeats_answer(quote, answer)
+    citation = (
+        "Section 7 - Governing Law This Agreement shall be governed by the laws of Spain. "
+        "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+    )
+    law_answer = (
+        "Spain / Madrid\n\nThis Agreement shall be governed by the laws of Spain. "
+        "Any dispute arising hereunder shall be resolved exclusively in the courts of Madrid."
+    )
+    assert quote_repeats_answer(padded, answer)
+    assert not quote_repeats_answer(citation, law_answer)
     assert not quote_repeats_answer("The filing fee is due on the first day.", answer)
 
 
@@ -170,9 +179,13 @@ def test_website_booking_is_a_new_tab_calendar_link(monkeypatch: pytest.MonkeyPa
     page = (DEMO_DIR / "page_copy.py").read_text(encoding="utf-8")
     footer = page.split("def client_footer_html", 1)[1]
     booking = page.split("def _render_booking_cta", 1)[1].split("def ", 1)[0]
+    end = page.split("def _render_case_end", 1)[1].split("def ", 1)[0]
     assert 'target="_blank"' in booking
     assert "Book a call" in footer
     assert "Built by" in footer
+    assert "booking_url()" in footer
+    assert "booking_url()" in end
+    assert "_PORTFOLIO_URL" not in end
     assert booking_url("") == ""
 
 

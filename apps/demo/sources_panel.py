@@ -248,20 +248,44 @@ def source_chip_label(source: dict) -> str:
     return f"Page {page}"
 
 
-def quote_repeats_answer(quote: str, answer: str) -> bool:
-    """True when the faint excerpt only repeats words already in the answer."""
+_SECTION_LABEL_RE = re.compile(
+    "(?i)" + r"\bsection\s+\d+\s*[\-\u2013\u2014]\s*[a-z]+(?:\s+[a-z]+){0,3}\b"
+)
+_QUOTE_NOISE = frozenset({"a", "an", "and", "of", "the"})
 
-    def _norm(value: str) -> str:
-        text = (value or "").replace("…", " ").replace("...", " ")
-        return " ".join(text.lower().split())
 
-    excerpt = _norm(quote)
+def _norm_quote(value: str) -> str:
+    text = (value or "").replace("…", " ").replace("...", " ")
+    return " ".join(text.lower().split())
+
+
+def _written_answer(answer: str) -> str:
+    """Answer body, skipping a short headline such as "3 years"."""
     lines = [line.strip() for line in (answer or "").splitlines() if line.strip()]
     if len(lines) >= 2 and len(lines[0]) <= 48:
-        written = _norm(" ".join(lines[1:]))
-    else:
-        written = _norm(answer)
-    if len(written) >= 24 and (written in excerpt or excerpt in written):
+        return _norm_quote(" ".join(lines[1:]))
+    return _norm_quote(answer)
+
+
+def quote_repeats_answer(quote: str, answer: str) -> bool:
+    """True when the excerpt continues past the answer into another sentence.
+
+    The clause heading plus the answer's own sentence is the citation, so it
+    stays. A quote that keeps going into a different sentence is the faint
+    repeat and is dropped.
+    """
+    excerpt = _norm_quote(quote)
+    written = _written_answer(answer)
+    if len(written) >= 24 and written in excerpt:
+        extra = excerpt.replace(written, " ", 1)
+        extra = _SECTION_LABEL_RE.sub(" ", extra)
+        words = [
+            word
+            for word in re.findall(r"[a-z0-9]+", extra)
+            if word not in _QUOTE_NOISE
+        ]
+        return len(words) >= 3
+    if len(excerpt) >= 24 and written and excerpt in written:
         return True
     if len(excerpt) >= 48 and written:
         window = excerpt[24:72] if len(excerpt) > 72 else excerpt[:48]

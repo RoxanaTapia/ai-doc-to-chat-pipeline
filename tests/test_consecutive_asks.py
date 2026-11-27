@@ -483,6 +483,23 @@ def _term_quote_repeats(at) -> bool:
     return False
 
 
+def _quotes_for_question(at, question: str) -> list[str]:
+    """Inline quotes on one card, stopping at the next question."""
+    quotes: list[str] = []
+    seen = False
+    for block in at.markdown:
+        value = block.value or ""
+        if 'class="app-answer-q' in value:
+            text = value.split(">", 1)[-1].rsplit("<", 1)[0].replace("&#x27;", "'")
+            if seen:
+                break
+            seen = text == question
+            continue
+        if seen and 'class="app-inline-quote"' in value:
+            quotes.append(value)
+    return quotes
+
+
 def test_second_ask_clears_prior_sources_while_loading(
     stub_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -568,6 +585,12 @@ def test_second_ask_clears_prior_sources_while_loading(
     assert TERM_QUESTION in questions
     assert LAW_QUESTION in questions
     assert _page_badge_visible(at)
+    assert not _term_quote_repeats(at)
+    law_quotes = _quotes_for_question(at, LAW_QUESTION)
+    assert law_quotes
+    law_quote = " ".join(law_quotes)
+    assert "governed" in law_quote or "Spain" in law_quote
+    assert "three (3) years" not in law_quote
     assert _show_page_buttons(at)
     assert _session_get(at, "_answer_history_cleared") is False
     assert source_paint_events != paints_after_first

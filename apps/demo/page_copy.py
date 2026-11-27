@@ -249,7 +249,8 @@ def _render_case_end(messages: list[dict] | None) -> None:
             '<p class="app-end__kicker">Sample walkthrough</p>'
             f'<p class="app-end__score">{safe_score}</p>'
             '<p class="app-end__actions">'
-            f'<a class="app-end__link" href="{html.escape(_PORTFOLIO_URL, quote=True)}">'
+            f'<a class="app-end__link" href="{html.escape(booking_url(), quote=True)}" '
+            'target="_blank" rel="noopener noreferrer">'
             "Book a call</a>"
             '<a class="app-end__link" href="/invite/exit">Exit demo</a>'
             "</p>"
@@ -438,18 +439,19 @@ _PORTFOLIO_URL = "https://roxanatapia.dev/"
 def client_footer_html(generator_label: str) -> str:
     """Kit footer. The model line sits in the How it's built drawer."""
     label = html.escape(generator_label)
-    href = html.escape(_PORTFOLIO_URL, quote=True)
+    built = html.escape(_PORTFOLIO_URL, quote=True)
+    booking = html.escape(booking_url(), quote=True)
     return f"""
 <footer class="dk-footer">
   <div class="dk-footer-slot">
-    <a href="{href}">Built by Roxana Tapia</a>
+    <a href="{built}">Built by Roxana Tapia</a>
     <span aria-hidden="true">·</span>
     <details class="app-how">
       <summary>How it's built</summary>
       <p class="app-how__line">{label}</p>
     </details>
     <span aria-hidden="true">·</span>
-    <a href="{href}">Book a call</a>
+    <a href="{booking}" target="_blank" rel="noopener noreferrer">Book a call</a>
   </div>
 </footer>
 """
