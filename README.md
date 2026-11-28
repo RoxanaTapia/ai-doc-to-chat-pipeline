@@ -39,7 +39,7 @@ flowchart LR
 
 A shared library, sign-in for your organization, and a separate space per project wait until you want them for a real engagement. The way the pilot finds an answer stays the same.
 
-On the shared demo, visitors stay on the sample NDA. Only the passages needed for an answer are sent to a hosted model. Use only sample or non-confidential documents there. A PDF an operator uploads is cleared when they leave or reset. When the demo has answered enough questions for the hour or the day, it asks you to try again later or [book a short call](https://roxanatapia.dev).
+On the shared demo, visitors stay on the sample NDA. Only the passages needed for an answer are sent to a hosted model. Use only sample or non-confidential documents there. Uploads are PDFs up to the size shown on the page. A PDF an operator uploads is cleared when they leave or reset. When the demo has answered enough questions for the hour or the day, it asks you to try again later or [book a short call](https://roxanatapia.dev).
 
 ## For engineers
 

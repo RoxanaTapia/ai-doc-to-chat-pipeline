@@ -336,10 +336,12 @@ def test_theme_hides_sidebar_and_keeps_one_accent() -> None:
 def test_readme_hosted_wording_does_not_overclaim() -> None:
     text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     promise = (
-        "My pilot shows the best-matching page next to each answer "
-        "and says when the document doesn't cover the question."
+        "the app shows the best-matching page beside each answer, "
+        "or says the document does not cover the question."
     )
-    assert text.splitlines()[4] == promise
+    assert promise in text
+    assert "Hosted AI writes the answer from those pages" in text
+    assert "Or the app says it is not in the document" in text
     assert text.startswith("# PDF Q&A\n")
     assert "with page citations" not in text.lower()
     assert "Every answer cites the page it used." not in text
@@ -359,11 +361,10 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "private" not in heading
     headings = [line for line in text.splitlines() if line.startswith("## ")]
     assert headings == [
-        "## What works now",
-        "## How it fits together",
-        "## What's planned",
-        "## Try it",
-        "## Where things are",
+        "## The case",
+        "## What it does",
+        "## How it works",
+        "## For engineers",
     ]
     assert "ollama" not in text.lower()
     assert "local model" not in text.lower()
@@ -374,11 +375,11 @@ def test_readme_hosted_wording_does_not_overclaim() -> None:
     assert "stay on the server" not in script.lower()
     assert "offline" not in script.lower()
     assert "page citation" not in script.lower()
-    pilot = text.split("## Try it", 1)[1].split("## ", 1)[0].lower()
-    assert "private" not in pilot
-    assert "local" not in pilot
-    assert "deleted" not in pilot
-    assert "offline" not in pilot
+    client = text.split("## For engineers", 1)[0].lower()
+    assert "private" not in client
+    assert "local" not in client
+    assert "deleted" not in client
+    assert "offline" not in client
     produced = (PROJECT_ROOT / "docs" / "README.md").read_text(encoding="utf-8")
     assert "assets/aidoc_architecture.png" in produced
     assert "PyMuPDF" in produced
